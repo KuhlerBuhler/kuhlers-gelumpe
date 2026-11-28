@@ -1,7 +1,7 @@
-# BEAT 8: Steps als Achtel, ein Pattern doppelt so lang (29.10.)
+# BEAT 8: Steps als Achtel, ein Pattern doppelt so lang
 
-Stand 29.10.2026, Emulator mit Hacktribe 2.02, Korgs rotem 2.02 und Korgs blauem 2.02. Wunsch: ein Pattern läuft doppelt so
-lang, bei 160 BPM so, als stünde das Tempo auf 80, also 8 Takte statt 4, und zwei Geräte laufen trotzdem normal synchron. Patch
+[Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02, Korgs rotem 2.02 und Korgs blauem 2.02. Wunsch: ein Pattern läuft doppelt so
+lang, bei 160 BPM so, als stünde das Tempo auf 80, also 8 Takte statt 4, und zwei Geräte laufen trotzdem normal synchron. [Patch](../glossary.md#patch)
 `data/patches/beat-eighth.json` (rot) und `data/patches/beat-eighth-synth.json` (blau), Bauer `tools/patch/beat_eighth.py`, Fälle
 `tools/emu/beat_eighth_cases.py`. Am Gerät nicht geprüft.
 

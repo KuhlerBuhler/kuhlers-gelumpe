@@ -142,6 +142,34 @@ export async function makeStockLikeFirmware(presets = []) {
 }
 
 /**
+ * The same for Korg's firmware of the blue Electribe 2: the synth's file head, the Sampler's code run erased, its getters
+ * (data/synth-sites.mjs) and arrays, and the 200 records in the three runs the map lists for it. `records` are raw record
+ * bytes put at insert slots 1, 2 and on. Not Korg's bytes.
+ */
+export async function makeSynthLikeFirmware(records = []) {
+  const { POINTER_TABLES } = await import("../src/map/index.mjs");
+  const { stockRecordRuns } = await import("../src/plan.mjs");
+  const { SAMPLER_OF_SYNTH } = await import("../data/synth-sites.mjs");
+  const { HACKTRIBE_CODE } = await import("../src/firmware.mjs");
+  const synthOf = new Map([...SAMPLER_OF_SYNTH].map(([synth, sampler]) => [sampler, synth]));
+  const bytes = await makeFirmware();
+  bytes.set([0x45, 0x32, 0x00], 0x10);
+  bytes.fill(0xff, HACKTRIBE_CODE.file, HACKTRIBE_CODE.file + HACKTRIBE_CODE.length);
+  const view = new DataView(bytes.buffer);
+  const file = ram => ram - 0xc0000000 + 0x100;
+  const runs = stockRecordRuns("synth");
+  for (const [n, kind] of [[0, "ifx"], [1, "mfx"]]) {
+    const t = POINTER_TABLES.get(`presets.${kind}`);
+    const array = t.arrays.find(a => a.build === "synth").ram;
+    view.setUint32(file(synthOf.get(t.getter.literal)), array, true);
+    view.setUint32(file(synthOf.get(t.getter.clamp)), 0x23a00000 | 99, true);
+    for (let i = 0; i < 100; i++) view.setUint32(file(array + 4 * i), runs[2 * i + n], true);
+  }
+  records.forEach((record, i) => bytes.set(record, file(runs[2 * i])));
+  return bytes;
+}
+
+/**
  * A modulation table of our own at `file`: 72 entries named "Type 2" and on (the first "EG+ Filter"), targets
  * 3 1 2 4 0 5 around, and the two code words that point at its names, where the firmware keeps them. Not Korg's bytes.
  */
@@ -165,9 +193,9 @@ function putAsciiAt(bytes, at, text) { [...text].forEach((c, i) => { bytes[at + 
  * device's Web MIDI ports, with a log of every frame sent to it. `execute`
  * stands in for running code; `tamper(reply, message)` may change a reply.
  */
-export async function simPort({ bytes, channel = 9, name = "electribe2 sampler", emulator = false, execute = null, tamper = null, version, hacktribe = true, blech = false, card = null } = {}) {
+export async function simPort({ bytes, channel = 9, name = "electribe2 sampler", emulator = false, execute = null, tamper = null, version, hacktribe = true, blech = false, card = null, model } = {}) {
   const { SimDevice } = await import("../src/device.mjs");
-  const sim = new SimDevice({ image: new VsbImage(Uint8Array.from(bytes)), channel, version, hacktribe, blech, card, execute: execute ? addr => execute(addr, sim, port) : null });
+  const sim = new SimDevice({ image: new VsbImage(Uint8Array.from(bytes)), channel, version, hacktribe, blech, card, model, execute: execute ? addr => execute(addr, sim, port) : null });
   const sent = [];
   const port = {
     name, running: true, generation: 0,

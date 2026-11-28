@@ -1,6 +1,6 @@
 # Geänderte Firmware als Datei, im Emulator gebootet
 
-Stand 2026-10-09. Gemessen im Emulator mit der eigenen SYSTEM.VSB und dem
+Gemessen im [Emulator](../glossary.md#emulator) mit der eigenen SYSTEM.VSB ([VSB](../glossary.md#vsb)) und dem
 eigenen Flash (`2026-10-09-flash-dump.md`), über die Editor-Seite
 (Playwright) und `tools/emu/machine.py`. Kein Gerät, nichts geflasht.
 

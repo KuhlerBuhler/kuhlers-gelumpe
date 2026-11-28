@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Emulator cases of the value-popup patch (tools/patch/value_popup.py, docs/messungen/2026-11-27-werte-fenster-tasten.md): a key
+"""Emulator cases of the value-popup patch (tools/patch/value_popup.py, docs/hintergrund/display.md): a key
 pressed while the value window of a knob is on the screen closes the window and does what it does without the window.
 
 Every case compares two runs of the same input from the same start: one right after a knob turn (the window is open), one after

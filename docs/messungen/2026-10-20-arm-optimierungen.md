@@ -1,7 +1,6 @@
 # ARM-Befehle und gemeinsame Routinen
 
-Stand 20.10.2026. Ausgang: der in der [Ausgangsmessung](2026-10-20-patch-effizienz-ausgang.md)
-festgehaltene Produktstand. Geschwindigkeit hat Vorrang vor Codegröße. Kein Gerätetest,
+Stand 20.10.2026. Ausgang: der Produktstand vom 20.10. Geschwindigkeit hat Vorrang vor Codegröße. Kein Gerätetest,
 keine Änderung am Originalcode und keine Änderung der Arbeitsbudgets pro Bild.
 
 ## Multiplikation in der Skript-Laufzeit
@@ -34,7 +33,7 @@ Die bisherigen 16 nativen VM-Prüfungen bestehen ebenfalls.
 Das bisherige Planminimum von 20 Prozent wird mit diesem festen Korpus knapp
 verfehlt. Die gemessenen 19,83 Prozent wurden ausdrücklich als ausreichend angenommen,
 sofern die übrigen Regressionen bestehen. Korpus und ursprüngliches Ziel bleiben
-dokumentiert. Der ältere [Prototyp](2026-10-20-patch-performance.md)
+dokumentiert. Ein älterer Prototyp
 benutzte einen anderen Testausschnitt; seine Prozentzahl ersetzt diese Messung nicht.
 Eine niedrigere ARM-Befehlszahl ist keine zyklengenaue Messung auf dem Gerät.
 

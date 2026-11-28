@@ -1,5 +1,5 @@
 """Builds the value-popup patch: a key pressed while the value window of a knob is on the screen closes the window and does
-what it does without the window (docs/messungen/2026-11-27-werte-fenster-tasten.md).
+what it does without the window (docs/hintergrund/display.md, "Werte-Fenster nach einem Regler").
 
 Turning a knob or an encoder opens a value window (view 0x17, view 0x18 for the sample encoder) for about 5 seconds. Its key
 handler ignores every key press and acts on the release only: it closes the window and posts the release again. The press

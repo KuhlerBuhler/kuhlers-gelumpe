@@ -1,4 +1,4 @@
-"""Native korg.display.* against the browser display model, without firmware bytes."""
+"""Native korg.display.* against the browser display model."""
 import json
 import pathlib
 import random
@@ -10,18 +10,22 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import contract_data, blob, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
-from tools.patch.test_script_card import crash
+from tools.patch.script_hooks import MENU_STATE, POOL
 
 DISPLAY_RAM = 0xC031B310
 EXPECT = """
 import { readFileSync } from "node:fs";
-import { Display, drawFault } from "./src/script/display.mjs";
+import { Display, drawFault, popupDisplay } from "./src/script/display.mjs";
 const input = JSON.parse(readFileSync(0, "utf8"));
 const hex = d => Buffer.from(d.bytes).toString("hex");
 const out = input.scenarios.map(ops => {
   const d = new Display();
   for (const [name, ...args] of ops) {
     if (name === "fault") drawFault(d, ...args);
+    else if (name === "popup") {
+      d.bytes.set(args[0]);
+      return hex(popupDisplay(d, Uint8Array.from(args[1])));
+    }
     else d[name](...args);
   }
   return hex(d);
@@ -35,6 +39,7 @@ def expected(scenarios):
 
 GLUE = dict(clear='script_display_clear_glue',text='script_display_text_glue',number='script_display_number_glue',
             pixel='script_display_pixel_glue',rect='script_display_rect_glue',clearRect='script_display_clear_rect_glue',
+            popup='script_display_popup_blit',
             bitmap='script_display_bitmap_glue',textNumber='script_display_text_number_glue')
 
 def picture(rng, width, bands, spare=0):
@@ -123,6 +128,22 @@ class NativeDisplayTests(unittest.TestCase):
             with self.subTest(case=i):
                 self.assertEqual(self.run_ops(m,ops),wanted)
 
+    def test_popup_frame_matches_the_browser_model_and_preserves_pixels_outside_it(self):
+        m,built = self.machine()
+        content = bytearray(1024)
+        def set_pixel(x,y):
+            content[(y >> 3) * 128 + x] |= 1 << (y & 7)
+        for x,y in ((0,13),(2,14),(1,14),(125,47),(126,47),(64,48),(64,49),(127,49)):
+            set_pixel(x,y)
+        base = bytes((i * 37 + 11) & 255 for i in range(1024))
+        picture = built.symbols['popup_picture']
+        m.uc.mem_write(picture,bytes(content))
+        m.uc.mem_write(DISPLAY_RAM,base)
+        m.call(GLUE['popup'])
+        wanted = expected([[['popup',list(content),list(base)]]])[0]
+        self.assertEqual(bytes(m.uc.mem_read(DISPLAY_RAM,1024)),wanted)
+        self.assertEqual(bytes(m.uc.mem_read(DISPLAY_RAM,1024))[:128],base[:128],"the popup leaves page 0 alone")
+
     def test_the_fuel_of_a_bitmap_call_covers_its_instructions(self):
         # the contract charges `cost` units for the call and `perItem` for each slot, at 10 instructions to a unit
         from unicorn import UC_HOOK_CODE
@@ -203,7 +224,6 @@ class NativeDisplayTests(unittest.TestCase):
     def test_blechys_page_is_dark_with_display_invert_off_and_nothing_else_is(self):
         """The LCD clears a pixel slowly: his picture goes over complemented unless DISPLAY INVERT is ON (the controller
         then shows set bits light already). A plugin app, the main screen and the page DESCRIPTION stay as they are."""
-        from tools.patch.script_hooks import MENU_STATE, POOL
         m,built = self.machine()
         s = built.symbols
         m.call('script_display_rect_glue',0,0,128,8)

@@ -1,31 +1,29 @@
-# Startbild-Editor im Menü Global: Hintergrund
+# Startbild-Editor: Hintergrund
 
-Stand 2026-10-10, Speicherort geändert am 15.10.
+Wie das Startbild im Gerät liegt, wie der Editor es zeichnet, im Flash speichert und beim Start wieder lädt. Der Editor
+ist der Patch `data/patches/splash-editor.json` (erzeugt von `tools/patch/splash_editor.py`), er gehört zu allen drei
+Builds (Hacktribe, Korgs rote 2.02, blaue Electribe, jeweils mit eigener Fassung). Bedient wird er im BLECH-Menü unter
+CUSTOMIZATION: SPLASH IMPORT, SPLASH DRAW und SPLASH RESET. Der Bericht zum Bau: [Startbild-Editor: gebaut und im Emulator
+geprüft](../messungen/2026-10-10-startbild-editor.md). Am Gerät ist von den Messungen nur der
+[Notschalter](../glossary.md#notschalter) (EXIT beim Einschalten) bestätigt, der Editor selbst nicht.
 
-**Stand 16.10.:** der Editor speichert wieder in den Flash (Sektor `0x7F0000`), damit das eigene Bild ab dem ersten Bild beim Start steht. Vom 15. bis 16.10. lag es auf der Karte ([Startbild auf der Karte](../messungen/2026-10-15-startbild-karte.md)); dabei war das Display bis zum Einhängen der Karte weiß. Bilder, die in dieser Zeit auf der Karte gespeichert wurden, liest die Firmware nicht mehr: einmal neu zeichnen und WRITE.
+## Überblick
 
-Wie das Startbild im Gerät liegt, wie man es im Menü Global zeichnet, im Flash
-speichert und beim Start wieder lädt. Hier steht, was dazu gemessen, gelesen und
-hergeleitet wurde und was offen ist (Idee 35 in [ideen.md](../ideen.md)).
+- Das Bild (128 x 64 Pixel, 1 Bit je Pixel, 1024 Byte) liegt in einem eigenen Flash-Sektor `0x7F0000` und steht beim
+  Start ab dem ersten Bild. Das Startbild der VSB bleibt der Rückfall.
+- Der Editor ist eine zusätzliche Seite 20 "SPLASH SCREEN" im Bildschirm Global. EDIT erreicht sie nicht,
+  nur SPLASH DRAW im BLECH-Menü öffnet sie samt Editor. Der Patch kopiert die vtable von Global und tauscht ein
+  Zeigerwort (Abschnitt 1).
+- Die Karte spiegelt das Bild: `KORG/blechtribe/Media/splash.bmp` wird beim Start (`splash_sync`, Eintrag `0xC01A250C`,
+  aus den Start-Haken der Script-Laufzeit) mit dem gezeigten Bild verglichen. Weicht es ab, schreibt der UI-Tick es in
+  den Flash (`save_image`), zu sehen ist es ab dem Start danach. SPLASH IMPORT liest ein BMP (128 x 64, 1 Bit,
+  unkomprimiert), WRITE im Editor schreibt auch die Karte.
+- Im Editor bewegt das Hauptrad einen blinkenden Cursor, MENU kippt das Pixel darunter, WRITE speichert, EXIT verlässt.
+  Mit SHIFT gehalten springt das Rad zeilenweise, mit MENU gehalten malt es (Abschnitt 7).
 
-**Status:** Der Editor ist gebaut (Patch `data/patches/splash-editor.json`,
-erzeugt von `tools/patch/splash_editor.py`) und im Emulator geprüft. Der Bericht
-dazu ist [Startbild-Editor: gebaut und im Emulator geprüft](../messungen/2026-10-10-startbild-editor.md).
-Am Gerät ist nur der Notschalter (EXIT beim Einschalten) gemessen, der Editor
-selbst nicht.
-
-Basis: eine eigene SYSTEM.VSB (Sampler 2.02 mit Hacktribe) und ein eigener
-Flash-Dump vom 9.10. Alles lief im Emulator (`tools/emu/machine.py`, Unicorn
-2.1.4) oder wurde offline mit Capstone gelesen. Firmware-Funktionen wurden aus
-Python aufgerufen: Register setzen, Rücksprung auf eine Falle im `FF`-Bereich,
-und zwar an einer festen Stelle im UI-Ablauf (Einsprung des Bildschirm-Ticks
-`0xC006F178`) bzw. beim Start an `0xC002ADAC`.
-
-Markierungen: **gemessen** (im Emulator ausgeführt und beobachtet), **offline**
-(Code gelesen), **hergeleitet**, **offen**.
-
-Adressen sind RAM-Adressen. Datei-Offset in der VSB = RAM - `0xC0000000` +
-`0x100`.
+Basis der Messungen: eine eigene `SYSTEM.VSB` (Sampler 2.02) und ein eigener Flash-Dump, im Emulator
+(`tools/emu/machine.py`) oder offline mit Capstone gelesen. Markierungen: **gemessen**, **offline** (Code gelesen),
+**hergeleitet**, **offen**. Adressen sind RAM-Adressen, Datei-Offset in der VSB = RAM - `0xC0000000` + `0x100`.
 
 ## 1. Menü Global: Aufbau
 
@@ -141,7 +139,7 @@ Betrieb unverändert).
 - **Gemessen:** `0xC0015824` mit Farbe 1 an (5,3): Das Pixel ist danach im
   Display gesetzt. Damit geht Umschalten unter dem Cursor.
 - **Offline + gemessen:** Takt: `0xC006F178` (aufgerufen von `0xC00836F8`) läuft
-  im Emulator 22-mal pro Emulator-Sekunde. Er ruft für jedes Widget im Vektor des
+  alle 40 ms (25 Hz). Er ruft für jedes Widget im Vektor des
   aktuellen Bildschirms (Objekt `+0x10` Anfang, `+0x14` Ende, `+0x18` Kapazität;
   anhängen mit `0xC00614FC`) dessen vtable-Slot 2 (Zeichnen), danach dasselbe für
   eine zweite Ebene (Statusleiste). Die Bildschirm-Klasse selbst bekommt keinen
@@ -208,65 +206,31 @@ durch (hergeleitet, durch den Fall „halb“ in Abschnitt 5 gemessen).
 
 ## 5. Laden beim Start
 
-Zeitachse (gemessen, Emulator-ms):
+Zeitachse des Starts (gemessen, Emulator-ms): Startbild der VSB gezeichnet bei 52,9 bis 65,2 (`0xC002AC38` ruft
+`0xC003F650`, jedes Pixel einzeln, rund 12 ms), im Display bei 66,7; Flash-Objekt angelegt bei 68,7; Startmodus-Weiche
+`0xC002AD74` bei 74,8; Globals laden 74,9; Panel-Update-Merker bei 75,6; Display gelöscht bei 419, Hauptbildschirm ab 465.
 
-| ms | Was |
-|---:|---|
-| 52,9 bis 65,2 | Startbild gezeichnet (`0xC002AC38` → `0xC003F650`), dauert rund 12 ms, weil jedes Pixel einzeln geht |
-| 66,7 | Startbild im Display (Ausgabe über `0xC0015DD0(0xC031BB2C,2,0)` und `(…,3,0)`; danach ruft das Original `0xC0015C78`, das ist der DSP-Boot, keine Anzeige) |
-| 68,7 | Flash-Objekt angelegt (`0xC002AD44`); vorher ist `*0xC034028C` = 0 |
-| 68,7 bis 74,8 | Panel-Objekt, Version, gehaltene Tasten, Kennung `0x220000` (`0xC00288EC`) |
-| 74,8 | Startmodus-Weiche `0xC002AD74`; normaler Weg ab `0xC002ADA8` |
-| 74,9 | Globals laden |
-| 75,6 | Prüfung Panel-Update-Merker (`0xC002AE40`) |
-| 419 | Display gelöscht, ab 465 Hauptbildschirm |
-
-- **Offline:** Beim Zeichnen des Startbilds gibt es noch kein Flash-Objekt und
-  keine gehaltenen Tasten. Ein Laden **vor** `0xC002AC38` müsste das Flash-Objekt
-  früher anlegen und liefe ohne Notschalter. Außerdem ersetzt der Emulator den
-  Treiber-Lesezugriff `0xC001E4AC` durch eine Kopie: Ein zu frühes Lesen sähe im
-  Emulator also gut aus, auch wenn der SPI-Treiber noch nicht bereit wäre.
-- **Entwurf: Nachzeichnen nach der Weiche.** Die Aufrufstelle `0xC002ADAC`
-  (`bl 0xC002A248`, VSB `0x2AEAC`) liegt nur auf dem normalen Weg (Modus 0), nach
-  Panel-Austausch, Tastenabfrage und Kennungsprüfung. Die Startmodi 1 bis 11 und
-  die Update-Abfrage (Modus 10) laufen nicht hier vorbei (offline, `0xC002AD80`
-  bis `0xC002ADA4`).
-- **Gemessen:** An `0xC002ADAC` angehalten (74,9 ms), dann nacheinander aus
-  Python aufgerufen: Notschalter und Panel-Update-Merker gelesen
-  (`*0xC033E6F8 + 0x18`, `+0x22`), `0xC0029A40`, `0xC0029A74(obj, puffer,
-  0x7F0000, 0x40C)`, Prüfung, Deskriptor-Wort `0xC00C5A54` auf Puffer + 8,
-  `0xC003F0D4`, `0xC003F650(13,0,0)`, `0xC001531C(0,0,128,64)`, dann dieselbe
-  Ausgabe wie nach dem Original-Startbild (`0xC0015DD0` zweimal; `0xC0015C78` ist
-  der DSP-Boot und gehört nicht dazu, siehe
-  [Startbild-Editor: gebaut und im Emulator geprüft](../messungen/2026-10-10-startbild-editor.md)).
-  Ergebnis:
-
-| Fall | gelesen / geprüft | Display 80 bis 400 ms | nach 4 s |
-|---|---|---|---|
-| Sektor leer (`FF`) | Kennung falsch, kein Tausch | VSB-Bild | Hauptbildschirm, keine Assertion |
-| gültiger Satz | Tausch | eigenes Bild ab 80 ms | Hauptbildschirm, keine Assertion |
-| ein Bit im Bild gekippt | CRC falsch, kein Tausch | VSB-Bild | Hauptbildschirm |
-| halb geschrieben (2 von 5 Seiten) | CRC falsch, kein Tausch | VSB-Bild | Hauptbildschirm |
-| gültiger Satz, EXIT gehalten | Maske `0x2000`, übersprungen | VSB-Bild | Hauptbildschirm |
-
-- **Gemessen:** Ohne die Ausgabe-Aufrufe erscheint das eigene Bild erst bei rund
-  400 ms und nur kurz, im Puffer stand es trotzdem richtig.
-- **Gemessen, Einschränkung:** Die Aufrufe liefen außerhalb der Emulator-Zeit.
-  Das Zeichnen über `0xC003F650` kostet beim Start rund 12 ms (gemessen am
-  Original), also zeigt das Gerät in diesem Entwurf das VSB-Bild ungefähr von 67
-  bis knapp 90 Emulator-ms, dann das eigene. Ein direktes Umsetzen der 1024 Byte
-  in den Puffer (Bit 7 oben auf Bit 0 oben drehen) wäre schneller (hergeleitet).
-- **Hergeleitet:** Läuft vor den Rettungswegen: nichts. Läuft nach ihnen, aber
-  vor dem Hauptbildschirm: Notschalter-Abfrage (3 Befehle), Lesen von 1036 Byte
-  über den normalen Lesepfad, CRC-Schleife über 1032 Byte, ein Wort schreiben,
-  Zeichnen, Ausgabe. Hängt dieser Code, startet das Gerät normal nicht mehr; EXIT
-  beim Einschalten umgeht ihn, Startmodi und Update-Abfrage bleiben erreichbar.
-  `0xC002ADAC` gehört trotzdem zur Startphase im Sinne von Regel 2 in
-  [patcher.md](../patcher.md) (`tools/emu/bootmap.py`). Das ist eine bewusst
-  gewollte Ausnahme.
-- **Hergeleitet:** Der Tausch des Deskriptor-Zeigers bleibt stehen. Damit findet
-  auch der Editor das aktuelle Bild immer über `*0xC00C5A54`, egal ob VSB oder
-  eigenes. Andere Leser von Bild 13 nach dem Start: offen.
+- **Offline:** Beim Zeichnen des Startbilds gibt es noch kein Flash-Objekt und keine gehaltenen Tasten. Ein Laden davor
+  liefe ohne Notschalter.
+- **Der Aufruf `0xC002AC38` (Bild 13) fällt weg.** Stattdessen zeichnet ein Haken an der Aufrufstelle `0xC002ADAC`
+  (`bl 0xC002A248`, nur auf dem normalen Weg, nach Panel-Austausch, Tastenabfrage und Kennungsprüfung) einmal das
+  gespeicherte Bild oder das der VSB. Die Startmodi 1 bis 11 und die Update-Abfrage laufen nicht dort vorbei. Das Display
+  bleibt in der Zwischenzeit hell und leer: das Licht schaltet die Firmware bei 52,5 ms unabhängig vom Startbild ein
+  ([Startphase](../messungen/2026-10-10-startphase.md)). Vor den Rettungswegen läuft kein neuer Code. Die Prüfung vor
+  dem Export braucht dafür eine ausdrückliche Ausnahme ([Patcher](../patcher.md), Regel 1).
+- **Ablauf des Hakens:** `0xC002A248` aufrufen, dann: EXIT gehalten oder Panel-Update-Merker (`+0x22`) gesetzt: zurück.
+  Sonst lesen (`0xC0029A74(obj, puffer, 0x7F0000, 0x40C)`), prüfen (Kennung, Version, Länge, CRC, CRC nicht
+  `FFFFFFFF`), bei Erfolg den Deskriptor-Zeiger `*0xC00C5A54` auf den Puffer tauschen, Puffer löschen, zeichnen und
+  ausgeben wie nach dem Original-Startbild (`0xC0015DD0` zweimal). Bei jedem Fehler nichts tun: das VSB-Bild bleibt.
+- **Gemessen** (Emulator, vier Fälle plus Notschalter): leerer Sektor, gekipptes Bit und halb geschriebener Satz zeigen
+  das VSB-Bild, ein gültiger Satz das eigene Bild ab 80 ms, bei gehaltenem EXIT bleibt das VSB-Bild. In allen Fällen
+  folgt der Hauptbildschirm ohne Assertion.
+- **Hergeleitet:** Der Tausch des Deskriptor-Zeigers bleibt stehen, der Editor findet das aktuelle Bild also immer über
+  `*0xC00C5A54`. Hängt der Haken-Code, startet das Gerät nicht mehr normal; EXIT beim Einschalten umgeht ihn,
+  Startmodi und Update-Abfrage bleiben erreichbar. `0xC002ADAC` gehört damit zur Startphase im Sinne von Regel 2 in
+  [patcher.md](../patcher.md) (`tools/emu/bootmap.py`), eine gewollte Ausnahme.
+- **Offen:** andere Leser von Bild 13 nach dem Start; ob der SPI-Treiber am Gerät an `0xC002ADAC` schon bereit ist (die
+  Firmware liest dort selbst schon die Kennung und die Globals über denselben Weg, hergeleitet).
 
 ## 6. Notschalter
 
@@ -276,98 +240,69 @@ Zeitachse (gemessen, Emulator-ms):
   gesetzt), ohne gehaltene Taste 0. Beim Zeichnen des Startbilds (52,9 ms) ist
   das Panel-Objekt noch nicht angelegt (`*0xC033E6F8` = 0), die Maske also dort
   nicht lesbar.
-- EXIT als Bit 13 war zunächst hergeleitet (siehe
-  [Startphase](../messungen/2026-10-10-startphase.md)). Inzwischen ist es am
-  Gerät gemessen: Beim Start gehalten `0x2000`, Startmodus 0
+- EXIT ist Bit 13: beim Start gehalten `0x2000`, Startmodus 0, am Gerät gemessen
   ([Rückweg geübt](../messungen/2026-10-10-rueckweg-geuebt.md), Punkt 6).
 
-## Entwurf und Umsetzung
+## 7. Bedienung im Editor: SHIFT, Malen, Rad
 
-Alles im `FF`-Bereich ab `0xC01A2100`, eigene Bytes nur dort plus wenige Stellen
-im Original. Der Entwurf ist gebaut, so wie der Bericht
-[Startbild-Editor: gebaut und im Emulator geprüft](../messungen/2026-10-10-startbild-editor.md)
-ihn beschreibt. Abweichungen zum Entwurf stehen jeweils dabei.
+Alles **gemessen im Emulator** (`tools/emu/splash_cases.py run`, BLECH auf einer eigenen Hacktribe-Datei mit dem
+Flash-Abbild vom 09.10.), am Gerät nicht geprüft, außer wo es dabeisteht.
 
-1. **Zeiger** `0xC0064D3C` (Literal der vtable von Bildschirm 9, VSB `0x64E3C`):
-   `0xC00E33F8` → Kopie der vtable (18 Wörter) im `FF`-Bereich. Entworfen waren
-   die Slots 3 (Tasten roh), 4 (Edit ◄), 5 (Edit ►), 6 (MENU), 10 (VALUE) und 2
-   (EXIT); gebaut sind die Slots 0, 1, 2, 3, 4, 5, 6, 10. Jeder Ersatz fragt
-   zuerst den Notschalter-Merker und springt sonst ins Original.
-2. **Seite 20** „SPLASH SCREEN“: eigener Zähler statt `0xC0691328`. Edit ► auf
-   Seite 19 setzt unseren Zähler auf 20, setzt den Titel über die vorhandenen
-   Text-Widgets (`0xC0085888` leeren, `0xC00857E4` Titel aus eigenem String,
-   `0xC0085828` „press  [ Enter ]“ aus `0xC00A5A23`). Edit ► auf 20 geht auf Seite
-   0 über das Original. Die Seitenanzeige stand im Entwurf offen („/20“ lassen
-   oder über `0xC008A8A8(widget, 20, 21)` neu setzen); gebaut zeigt sie „/21“ (zwei
-   Literale der Firmware).
-3. **Editor-Modus** (MENU auf Seite 20): Puffer aus `*0xC00C5A54` füllen, Display
-   löschen und Bild zeichnen (wie in Abschnitt 3 gemessen), eigenes Widget an den
-   Vektor des Bildschirms hängen (Slot 2: alle 6 bis 8 Takte Pixel am Cursor mit
-   `0xC0015824` umschalten, gebaut: alle sechs Takte; Slots 1 und 4 leer).
-   VALUE: Cursor ± Delta, Index `y * 128 + x` modulo 8192, also Zeilenumbruch von
-   selbst. MENU: Bit im Puffer kippen und Pixel neu setzen. EXIT: Modus
-   verlassen, Seite 20 neu aufbauen. Edit ◄/► im Modus ignorieren.
-4. **WRITE** im Modus: Slot 3 sieht `(0x0E, 1)` vor dem zentralen Speichern. Dort
-   Datensatz bauen (Kennung, Version, Länge, Bild, CRC-32) und
-   `0xC0029AB8(0xC0029A40(), 0x7F0000, 1036, satz)` aufrufen, danach
-   `*0xC00C5A54` auf den Puffer zeigen. Die Firmware speichert danach wie immer
-   die (unveränderten) Globals und zeigt „Working...“, das passt als
-   Rückmeldung.
-5. **Start**: `0xC002ADAC` `bl 0xC002A248` → `bl` auf eigene Funktion, die zuerst
-   `0xC002A248` ruft, dann: EXIT gehalten oder `+0x22` gesetzt → zurück, sonst
-   lesen, prüfen (Kennung, Version, Länge, CRC, CRC nicht `FFFFFFFF`), bei Erfolg
-   `*0xC00C5A54` tauschen, Puffer löschen, zeichnen, Ausgabe wie nach dem
-   Original-Startbild. Bei jedem Fehler nichts tun: Das VSB-Bild bleibt.
-6. **Pflichtprüfungen** im Emulator (wie in Abschnitt 5 gemessen, als Tests in
-   `check.py`): leer, gültig, gekippt, halb geschrieben, EXIT gehalten, dazu
-   Startmodi, Update-Abfrage und Panel-Update unverändert.
+- **SHIFT gehalten:** ein Schritt des Rads ist eine ganze Zeile (128 Pixel), mit Umlauf über die 8192 Pixel. Erkannt
+  über das Tastenwort von SHIFT (Taste `0x0A`, Wort `0xC06BCA70 + 8 * 0x0A` nicht 0). Gemessen: zwei Schritte von
+  Pixel 3 nach 259, drei zurück nach 8067 (Umlauf), einer vor nach 3, das Bild bleibt unverändert.
+- **MENU gehalten malt:** MENU kippt das Pixel und merkt sich die neue Farbe (`S_PAINT`, `STATE + 0x30`). Solange MENU
+  (Taste `0x09`) gehalten ist, geht der Cursor Schritt für Schritt, und jedes Pixel, auf dem er landet, bekommt diese
+  Farbe. Ein schneller Dreh mit mehreren Schritten in einer Nachricht lässt also keine Lücke. Gemessen: vier Schritte
+  in einer Nachricht, die Bytes 3 bis 7 tragen die Farbe des Kippens, Byte 8 bleibt.
+- **Das Bild bleibt beim Drehen stehen:** nach VALUE setzt die Firmware am Bildschirm-Manager das Flag "alles neu
+  zeichnen" (`+0x5C`, gesetzt bei `0xC006F00C`, im nächsten Takt gelöscht bei `0xC006F1B8`). Der Takt malt dann die
+  Widgets der Seite über das Bild. Ein Neuzeichnen des Bilds erst im nächsten Takt reicht nicht: am Gerät blitzte die
+  Menüseite kurz auf (Rückmeldung vom Gerät 17.10.), das Display überträgt schon dazwischen. Darum gilt: solange der
+  Editor offen ist, sieht der Takt nur das Widget des Editors. Der Widget-Vektor der Seite wird gegen einen mit nur
+  diesem Widget getauscht und beim Verlassen und beim Abbau zurückgegeben, und der Takt-Haken löscht den Wunsch, alles
+  neu zu zeichnen. Gemessen: Schreibzugriffe in den Displaypuffer nach einem Rad-Klick 3 (nur der Cursor) statt 1606
+  zum Leeren plus 8061 Pixel.
+- **Offen:** ob die Firmware SHIFT mit dem Rad auf der Global-Seite selbst noch anders nutzt. Im Emulator kam der
+  Schritt unverändert im Slot an.
 
-**Entscheidung zum Laden:** Nicht neu zeichnen, sondern bis nach den Rettungswegen
-gar kein Startbild. Der Aufruf `0xC002AC38` (Bild 13) fällt weg, der Hook nach den
-Rettungswegen zeichnet einmal das gespeicherte Bild oder das der VSB. Das Display
-bleibt in der Zwischenzeit hell und leer: Das Licht (GP6P3 bis GP6P5, rot, grün,
-blau) schaltet die Firmware bei 52,5 ms unabhängig vom Startbild ein
-([Startphase](../messungen/2026-10-10-startphase.md)). Vor den Rettungswegen läuft
-damit kein neuer Code, es fällt nur ein Aufruf weg. Die Prüfung vor dem Export
-braucht dafür eine ausdrückliche Ausnahme (gebaut, siehe Regel 1 in
-[patcher.md](../patcher.md)).
+Quelle: Messung 2026-10-18/startbild-malen, Messung 2026-10-17/startbild-import
+
+## Aufbau des Patches
+
+Alles im `FF`-Bereich ab `0xC01A2100`, eigene Bytes nur dort plus wenige Stellen im Original (Belegung in
+`tools/patch/splash_editor.py`).
+
+1. **Zeiger** `0xC0064D3C` (Literal der vtable von Bildschirm 9, VSB `0x64E3C`) zeigt auf eine Kopie der vtable
+   (18 Wörter) mit den Slots 0, 1, 2, 3, 4, 5, 6, 10. Jeder Ersatz fragt zuerst den Notschalter-Merker und springt sonst ins
+   Original.
+2. **Seite 20** "SPLASH SCREEN": eigener Zähler statt `0xC0691328`. Titel über die vorhandenen Text-Widgets
+   (`0xC0085888` leeren, `0xC00857E4` Titel, `0xC0085828` "press  [ Enter ]" aus `0xC00A5A23`). Die Seitenanzeige zeigt "/21"
+   (zwei Literale der Firmware).
+3. **Editor-Modus:** Puffer aus `*0xC00C5A54` füllen, Display löschen und Bild zeichnen, ein eigenes Widget in den Vektor des
+   Bildschirms hängen (Slot 2 schaltet alle sechs Takte das Pixel am Cursor um; Slots 1 und 4 leer). VALUE bewegt den
+   Cursor, Index `y * 128 + x` modulo 8192. MENU kippt das Bit und setzt das Pixel neu. EXIT verlässt den Modus.
+4. **WRITE** im Modus: Slot 3 sieht `(0x0E, 1)` vor dem zentralen Speichern. Dort Datensatz bauen und
+   `0xC0029AB8(0xC0029A40(), 0x7F0000, 1036, satz)` aufrufen, danach `*0xC00C5A54` auf den Puffer zeigen. Die Firmware
+   speichert danach wie immer die (unveränderten) Globals und zeigt "Working...", das dient als Rückmeldung.
+5. **Start:** Haken an `0xC002ADAC` (Abschnitt 5).
 
 ## Risiken
 
-- **Startcode:** Der Hook läuft auf jedem normalen Start. Ein Fehler darin
-  verhindert den Hauptbildschirm. Rettung ist EXIT beim Einschalten; dass EXIT am
-  Gerät Bit 13 ist, ist gemessen (Abschnitt 6). Vor dem ersten Flashen am Gerät
-  lesend prüfen (`tools/device/screen_check.py --held`).
-- **Kurzes VSB-Bild:** Im Entwurf mit Nachzeichnen steht das Original-Startbild 20
-  bis 25 Emulator-ms, bevor das eigene kommt. Die gebaute Fassung zeichnet das
-  Bild stattdessen erst nach den Rettungswegen (siehe Entscheidung oben). Die
-  echte Dauer am Gerät ist nicht gemessen.
-- **Flash-Ort:** `0x7F0000` hat keinen bekannten Schreiber, das ist aus den
-  direkten Aufrufen hergeleitet. Indirekte Aufrufe über Funktionszeiger und ein
-  Löschen ganzer Blöcke durch den Bootloader oder Korgs Update sind nicht
-  ausgeschlossen. Dann greift der Rückfall.
-- **Löschdauer:** Während Sektor-Löschen und Programmieren hält `0xC0000D80(2)`
-  eine Sperre. Audio- und MIDI-Aussetzer am Gerät sind möglich (die Firmware macht
-  dasselbe beim Speichern der Globals).
-- **Tabellen mit Index 20:** Wird `0xC0691328` je 20 oder ruft unser Code für
-  Seite 20 die Originale `0xC0064948`/`0xC007B094`, liest die Firmware hinter ihre
-  Tabellen, im Fall `+0x448` ein Aufruf über Müll.
-- **Batterie-Symbol:** übermalt 14 Byte oben im Editor. Im gebauten Editorlauf im
-  Emulator zeigte das Display nach MENU das Startbild Byte für Byte, ob das Symbol
-  am Gerät das Bild oben stört, ist offen.
-- **Hacktribe-Stand:** Alle Adressen gelten nur für diese VSB.
+- **Startcode:** Der Haken läuft auf jedem normalen Start. Ein Fehler darin verhindert den Hauptbildschirm. Rettung ist EXIT
+  beim Einschalten. Vor dem ersten Flashen am Gerät lesend prüfen (`tools/device/screen_check.py --held`).
+- **Flash-Ort:** `0x7F0000` hat keinen bekannten Schreiber (aus den direkten Aufrufen hergeleitet). Indirekte Aufrufe über
+  Funktionszeiger und ein Löschen ganzer Blöcke durch den Bootloader oder Korgs Update sind nicht ausgeschlossen. Dann
+  greift der Rückfall auf das VSB-Bild.
+- **Löschdauer:** Beim Sektor-Löschen und Programmieren hält `0xC0000D80(2)` eine Sperre, Audio- und MIDI-Aussetzer am
+  Gerät sind möglich (die Firmware macht dasselbe beim Speichern der Globals).
+- **Tabellen mit Index 20:** Würde `0xC0691328` je 20 oder riefe der Code für Seite 20 die Originale `0xC0064948` und
+  `0xC007B094`, läse die Firmware hinter ihre Tabellen (bei `+0x448` ein Aufruf über Müll). Der Patch hält das Byte unter 20.
+- **Batterie-Symbol:** es übermalt 14 Byte oben im Editor. Ob es am Gerät das Bild stört, ist offen.
+- **Firmware-Stand:** Alle Adressen gelten nur für diese VSB.
 
 ## Offen
 
 - Was `+0x3A8` im Parameter-Objekt tut.
 - Ob die zweite Zeichenebene (Statusleiste) im Editor angehalten werden darf.
-- Andere Leser von Bild 13 nach dem Start (Versionsseite, Ausschalten).
-- Löschdauer und Flash-Typ am Gerät.
-- Ob Korgs Update oder ein „alle Daten laden“ von SD den Block `0x7F` anfasst
-  (Längen der Wege über `0xC0029CBC` nicht ausgewertet).
-- Ob der SPI-Treiber am Gerät an `0xC002ADAC` schon bereit ist (die Firmware liest
-  dort selbst schon die Kennung und die Globals über denselben Weg, hergeleitet).
-
-Erledigt seit der Forschung: Bildschirm-Tick und Cursor-Widget sind als Code
-gebaut und im Emulator gemessen (Blinken über Zeit, Abbau beim Verlassen von
-Bildschirm 9), die Seitenanzeige zeigt „/21“.
+- Löschdauer und Flash-Typ am Gerät; ob Korgs Update oder "alle Daten laden" von SD den Block `0x7F` anfasst.

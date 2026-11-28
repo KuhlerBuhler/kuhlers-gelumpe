@@ -217,7 +217,7 @@ export class Sender {
     for (let at = 0; at < length; at += max) {
       const n = Math.min(max, length - at);
       out.set(await this.blechAttempts("read", async () =>
-        P.parseBlechRead(await this.blechExchange(P.blechRead(this.channel, addr + at, n), "blech-read", n), this.channel, n)), at);
+        P.parseBlechRead(await this.blechExchange(P.blechRead(this.channel, addr + at, n, this.blech.model), "blech-read", n), this.channel, n, this.blech.model)), at);
     }
     return out;
   }
@@ -229,8 +229,8 @@ export class Sender {
       const part = bytes.subarray(at, Math.min(at + max, bytes.length));
       const crc = P.crc32(part);
       await this.blechAttempts("write", async () => {
-        P.parseBlechBegin(await this.blechExchange(P.blechBegin(this.channel, addr + at, part.length, crc), "blech-begin"), this.channel);
-        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part), "blech-data", part.length), this.channel, crc);
+        P.parseBlechBegin(await this.blechExchange(P.blechBegin(this.channel, addr + at, part.length, crc, this.blech.model), "blech-begin"), this.channel, this.blech.model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, this.blech.model), "blech-data", part.length), this.channel, crc, this.blech.model);
       });
     }
     return P.ackFor(this.channel);
@@ -242,7 +242,7 @@ export class Sender {
     for (let at = 0; at < length; at += P.BLECH.FLASH_MAX) {
       const n = Math.min(P.BLECH.FLASH_MAX, length - at);
       out.set(await this.blechAttempts("read", async () =>
-        P.parseBlechFlash(await this.blechExchange(P.blechFlash(this.channel, addr + at, n), "blech-flash", n), this.channel, n)), at);
+        P.parseBlechFlash(await this.blechExchange(P.blechFlash(this.channel, addr + at, n, this.blech.model), "blech-flash", n), this.channel, n, this.blech.model)), at);
     }
     return out;
   }
@@ -253,7 +253,7 @@ export class Sender {
    */
   async blechExecute(addr) {
     if (addr === EXEC.icache.addr) return P.ackFor(this.channel);
-    const { result } = await this.blechAttempts("execute", async () => P.parseBlechExec(await this.blechExchange(P.blechExec(this.channel, addr), "blech-exec"), this.channel));
+    const { result } = await this.blechAttempts("execute", async () => P.parseBlechExec(await this.blechExchange(P.blechExec(this.channel, addr, 0, this.blech.model), "blech-exec"), this.channel, this.blech.model));
     if (result !== 1) throw new SendError("reply", text("sender.execResult", { addr: addr.toString(16), result }));
     return P.ackFor(this.channel);
   }
@@ -355,6 +355,49 @@ export class Sender {
       });
       onProgress?.(at + part.length, bytes.length);
     }
+  }
+
+  /** The size of e2sFx.all on the card (FILE_FX); 0 when there is none, null when the firmware answers out of range (it is from before the read). */
+  async fxFileSize(model) {
+    try {
+      return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, P.BLECH.FILE_FX, 0, model), "blech-file-read"), this.channel, 0, model))).size;
+    } catch (e) {
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.RANGE) return null;
+      throw e;
+    }
+  }
+
+  /**
+   * The bytes as the new e2sFx.all (needs FLAG_FX_WRITE): the first block makes the file anew (and KORG/blechtribe/Presets when it is
+   * missing), every block is read back from the card with its CRC. The loader reads it at the next power-on.
+   */
+  async fxFileWrite(bytes, model, onProgress) {
+    const max = this.blech.maxBlock;
+    for (let at = 0; at < bytes.length; at += max) {
+      const part = bytes.subarray(at, Math.min(at + max, bytes.length));
+      const crc = P.crc32(part);
+      await this.blechAttempts("write", async () => {
+        P.parseBlechFileBegin(await this.blechExchange(P.blechFileBegin(this.channel, (P.BLECH.FILE_FX | at) >>> 0, part.length, crc, model), "blech-file-begin"), this.channel, model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, model), "blech-data", part.length), this.channel, crc, model);
+      });
+      onProgress?.(at + part.length, bytes.length);
+    }
+  }
+
+  /** `length` bytes of e2sFx.all from `at`, in blocks of the device's largest size, each checked against its CRC. */
+  async fxFileRead(at, length, model) {
+    const out = new Uint8Array(length);
+    const max = this.blech.maxBlock;
+    for (let got = 0; got < length;) {
+      const n = Math.min(max, length - got);
+      const r = await this.blechAttempts("read", async () =>
+        P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, (P.BLECH.FILE_FX | (at + got)) >>> 0, n, model), "blech-file-read", n), this.channel, n, model));
+      if (r.offset !== at + got || r.bytes.length !== n) throw new SendError("reply", text("sender.fileRead", { got: r.bytes.length, offset: r.offset, want: n, at: at + got }));
+      out.set(r.bytes, got);
+      got += n;
+    }
+    return out;
   }
 
   /** A FILE offset of the sample file (`temp`: its temp file) at `at`. */

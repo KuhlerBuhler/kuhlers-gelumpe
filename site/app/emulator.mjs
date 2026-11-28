@@ -6,7 +6,7 @@
 import { el } from "./fields.mjs";
 import { stateText } from "./state.mjs";
 import { toastFor } from "./toast.mjs";
-import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
+import { identify, buildOf, lackOf, hasBlechSysex, firmwareName, BLECH_SYSEX_HOOKS_SYNTH } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
 import { LedPlayer } from "./led-trace.mjs";
 import { emuBase, parseEmuLink } from "./emu-link.mjs";
@@ -362,7 +362,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   const inApp = !!window.__GELUMPE_APP;
   const START_HINT = inApp
     ? t("emu.start.app")
-    : t("emu.start.page");
+    : window.__GELUMPE_MOBILE ? t("emu.start.mobile") : t("emu.start.page");
   const startButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-emu-start", textContent: t("emu.start"), hidden: true });
   /** Looks for the emulator service; false and a toast when there is none. */
   async function start() {
@@ -392,7 +392,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   let blech = false;
   function setBuild(bytes) {
     build = bytes ? buildOf(bytes) : null;
-    blech = !!bytes && hasBlechSysex(bytes);
+    blech = !!bytes && (build === "synth" ? hasBlechSysex(bytes, BLECH_SYSEX_HOOKS_SYNTH) : hasBlechSysex(bytes));
   }
   /** The line for the file chooser; Korg's own build is a recognised file, it only is not the measured one. */
   /** A recognised file is said by the display; the line is for screen readers, what went wrong goes to the toast. */

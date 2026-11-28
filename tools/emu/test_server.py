@@ -8,6 +8,8 @@ import http.client
 import io
 import json
 import os
+import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -24,6 +26,8 @@ from firmware import ProfileError  # noqa: E402
 from machine import SysexReader  # noqa: E402
 from cardstore import CardStore  # noqa: E402
 from fat32 import Volume  # noqa: E402
+from backlight import Backlight  # noqa: E402
+from panel_leds import PanelLeds  # noqa: E402
 
 ORIGIN = "http://127.0.0.1:8737"
 TOKEN = "test-token"
@@ -84,7 +88,6 @@ class LightMachine(FakeMachine):
 
     def __init__(self, payload, flash, assert_after=None):
         super().__init__(payload, flash, assert_after)
-        from backlight import Backlight
         self.backlight = Backlight()
 
     def run_until(self, seconds):
@@ -107,7 +110,6 @@ class FlickerMachine(FakeMachine):
 
     def __init__(self, payload, flash, assert_after=None):
         super().__init__(payload, flash, assert_after)
-        from panel_leds import PanelLeds
         self.panel_leds = PanelLeds()
 
     def run_until(self, seconds):
@@ -289,8 +291,10 @@ class ServiceTest(unittest.TestCase):
 
         self.emu.factory = factory
         self.request("POST", "/firmware", body=bytes(VSB_SIZE))
-        self.request("POST", "/start", body=b"{}")
-        seen = self.events(lambda s: sum(len(e["changes"]) for e in s.get("ledtrace", [])) >= 3)
+        seen = self.events(
+            lambda s: sum(len(e["changes"]) for e in s.get("ledtrace", [])) >= 3,
+            then=lambda: self.assertEqual(self.request("POST", "/start", body=b"{}")[0].status, 200),
+        )
         changes = [c for e in seen["ledtrace"] for c in e["changes"]]
         self.assertEqual([(led, v) for _, _, led, v in changes], [(0x2C, 255), (0x2C, 0), (0x2C, 255)])
         step = int(server_module.STEP_S * 1e6)
@@ -961,8 +965,6 @@ class AnnounceTest(unittest.TestCase):
     starts its own instead of showing this one (src-tauri/src/main.rs, fits)."""
 
     def announced(self, env):
-        import socket
-        import subprocess
         with tempfile.TemporaryDirectory() as tmp:
             with socket.socket() as s:
                 s.bind(("127.0.0.1", 0))

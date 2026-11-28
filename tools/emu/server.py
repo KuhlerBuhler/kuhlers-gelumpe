@@ -37,6 +37,7 @@ from flashstore import FlashError, FlashStore, default_dir as default_flash_dir 
 import lifetime  # noqa: E402
 from lcd import LcdResponse, taus  # noqa: E402
 from sdcard import SDCard  # noqa: E402
+from machine import Machine, hardware_flash  # noqa: E402
 
 MISSING_UNICORN = "Unicorn fehlt in diesem Python. Einmal npm run setup:emu ausführen, dann npm start neu starten."
 
@@ -73,7 +74,6 @@ def blank_for(hardware, payload):
     except for Sampler code on the blue, which needs the blue's user-data mark (docs/ideen/65-blech-hacktribe-blau.md)."""
     if hardware != "blue" or payload is None or is_synth(payload):
         return None
-    from machine import hardware_flash
     return bytes(hardware_flash("blue"))
 
 
@@ -125,12 +125,11 @@ def panel_message(cmd):
 
 
 def real_machine(payload, flash):
-    from machine import Machine
     return Machine(payload, flash)
 
 
 def real_check(base, patched, flash, allow, allow_code=(), boot_flash=None, progress=None, quick=False, foreign=False):
-    from check import check
+    from check import check   # lazy: loads every case module, 0.5 s more on each service start
     return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick, boot_flash=boot_flash, foreign=foreign)
 
 
@@ -576,7 +575,9 @@ class Emulator:
                     self.publish("midi", msg.hex())
                 if not self.status["booted"] and getattr(m, "booted", True):
                     self.set_status(booted=True)
-                if not getattr(m, "powered", True):
+                # A watchdog reset (machine.py) ends the run like switching off: whether the device stays on through it is
+                # open (docs/messungen/2026-11-16-watchdog-neustart.md); the power switch starts it again from the flash.
+                if not getattr(m, "powered", True) or getattr(m, "reset", None):
                     self.running = False
                     self.publish("display", self._display(m))
                     lcd.settle(m.fb, getattr(m, "lcd_reverse", False))

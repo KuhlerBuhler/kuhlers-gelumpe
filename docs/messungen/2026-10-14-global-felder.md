@@ -1,7 +1,8 @@
 # Global-Menü: welches Byte, welche Werte, welches Label
 
-Stand 2026-10-14. Alles im Emulator (`tools/emu/machine.py`, Unicorn 2.1.4) mit der eigenen `SYSTEM.VSB`
-(Sampler 2.02 mit Hacktribe) und dem eigenen Flash-Dump vom 9.10. Am Gerät nichts getan, nichts
+Das Global-Menü stellt die [Globals](../glossary.md#globals) ein, einen 256-Byte-Block der Geräteeinstellungen. Alles im
+[Emulator](../glossary.md#emulator) (`tools/emu/machine.py`, Unicorn 2.1.4) mit der eigenen [`SYSTEM.VSB`](../glossary.md#vsb)
+(Sampler 2.02 mit [Hacktribe](../glossary.md#hacktribe)) und dem eigenen Flash-Dump vom 9.10. Am Gerät nichts getan, nichts
 geschrieben (kein WRITE, nichts im Flash, nur der Arbeitsspeicher des Emulators). Markierungen:
 **gemessen** (Emulator), **offen**.
 
@@ -52,27 +53,22 @@ Offset als Hex und dezimal (so steht er in `data/map/global.mjs`). Werte: Byte, 
 | 20 | XY CALIBRATION | keines | | Anzeige "press [ Enter ]", eine Aktion, kein Wert |
 
 19 Felder in 19 Bytes gemessen. Die Offsets stimmen mit der zweiten Tabelle in
-`2026-10-13-globals-zurueckgesetzt.md` überein (dort ohne Labels und Werte).
+[`2026-10-13-globals-zurueckgesetzt.md`](2026-10-13-globals-zurueckgesetzt.md) überein (dort ohne Labels und Werte).
 
-## Was gegenüber der alten Karte anders ist
+## Besonderheiten der Werte
 
-- **Neu (3 Felder):** Offset 19 (PTN. CHANGE LOCK), 31 (CHAIN MODE) und 36 (TEMPO LOCK) standen nicht in der Karte.
-- **Falscher Bereich, LCD CONTRAST (Offset 30):** die Karte nahm 0 bis 24 mit "Byte plus 1" an. Gemessen ist
-  das Byte 18 bis 42, die Anzeige Byte minus 17. Neuer Umwandler `contrast`.
-- **Falscher Bereich, TOUCH SCALE RANGE (Offset 38):** die Karte nahm 0 bis 3 an. Gemessen ist 1 bis 4, 0 ist am
-  Gerät nicht einstellbar. Der Umwandler `octaves` zählt jetzt ab 1.
-- **Vertauscht, MIDI-Filter:** die Karte legte den Empfangsfilter auf Byte 42 und den Sendefilter auf 43.
-  Gemessen ist es umgekehrt: Seite MIDI RECEIVE FILTER ändert Byte 43, MIDI SEND FILTER Byte 42. Die Karte ist
-  angepasst. Siehe die nächste Gegenprobe.
-- **Anzeigetexte, die von den deutschen Namen der Karte abweichen** (Karte bleibt, die Zuordnung der Werte stimmt):
-  SYNC POLARITY zeigt Hi und Lo (die Karte sagt steigend und fallend; welches welches ist, ist nicht gemessen),
-  AUTO POWER OFF Disable und 4 hours, POWER SAVE Disable, Auto und Enable.
+- **LCD CONTRAST (Offset 30):** das Byte geht von 18 bis 42, die Anzeige ist Byte minus 17 (Umwandler `contrast`).
+- **TOUCH SCALE RANGE (Offset 38):** das Byte zählt die Oktaven, in Korgs Menü von 1 bis 4, 0 ist dort nicht
+  einstellbar (Umwandler `octaves`).
+- **MIDI-Filter:** die Seite MIDI RECEIVE FILTER ändert Byte 43, MIDI SEND FILTER Byte 42 (Gegenprobe unten).
+- **Anzeigetexte, die von den deutschen Namen der Karte abweichen** (die Zuordnung der Werte stimmt):
+  SYNC POLARITY zeigt Hi und Lo (welches steigend ist, ist nicht gemessen), AUTO POWER OFF Disable und 4 hours,
+  POWER SAVE Disable, Auto und Enable.
 
 ## Gegenprobe der MIDI-Filter (Verhalten, nicht nur Label)
 
-Weil sich die Notiz vom 16.9. (`2026-09-16-global-dump.md`: "Byte 42 (Receive Filter)") und diese Messung
-widersprechen, wurde geprüft, welches Byte was tut. Im Emulator die beiden Bytes im lebenden Block gesetzt
-(die anderen auf 0), dann:
+Welches der beiden Bytes den Empfang und welches das Senden filtert, wurde am Verhalten geprüft, nicht nur am Label. Im
+Emulator die beiden Bytes im lebenden Block gesetzt (die anderen auf 0), dann:
 
 - **Gemessen, Empfang:** Controller 7 mit wechselndem Wert auf MIDI-Kanal 1, 5 und 10 in den DIN-Eingang geschickt,
   Pattern-Puffer (16 KiB) vorher und nachher verglichen. Byte `0x2a` auf 0, 1 oder 2: der Wert steht danach
@@ -82,12 +78,8 @@ widersprechen, wurde geprüft, welches Byte was tut. Im Emulator die beiden Byte
   (ohne Clock-Byte `F8`). Byte `0x2a` auf 0: eine Controller-Meldung (`B0 0A xx`) sowie Bank-Select und Programmwechsel
   auf Kanal 10 (`B9 00 00`, `B9 20 00`, `C9 xx`). Auf 1: der Controller fehlt, Bank und Programm kommen. Auf 2: gar
   nichts. Byte `0x2b` auf 0, 1, 2: immer Bank und Programm, kein Unterschied. Der Sendefilter ist also `0x2a`.
-- **Offen:** wieso die Notiz vom 16.9. Byte 42 als Empfangsfilter führte. Dort stand Byte 42 auf Short, solange
-  kein Controller ankam, und auf Off, als alle 14 Controller wirkten (`2026-09-16-cc-map.md`: Voraussetzung
-  Receive Filter Off). Hergeleitet, nicht gemessen: die Zuordnung dort kann aus Korgs Tabelle statt aus der
-  Anzeige stammen, oder am Gerät wurden damals beide Filter gewechselt. Am Gerät nicht nachgemessen. Zum Klären:
-  auf der Seite MIDI RECEIVE FILTER Short einstellen (ohne WRITE) und `0x0E` anfragen; steht die 1 an Offset 43,
-  stimmt der Emulator mit dem Gerät überein.
+- **Offen:** Am Gerät nicht nachgemessen. Zum Klären: auf der Seite MIDI RECEIVE FILTER Short einstellen (ohne WRITE) und
+  `0x0E` anfragen; steht die 1 an Offset 43, stimmt der Emulator mit dem Gerät überein.
 
 ## Bytes, die kein Menü-Eintrag erreicht (bleiben unbekannt)
 
@@ -118,7 +110,7 @@ nicht in der Tabelle steht, bleibt `source: unknown`, `edit: expert`:
   Gerät, der Menüaufbau ist durch `2026-10-13-globals-zurueckgesetzt.md` für Seite 19 am Gerät gegengeprüft.
 - Die Wirkung der Werte (Clock, Sync, Velocity, Strom) wurde außer bei den MIDI-Filtern nicht geprüft, nur,
   welches Byte die Seite ändert und welche Anzeige zu welchem Byte gehört.
-- Der Dump meldet den gespeicherten Stand, nicht zwingend den laufenden (Notiz zu Clock Mode vom 16.9.). Hier ist das
+- Der Dump meldet den gespeicherten Stand, nicht zwingend den laufenden (Clock Mode, `data/map/global.mjs`). Hier ist das
   lebende Objekt gelesen, das die Seiten ändern; ob es dem Dump desselben Moments entspricht, ist nicht für alle Seiten
   geprüft.
 

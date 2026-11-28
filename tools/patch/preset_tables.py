@@ -15,7 +15,10 @@ build keeps them scattered. This patch does not move a record. It does four thin
 
 The menu lengths stay what the file has. Raising them is the editor's job, together with a record to point at.
 Reads the VSB only for the checksums of what it replaces and for the old arrays' addresses; no firmware bytes
-go into the patch. The two variants share the id `preset-tables` and differ in `builds`.
+go into the patch. The variants share the id `preset-tables` and differ in `builds`. The blue Electribe 2 (synth) has
+the same getters, arrays and knob memory set-up as Korg's red build at other addresses (data/synth-map/); the new
+arrays, records and knob table sit at the same addresses, that space is erased there too
+(docs/messungen/2026-11-08-blau-eigene-effekte.md).
 
     python3 tools/patch/preset_tables.py --vsb SYSTEM.VSB [--out data/patches/preset-tables.json]
 """
@@ -25,6 +28,9 @@ import json
 import struct
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import synthaddr  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
@@ -53,6 +59,7 @@ CMP_127, MOV_127 = 0xE350007F, 0x23A0007F
 KNOWN = {
     "hacktribe": (0xC00A7F60, 0xC00B4DA0, 0xC013C200),
     "stock": (0xC00ADF94, 0xC00AF390, 0xC0692278),
+    "synth": (0xC009898C, 0xC0099D88, 0xC056C3A0),
 }
 WHY_ARRAY = "the preset getters read their pointer from this array while the firmware sets up its FX channels at start"
 WHY_CODE = "the firmware runs the preset getters and the knob memory set-up at start"
@@ -63,12 +70,22 @@ def off(address):
 
 
 def build_of(raw):
+    if raw[0x10:0x13] == b"E2\0":
+        return "synth"
     run = raw[HACKTRIBE_CODE[0]:HACKTRIBE_CODE[0] + HACKTRIBE_CODE[1]]
     return "stock" if run == b"\xff" * HACKTRIBE_CODE[1] else "hacktribe"
 
 
 def word(raw, address):
     return struct.unpack_from("<I", raw, off(address))[0]
+
+
+def places(build):
+    """The code places the patch rewrites, at this build's addresses: (literal per getter, clamp per getter, knob literals)."""
+    tr = synthaddr.tr if build == "synth" else (lambda a: a)
+    literal = {g: tr(a) for g, a in LITERAL.items()}
+    clamp = {g: (tr(c), tr(m)) for g, (c, m) in CLAMP.items()}
+    return literal, clamp, tuple(tr(a) for a in EDIT_LITERALS)
 
 
 def sha(data):
@@ -83,6 +100,7 @@ def raw_change(raw, address, new):
 def build_patch(raw, build=None):
     build = build or build_of(raw)
     old_ifx, old_mfx, old_edit = KNOWN[build]
+    LITERAL, CLAMP, EDIT_LITERALS = places(build)  # noqa: N806
     if word(raw, LITERAL[GETTER_IFX]) != old_ifx or word(raw, LITERAL[GETTER_MFX]) != old_mfx:
         raise ValueError(f"the getter literals do not point where the measured {build} firmware has its arrays")
     for getter, (cmp_at, mov_at) in CLAMP.items():

@@ -7,6 +7,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cardstore  # noqa: E402
@@ -111,7 +112,6 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(card_folder(bytes(100)), "hacktribe", "no sample file name: the default")
 
     def test_the_blue_firmware_names_its_folder_through_its_pool_word(self):
-        from unittest.mock import patch
         payload = bytearray(0x200000)
         payload[0x904D4:0x904D4 + 16] = b"KORG/electribe/\0"
         payload[0x904E4:0x904E4 + 17] = b"KORG/blechtribe/\0"

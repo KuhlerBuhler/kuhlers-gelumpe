@@ -24,12 +24,17 @@ import importlib
 import math
 import multiprocessing
 import os
+import pickle
 import sys
+import time
+import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
 
 import lifetime
+import fat32
+import taskcache
 
 shared = {}
 CARD_CLOCK = 1767225600.0           # 2026-01-01 00:00 UTC, the date on every file of a card a case builds
@@ -62,7 +67,6 @@ def workers(tasks):
 def _init(data, owner, track=False):
     global shared
     if track:
-        import taskcache
         taskcache.watch()
     shared = data
     # A worker whose pool owner was killed would finish its task and then wait for work that never comes.
@@ -77,7 +81,6 @@ ENTRY_ONE = {"boot_case_task"}
 
 
 def crashed(module, name, args, error):
-    import traceback
     frame = traceback.extract_tb(error.__traceback__)[-1]
     where = f"{Path(frame.filename).name}:{frame.lineno}"
     group = f" {args[0]}" if args else ""
@@ -86,7 +89,6 @@ def crashed(module, name, args, error):
 
 
 def _picklable(error):
-    import pickle
     try:
         pickle.loads(pickle.dumps(error))
         return True
@@ -96,7 +98,6 @@ def _picklable(error):
 
 def _run(module, name, args):
     """(result, finished): finished is False when an exception became a failed entry."""
-    import fat32
     frozen_here = getattr(sys, "frozen", False) and multiprocessing.parent_process() is None
     clock = fat32.clock
     if not frozen_here:                  # the app's service dates the files of the user's card with this clock too
@@ -122,15 +123,12 @@ def _call(module, name, args):
 
 def _tracked(module, name, args):
     """(result, what the process used, seconds) for taskcache.py; None for a task that stopped with an exception."""
-    import time
-    import taskcache
     start = time.perf_counter()
     result, finished = _run(module, name, args)
     return result, taskcache.used() if finished else None, time.perf_counter() - start
 
 
 def _timed(module, name, args):
-    import time
     start = time.perf_counter()
     return _call(module, name, args), time.perf_counter() - start
 
@@ -164,7 +162,6 @@ def run_tasks(tasks, data, jobs=None, on_done=None, cache=None, on_queue=None, o
     takes a kept one instead of running the task again; the tasks that run start longest first, by the time they took
     last, and `on_queue(indices)` hears that order."""
     global shared
-    import taskcache
     keep = cache is not None and taskcache.enabled()
     out = [None] * len(tasks)
     todo = list(range(len(tasks)))

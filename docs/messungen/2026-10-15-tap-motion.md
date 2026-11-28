@@ -1,9 +1,9 @@
 # TAP und Reglerbewegungen: Recherche im Emulator
 
-Stand 2026-10-15. Kein Gerätezugriff. Alles ist im Emulator gemessen (Firmware 2.02 mit Hacktribe, eigene
+Stand 2026-10-15. Kein Gerätezugriff. Alles ist im Emulator gemessen (Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe), eigene
 `SYSTEM.VSB`, eigener Flash-Dump), nichts am Gerät. `tools/emu/tap_motion_probe.py` wiederholt jede Messung
 (`E2_VSB=... E2_FLASH=... tools/emu/.venv/bin/python tools/emu/tap_motion_probe.py`, rund 20 Minuten), die Namen der
-Prüfungen stehen in Klammern. Die Skizze der Funktion, die daraus folgt, steht in [Idee 39](../ideen/39-automationen-tap.md).
+Prüfungen stehen in Klammern.
 
 Offsets im Pattern sind in dieser Datei RAM-Offsets im Pattern-Objekt (Zeiger in `0xC033E6A4`, hier `0xC06B2798`). Die
 [Gerätekarte](../geraetekarte.md) zählt vom Dateianfang und damit 4 weniger: `motion.part` bei 256 ist hier `0x104`, `part.motionMode` bei
@@ -128,7 +128,7 @@ Nachricht: gleicher Eintrag, gleiche Bytes (`09 0D 11 15 ...` für `16, 24, 32, 
 läuft auch bei Modus Off (`gate-rec-with-mode-0`).
 
 **Wiedergabe (gemessen, `motion-engine-follows-the-recorded-lane`).** Sie ändert das Parameter-Byte nicht. Ihr Ausgang für Spur 0 ist das
-Wort `0xC068DB1C` (die Spuren 1 und 2 bei `+4` und `+8`): `0xFFFFFFFF` heißt still, sonst steht dort der Wert des Spurbytes
+Wort `0xC068DB1C`, Spur i bei `0xC068DB1C + 0x24 * i` (gemessen in [Plugin API 28](2026-11-11-plugin-api28-motion.md)): `0xFFFFFFFF` heißt still, sonst steht dort der Wert des Spurbytes
 ohne die Verschiebung, einmal je Schritt neu. Für die Spur des Tests (16, 24 ... 136) steht dort 8, 12 ... 68, Schritt für Schritt. Ob die Stimme dem Ausgang der
 Spur oder dem Parameter-Byte folgt, sieht der Emulator nicht (das DSP ist nicht nachgebildet): **offen**, am Gerät zu hören.
 
@@ -225,6 +225,4 @@ Tempo zeigt.
   auf den Reglerwert zurück?), ob Trigger Hold einen anderen Klang als Smooth gibt, Zeit eines Aufrufs mit echter Last.
 - **Wertebereich der Regler am Gerät** (255 oder 1023, Abschnitt 1) und damit der Bereich einer Einspielfunktion.
 - **Parameterfenster ohne Meldung** und ob es bei viel Einspielen stört (Abschnitt 1).
-- **Ein Schalter für die Master-FX-Spuren** (Abschnitt 3); bis dahin braucht ein Abspielen von Gesten das Einspielen von Touchpad-Werten.
 - **Spurzahl.** 24 Spuren je Pattern sind hergeleitet, bis zur Meldung "Motion Seq Full" nicht gefüllt.
-- **Karten- und Menüarbeit** für ein Plugin, das Aufnahmen selbst hält (Abschnitt Entwurf in Idee 39).

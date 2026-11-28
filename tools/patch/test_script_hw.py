@@ -1,4 +1,4 @@
-"""Native clock and read-only views of the firmware's state, without firmware bytes."""
+"""Native clock and read-only views of the firmware's state."""
 import json
 import pathlib
 import subprocess
@@ -9,6 +9,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import contract_data, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
+from tools.patch.script_hooks import BLECHY_BLOCK, PART_SETTERS, PART_SETTER_FIELDS, PATTERN_SETTERS, PATTERN_SETTER_FIELDS, part_setter_actions, pattern_setter_actions
+from tools.patch.test_script_vm import blob
 
 CLOCK_INIT, CLOCK_LAST, CLOCK_REM, CLOCK_MS = 208, 212, 216, 220
 OS_TICKS = 0xC06A292C
@@ -98,6 +100,8 @@ class NativeHardwareTests(unittest.TestCase):
             for part,group in [(-1,fields['pattern']),(0,fields['part']),(15,fields['part'])]:
                 at = base + (0 if part < 0 else 0x800 + part * 0x330)
                 for i,f in enumerate(group):
+                    if f['kind'] == 'mfx2':        # the patch mfx-switch's table, not a pattern byte (plugin_api27_cases)
+                        continue
                     for raw,raw2 in [(0,0),(1,7),(200,1),(255,255),(251,0)]:
                         with self.subTest(pattern=pattern,part=part,field=f['name'],raw=raw):
                             m.uc.mem_write(at + f['offset'],bytes([raw,raw2]) if f['kind'] == 'u16' else bytes([raw]))
@@ -389,7 +393,7 @@ class NativeHardwareTests(unittest.TestCase):
     def test_set_part_value_writes_a_sample_only_to_a_slot_the_sample_knob_stops_on(self):
         m,_ = self.machine()
         from unicorn import UC_HOOK_CODE
-        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
         for page in (0xC0040000,0xC0048000,0xC004E000,0xC0070000): m.uc.mem_map(page,0x1000)
         m.uc.mem_map(0xC0348000,0x1000)
         m.write(0xC034886C,0xC0348100)
@@ -423,7 +427,6 @@ class NativeHardwareTests(unittest.TestCase):
         m,built = self.machine()
         from unicorn import UC_HOOK_CODE
         from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_LR, UC_ARM_REG_PC
-        from tools.patch.script_hooks import PART_SETTER_FIELDS, PART_SETTERS, part_setter_actions
         fields = json.loads(subprocess.check_output(['node','--input-type=module','-e',
             "import {PART_FIELDS} from './data/script/contract.mjs'; console.log(JSON.stringify(PART_FIELDS.map(f => f.name)))"],cwd=ROOT))
         self.assertEqual(list(PART_SETTER_FIELDS),fields)
@@ -485,7 +488,6 @@ class NativeHardwareTests(unittest.TestCase):
         m,built = self.machine()
         from unicorn import UC_HOOK_CODE
         from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_LR, UC_ARM_REG_PC
-        from tools.patch.script_hooks import PATTERN_SETTER_FIELDS, PATTERN_SETTERS, pattern_setter_actions
         error = contract_data()['error']['API_ARG']
         fields = json.loads(subprocess.check_output(['node','--input-type=module','-e',
             "import {PATTERN_FIELDS} from './data/script/contract.mjs'; console.log(JSON.stringify(PATTERN_FIELDS.map(f => f.name)))"],cwd=ROOT))
@@ -590,7 +592,6 @@ class NativeHardwareTests(unittest.TestCase):
         m.call('script_led_hold_guard',m.runtime)
         self.assertEqual(m.read(m.runtime+252),0,'no script at all: the LEDs go back')
         self.assertEqual(len(calls),0x58)
-        from tools.patch.test_script_vm import blob
         error,entry = m.load(blob([0],stack=0))
         self.assertEqual(error,0)
         m.run(entry,0)
@@ -607,7 +608,6 @@ class NativeHardwareTests(unittest.TestCase):
         m.uc.mem_map(0xC0016000,0x1000); m.uc.mem_map(0xC0087000,0x1000); m.uc.mem_map(0xC0700000,0x2000)
         self.hardware_stubs_pages(m)
         m.write(0xC0345A1C,0xC0700000)
-        from tools.patch.script_hooks import BLECHY_BLOCK
         block = built.sections[-1][1]
         error,him = m.call('script_load_block_ex',m.runtime,BLECHY_BLOCK,len(block),1)
         self.assertEqual(error,0)
@@ -615,7 +615,6 @@ class NativeHardwareTests(unittest.TestCase):
         m.call('script_led_hold_glue',1)
         m.call('script_led_hold_guard',m.runtime)
         self.assertEqual(m.read(m.runtime+252),0,'he is armed for good, a plugin that holds the LEDs needs one of its own')
-        from tools.patch.test_script_vm import blob
         error,entry = m.load(blob([0],stack=0))
         self.assertEqual(error,0)
         m.run(entry,0)

@@ -1,0 +1,674 @@
+{
+  "format": "gelumpe-dsp-space-evidence",
+  "version": 1,
+  "date": "2026-11-20",
+  "firmwareSource": "ba814034c43a879890c96a21e1a530823692b499",
+  "scope": "Static owners, native boot/audio-idle, and four coupled ARM/DSP one-voice cases on whole current firmware; no maximum polyphony, comprehensive effect sweep or hardware validation",
+  "sdramBytes": 33554432,
+  "strictUpperBoundary": 33554432,
+  "alignedCandidates": {
+    "common": [
+      {
+        "start": 29892608,
+        "end": 30408704,
+        "bytes": 516096
+      },
+      {
+        "start": 32579584,
+        "end": 33554432,
+        "bytes": 974848
+      }
+    ],
+    "nativeSynth": [
+      {
+        "start": 20455424,
+        "end": 30408704,
+        "bytes": 9953280
+      },
+      {
+        "start": 32579584,
+        "end": 33554432,
+        "bytes": 974848
+      }
+    ]
+  },
+  "alignedTotals": {
+    "stock": 1490944,
+    "hacktribe": 1490944,
+    "synth": 10928128
+  },
+  "runs": [
+    {
+      "build": "stock",
+      "stage2": true,
+      "window": [
+        29890284,
+        30408704
+      ],
+      "inputFirmwareSha256": "e4f2aaada32b97af7e95e8711d50a2853bbfeb70fe71126c3ca182738a42dfd6",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "privateSimulatorSha256": "4376ccd651fad067241c16ebdd08475b7122e836d4340e0914eed7bbc309fbfe",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 128,
+      "observedModelSecondsAfterInit": 0.0026670619419642857,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 518420,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "6e7933b29feb21223d0191e059ea43ce88737a63938afbc14c4ffe863b17d0e5",
+      "canaryAfterSha256": "6e7933b29feb21223d0191e059ea43ce88737a63938afbc14c4ffe863b17d0e5",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    },
+    {
+      "build": "stock",
+      "stage2": true,
+      "window": [
+        32578368,
+        33554432
+      ],
+      "inputFirmwareSha256": "e4f2aaada32b97af7e95e8711d50a2853bbfeb70fe71126c3ca182738a42dfd6",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "privateSimulatorSha256": "4376ccd651fad067241c16ebdd08475b7122e836d4340e0914eed7bbc309fbfe",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 128,
+      "observedModelSecondsAfterInit": 0.0026670619419642857,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 976064,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "canaryAfterSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    },
+    {
+      "build": "hacktribe",
+      "stage2": true,
+      "window": [
+        29890284,
+        30408704
+      ],
+      "inputFirmwareSha256": "71378fad6759d076b46223dff638663343619b6c5a1b0ab35b0b2900216048e8",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "privateSimulatorSha256": "4376ccd651fad067241c16ebdd08475b7122e836d4340e0914eed7bbc309fbfe",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 128,
+      "observedModelSecondsAfterInit": 0.0026670619419642857,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 518420,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "6e7933b29feb21223d0191e059ea43ce88737a63938afbc14c4ffe863b17d0e5",
+      "canaryAfterSha256": "6e7933b29feb21223d0191e059ea43ce88737a63938afbc14c4ffe863b17d0e5",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    },
+    {
+      "build": "hacktribe",
+      "stage2": true,
+      "window": [
+        32578368,
+        33554432
+      ],
+      "inputFirmwareSha256": "71378fad6759d076b46223dff638663343619b6c5a1b0ab35b0b2900216048e8",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "privateSimulatorSha256": "4376ccd651fad067241c16ebdd08475b7122e836d4340e0914eed7bbc309fbfe",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 128,
+      "observedModelSecondsAfterInit": 0.0026670619419642857,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 976064,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "canaryAfterSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    },
+    {
+      "build": "synth",
+      "stage2": false,
+      "window": [
+        20452180,
+        30408704
+      ],
+      "inputFirmwareSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "dspStreamSha256": "3595d2acdaba902a9ca28f0483dce84d0339e8df4f80391817448f378d66c704",
+      "privateSimulatorSha256": "4376ccd651fad067241c16ebdd08475b7122e836d4340e0914eed7bbc309fbfe",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 128,
+      "observedModelSecondsAfterInit": 0.0026668313647073413,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 9956524,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "87d801323fc808e0474341f7396313516af5b1ec2b715e9fb0820045c9efca42",
+      "canaryAfterSha256": "87d801323fc808e0474341f7396313516af5b1ec2b715e9fb0820045c9efca42",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    },
+    {
+      "build": "synth",
+      "stage2": false,
+      "window": [
+        32578368,
+        33554432
+      ],
+      "inputFirmwareSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "dspStreamSha256": "3595d2acdaba902a9ca28f0483dce84d0339e8df4f80391817448f378d66c704",
+      "privateSimulatorSha256": "4376ccd651fad067241c16ebdd08475b7122e836d4340e0914eed7bbc309fbfe",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 128,
+      "observedModelSecondsAfterInit": 0.0026668313647073413,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 976064,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "canaryAfterSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    },
+    {
+      "build": "stock",
+      "stage2": true,
+      "window": [
+        29890284,
+        30408704
+      ],
+      "inputFirmwareSha256": "e4f2aaada32b97af7e95e8711d50a2853bbfeb70fe71126c3ca182738a42dfd6",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "privateSimulatorSha256": "155c4e17abba31ff4ecf1f37512c8bb6ca37d553480cbeb935093ed111a095bb",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 47999,
+      "observedModelSecondsAfterInit": 1.0,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 518420,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "6e7933b29feb21223d0191e059ea43ce88737a63938afbc14c4ffe863b17d0e5",
+      "canaryAfterSha256": "6e7933b29feb21223d0191e059ea43ce88737a63938afbc14c4ffe863b17d0e5",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    },
+    {
+      "build": "stock",
+      "stage2": true,
+      "window": [
+        32578368,
+        33554432
+      ],
+      "inputFirmwareSha256": "e4f2aaada32b97af7e95e8711d50a2853bbfeb70fe71126c3ca182738a42dfd6",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "privateSimulatorSha256": "155c4e17abba31ff4ecf1f37512c8bb6ca37d553480cbeb935093ed111a095bb",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 47999,
+      "observedModelSecondsAfterInit": 1.0,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 976064,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "canaryAfterSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    },
+    {
+      "build": "synth",
+      "stage2": false,
+      "window": [
+        20452180,
+        30408704
+      ],
+      "inputFirmwareSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "dspStreamSha256": "3595d2acdaba902a9ca28f0483dce84d0339e8df4f80391817448f378d66c704",
+      "privateSimulatorSha256": "155c4e17abba31ff4ecf1f37512c8bb6ca37d553480cbeb935093ed111a095bb",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 47999,
+      "observedModelSecondsAfterInit": 1.0,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 9956524,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "87d801323fc808e0474341f7396313516af5b1ec2b715e9fb0820045c9efca42",
+      "canaryAfterSha256": "87d801323fc808e0474341f7396313516af5b1ec2b715e9fb0820045c9efca42",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    },
+    {
+      "build": "synth",
+      "stage2": false,
+      "window": [
+        32578368,
+        33554432
+      ],
+      "inputFirmwareSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "dspStreamSha256": "3595d2acdaba902a9ca28f0483dce84d0339e8df4f80391817448f378d66c704",
+      "privateSimulatorSha256": "155c4e17abba31ff4ecf1f37512c8bb6ca37d553480cbeb935093ed111a095bb",
+      "initialized": true,
+      "audioIdle": true,
+      "activeVoicesTested": false,
+      "naturalAudioCallbacks": 47999,
+      "observedModelSecondsAfterInit": 1.0,
+      "cpuReads": 0,
+      "cpuWrites": 0,
+      "dmaReads": 0,
+      "dmaWrites": 0,
+      "executedInstructionsInCandidate": 0,
+      "canaryBytes": 976064,
+      "canaryUnchanged": true,
+      "canaryBeforeSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "canaryAfterSha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+      "exceptionStatus": 0,
+      "hardwareContact": false
+    }
+  ],
+  "positiveControls": {
+    "windows": 3,
+    "cpuReadAccessesEach": 1,
+    "cpuWriteAccessesEach": 1,
+    "dmaReadAccessesEach": 1,
+    "dmaWriteAccessesEach": 1,
+    "executedInstructionsEach": 7
+  },
+  "negativeControls": {
+    "address": 33554432,
+    "cpuStoreRejected": true,
+    "instructionFetchRejected": true,
+    "dmaReadRejected": true,
+    "dmaWriteRejected": true
+  },
+  "modelLimits": [
+    "Direct boot-stream upload substitutes hardware boot ROM",
+    "Known SysControl and OTP calls modeled",
+    "No physical RAM/cache/interrupt latency validation",
+    "Coupled ARM/DSP tested only with one active voice and default effect state",
+    "No maximum-polyphony or comprehensive effect transitions"
+  ],
+  "defaultSetsDspEquivalent": [
+    {
+      "build": "stock",
+      "source": "ba814034c43a879890c96a21e1a530823692b499",
+      "fullPatchedFirmwareSha256": "21c5bda02610f946bbd7628c4829480b22070df02875bf19963b8c3462957ede",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "testedDspStreamEquivalent": true,
+      "patchSpans": 501
+    },
+    {
+      "build": "hacktribe",
+      "source": "ba814034c43a879890c96a21e1a530823692b499",
+      "fullPatchedFirmwareSha256": "5d1b9defaaa9b211398f421444a17e99aec7c16fa878354cbc010e9e7d2e9e71",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "testedDspStreamEquivalent": true,
+      "patchSpans": 492
+    },
+    {
+      "build": "synth",
+      "source": "ba814034c43a879890c96a21e1a530823692b499",
+      "fullPatchedFirmwareSha256": "f1ac879bf4fbca88b6b2a3db3e18d150c1b730527c2f3e49de7c3fc645cac861",
+      "dspStreamSha256": "3595d2acdaba902a9ca28f0483dce84d0339e8df4f80391817448f378d66c704",
+      "testedDspStreamEquivalent": true,
+      "patchSpans": 549
+    }
+  ],
+  "activeCoupledRuns": [
+    {
+      "build": "stock",
+      "firmwareSha256": "21c5bda02610f946bbd7628c4829480b22070df02875bf19963b8c3462957ede",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "privateSimulatorSha256": "dfd91be296d6ceacfe9f809e75ad1dd8c4eac64250b008fc72a5d3293875180c",
+      "window": [
+        29890284,
+        30408704
+      ],
+      "initialized": true,
+      "mainScreen": true,
+      "voiceOpened": true,
+      "activeModelSecondsAfterPad": 0.14,
+      "samplePcmReadsVerified": true,
+      "synthActiveContextReadsVerified": false,
+      "candidateMemoryAccesses": {
+        "cpu_read": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "cpu_write": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "dma_read": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "dma_write": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        }
+      },
+      "candidateExecutedInstructions": 0,
+      "canary": {
+        "unchanged": true,
+        "before_sha256": "6e7933b29feb21223d0191e059ea43ce88737a63938afbc14c4ffe863b17d0e5",
+        "after_sha256": "6e7933b29feb21223d0191e059ea43ce88737a63938afbc14c4ffe863b17d0e5",
+        "bytes": 518420
+      },
+      "txCapture": {
+        "bytes": 330064,
+        "sha256": "d406d1bdbc104e22e8688279f0982b1b4a648c1af5a808aa8308877d77fc98df",
+        "word_count": 82516,
+        "before_pad_words": 55636,
+        "nonzero_words_before_pad": 0,
+        "nonzero_words_after_pad": 5954,
+        "nonzero_after_pad_per_slot": [
+          2977,
+          0,
+          2977,
+          0
+        ],
+        "raw_word_min_after_pad": 0,
+        "raw_word_max_after_pad": 4294957430
+      },
+      "dspExceptionStatus": 0,
+      "armAssertions": [],
+      "reset": null,
+      "hardwareContact": false,
+      "scope": "one active voice, default effect state, not maximum polyphony or comprehensive effects"
+    },
+    {
+      "build": "stock",
+      "firmwareSha256": "21c5bda02610f946bbd7628c4829480b22070df02875bf19963b8c3462957ede",
+      "dspStreamSha256": "3a2ba2660f1edc26f279533c63a71d13863b38569fe2870a76271e9b0bd6c3bb",
+      "privateSimulatorSha256": "dfd91be296d6ceacfe9f809e75ad1dd8c4eac64250b008fc72a5d3293875180c",
+      "window": [
+        32578368,
+        33554432
+      ],
+      "initialized": true,
+      "mainScreen": true,
+      "voiceOpened": true,
+      "activeModelSecondsAfterPad": 0.14,
+      "samplePcmReadsVerified": true,
+      "synthActiveContextReadsVerified": false,
+      "candidateMemoryAccesses": {
+        "cpu_read": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "cpu_write": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "dma_read": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "dma_write": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        }
+      },
+      "candidateExecutedInstructions": 0,
+      "canary": {
+        "unchanged": true,
+        "before_sha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+        "after_sha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+        "bytes": 976064
+      },
+      "txCapture": {
+        "bytes": 330064,
+        "sha256": "d406d1bdbc104e22e8688279f0982b1b4a648c1af5a808aa8308877d77fc98df",
+        "word_count": 82516,
+        "before_pad_words": 55636,
+        "nonzero_words_before_pad": 0,
+        "nonzero_words_after_pad": 5954,
+        "nonzero_after_pad_per_slot": [
+          2977,
+          0,
+          2977,
+          0
+        ],
+        "raw_word_min_after_pad": 0,
+        "raw_word_max_after_pad": 4294957430
+      },
+      "dspExceptionStatus": 0,
+      "armAssertions": [],
+      "reset": null,
+      "hardwareContact": false,
+      "scope": "one active voice, default effect state, not maximum polyphony or comprehensive effects"
+    },
+    {
+      "build": "synth",
+      "firmwareSha256": "f1ac879bf4fbca88b6b2a3db3e18d150c1b730527c2f3e49de7c3fc645cac861",
+      "dspStreamSha256": "3595d2acdaba902a9ca28f0483dce84d0339e8df4f80391817448f378d66c704",
+      "privateSimulatorSha256": "dfd91be296d6ceacfe9f809e75ad1dd8c4eac64250b008fc72a5d3293875180c",
+      "window": [
+        20452180,
+        30408704
+      ],
+      "initialized": true,
+      "mainScreen": true,
+      "voiceOpened": true,
+      "activeModelSecondsAfterPad": 0.14000000581287203,
+      "samplePcmReadsVerified": false,
+      "synthActiveContextReadsVerified": true,
+      "candidateMemoryAccesses": {
+        "cpu_read": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "cpu_write": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "dma_read": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "dma_write": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        }
+      },
+      "candidateExecutedInstructions": 0,
+      "canary": {
+        "unchanged": true,
+        "before_sha256": "87d801323fc808e0474341f7396313516af5b1ec2b715e9fb0820045c9efca42",
+        "after_sha256": "87d801323fc808e0474341f7396313516af5b1ec2b715e9fb0820045c9efca42",
+        "bytes": 9956524
+      },
+      "txCapture": {
+        "bytes": 190192,
+        "sha256": "201ca52b22479f491633a95fe922ccb0380bae9afa7266d08d3cae76fcc99aea",
+        "word_count": 47548,
+        "before_pad_words": 20668,
+        "nonzero_words_before_pad": 0,
+        "nonzero_words_after_pad": 13356,
+        "nonzero_after_pad_per_slot": [
+          6678,
+          0,
+          6678,
+          0
+        ],
+        "raw_word_min_after_pad": 0,
+        "raw_word_max_after_pad": 4294924037
+      },
+      "dspExceptionStatus": 0,
+      "armAssertions": [],
+      "reset": null,
+      "hardwareContact": false,
+      "scope": "one active voice, default effect state, not maximum polyphony or comprehensive effects"
+    },
+    {
+      "build": "synth",
+      "firmwareSha256": "f1ac879bf4fbca88b6b2a3db3e18d150c1b730527c2f3e49de7c3fc645cac861",
+      "dspStreamSha256": "3595d2acdaba902a9ca28f0483dce84d0339e8df4f80391817448f378d66c704",
+      "privateSimulatorSha256": "dfd91be296d6ceacfe9f809e75ad1dd8c4eac64250b008fc72a5d3293875180c",
+      "window": [
+        32578368,
+        33554432
+      ],
+      "initialized": true,
+      "mainScreen": true,
+      "voiceOpened": true,
+      "activeModelSecondsAfterPad": 0.14000000581287203,
+      "samplePcmReadsVerified": false,
+      "synthActiveContextReadsVerified": true,
+      "candidateMemoryAccesses": {
+        "cpu_read": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "cpu_write": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "dma_read": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        },
+        "dma_write": {
+          "accesses": 0,
+          "bytes": 0,
+          "address": 0,
+          "origin": 0,
+          "descriptor": 0,
+          "width": 0
+        }
+      },
+      "candidateExecutedInstructions": 0,
+      "canary": {
+        "unchanged": true,
+        "before_sha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+        "after_sha256": "253f241e0bc1bcf8faf7b8366e189135e65f576bb105c4838f87c3412d48d704",
+        "bytes": 976064
+      },
+      "txCapture": {
+        "bytes": 190192,
+        "sha256": "201ca52b22479f491633a95fe922ccb0380bae9afa7266d08d3cae76fcc99aea",
+        "word_count": 47548,
+        "before_pad_words": 20668,
+        "nonzero_words_before_pad": 0,
+        "nonzero_words_after_pad": 13356,
+        "nonzero_after_pad_per_slot": [
+          6678,
+          0,
+          6678,
+          0
+        ],
+        "raw_word_min_after_pad": 0,
+        "raw_word_max_after_pad": 4294924037
+      },
+      "dspExceptionStatus": 0,
+      "armAssertions": [],
+      "reset": null,
+      "hardwareContact": false,
+      "scope": "one active voice, default effect state, not maximum polyphony or comprehensive effects"
+    }
+  ]
+}

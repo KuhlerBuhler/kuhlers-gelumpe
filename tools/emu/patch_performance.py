@@ -12,18 +12,31 @@ import hashlib
 import inspect
 import json
 import math
-from pathlib import Path
 import statistics
+import struct
 import subprocess
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT), str(ROOT / 'tools/emu'), str(ROOT / 'tools/patch')]
+
+import parallel  # noqa: E402
+import unicorn  # noqa: E402
+from menu_cases import SWITCH_SCREEN, boot  # noqa: E402
+from script_cases import install  # noqa: E402
+from sysex_bench import PROTOCOL, profile as sysex_profile  # noqa: E402
+from tools.patch import dice, script_hooks, script_vm  # noqa: E402
+from tools.patch.test_script_vm import BareMachine  # noqa: E402
+
 BUILDS = ('hacktribe', 'stock', 'synth')
 CORE = ('idle', 'playing', 'playing-keyboard', 'sequencer-four-note-long-ties')
 APPS = ('mandelbrot', 'life', 'pong')
 INSTALLED_APPS = ('blechclicker', 'settimer', 'snake', 'tetris', 'life', 'pong', 'simon', 'mandelbrot')
 BACKGROUND_PLUGINS = ('lauflicht', 'pulsieren', 'bpmglide', 'playtakt', 'momentmute', 'gatehold', 'stepcopy')
 FILE_APPS = ('gifplayer', 'bmpviewer', 'pattern303', 'euclidflow', 'livereload', 'randomslot', 'betteraccent', 'easyslides', 'padfinger', 'blechyrun')
+# Catalog plugins the loader reads but the workload neither installs nor opens.
+LOADER_ONLY = ('sysinfo', 'vumeter', 'spettro', 'midiecho', 'motionclear')
 REPEATS = 3
 SECONDS = 2
 MUL_MIN_REDUCTION_PERCENT = 19.83
@@ -34,7 +47,6 @@ APP_PROTOCOL = {'warmupFrames': 8, 'openClockMs': 0xB1EC, 'boundary': 'frame_ret
 
 class BlockCounter:
     def __init__(self, uc):
-        import unicorn
         self.active = False
         self.instructions = 0
         self.hook = uc.hook_add(unicorn.UC_HOOK_BLOCK, self.block)
@@ -60,7 +72,7 @@ def require(ok, message):
 
 
 def app_workload(programs, capacity):
-    expected = set(INSTALLED_APPS) | set(BACKGROUND_PLUGINS) | set(FILE_APPS)
+    expected = set(INSTALLED_APPS) | set(BACKGROUND_PLUGINS) | set(FILE_APPS) | set(LOADER_ONLY)
     require(set(programs) == expected, 'all named plugin inputs required')
     require(len(INSTALLED_APPS) <= capacity, 'app workload exceeds native capacity')
     require(all(programs[name]['info'].get('app') is not None for name in INSTALLED_APPS), 'app metadata missing')
@@ -112,7 +124,7 @@ def validate_capture(data):
         require(len(repeats) == REPEATS, 'loader needs three repetitions')
         for result in repeats:
             plugins = result.get('plugins', [])
-            expected_plugins = set(INSTALLED_APPS) | set(BACKGROUND_PLUGINS) | set(FILE_APPS)
+            expected_plugins = set(INSTALLED_APPS) | set(BACKGROUND_PLUGINS) | set(FILE_APPS) | set(LOADER_ONLY)
             require(len(plugins) == len(expected_plugins) and {p.get('plugin') for p in plugins} == expected_plugins, 'all named loader inputs required')
             require(all(isinstance(p.get('instructions'), int) and p['instructions'] > 0 for p in plugins), 'invalid loader count')
             require(result.get('totalInstructions') == sum(p['instructions'] for p in plugins), 'inconsistent loader total')
@@ -159,7 +171,6 @@ def med(item, variant, scene, key='instructions'):
 
 
 def validate_sysex(item):
-    from sysex_bench import PROTOCOL
     value = item['sysex']
     require(value.get('protocol') == PROTOCOL, 'incomplete native transfer protocol')
     require(value.get('firmwareSha256') == item['outputSha256'], 'transfer firmware differs from checked build')
@@ -280,12 +291,6 @@ def compare(baseline, candidate, phase, inherited=None):
 
 
 def capture_worker(folder, build, variant):
-    sys.path[:0] = [str(ROOT), str(ROOT / 'tools/emu'), str(ROOT / 'tools/patch')]
-    import struct
-    import unicorn
-    from tools.patch import script_hooks, dice
-    from menu_cases import boot, SWITCH_SCREEN
-    from script_cases import install
     info = json.loads((folder / 'sets.json').read_text())['builds'][build]
     raw = (folder / info[variant if variant == 'original' else 'patched']).read_bytes()
     require(hashlib.sha256(raw).hexdigest() == info['inputSha256' if variant == 'original' else 'outputSha256'], 'firmware hash differs from checked set')
@@ -408,9 +413,6 @@ def capture_worker(folder, build, variant):
 
 
 def loader_profile(folder, build):
-    sys.path[:0] = [str(ROOT), str(ROOT / 'tools/emu'), str(ROOT / 'tools/patch')]
-    from tools.patch import script_vm
-    from tools.patch.test_script_vm import BareMachine
     code = script_vm.build((folder / 'contract.inc').read_text())
     programs = json.loads((folder / 'programs.json').read_text())
     repeats = []
@@ -443,7 +445,6 @@ def capture(folder):
             item[variant] = []
             command = [sys.executable, str(Path(__file__).resolve()), '--worker', str(folder), build, variant]
             print(f'{build}/{variant}: {REPEATS} independent profiles started', file=sys.stderr, flush=True)
-            import parallel
             with concurrent.futures.ThreadPoolExecutor(max_workers=parallel.workers(REPEATS)) as pool:
                 jobs = [pool.submit(subprocess.run, command, capture_output=True, text=True, check=True) for _ in range(REPEATS)]
                 for repeat, job in enumerate(jobs):
@@ -457,7 +458,6 @@ def capture(folder):
                     (folder / 'profile-progress.json').write_text(json.dumps(data, indent=2) + '\n')
                     print(f'{build}/{variant}: profile {repeat + 1}/{REPEATS} complete', file=sys.stderr, flush=True)
         item['loader'] = loader_profile(folder, build)
-        from sysex_bench import profile as sysex_profile
         item['sysex'] = sysex_profile(folder, build)
     validate_capture(data)
     return data

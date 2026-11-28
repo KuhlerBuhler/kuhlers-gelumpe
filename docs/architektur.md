@@ -1,6 +1,6 @@
 # Architektur
 
-Wie der Editor Änderungen prüft und zum Gerät bringt. Die Karte der Felder steht
+Wie der Editor Änderungen prüft und zum Gerät bringt. Die Karte der Felder (die [Gerätekarte](glossary.md#geraetekarte)) steht
 in [geraetekarte.md](geraetekarte.md), der Linter in [linter.md](linter.md), die
 Grundlagen der Patches in [patcher.md](patcher.md).
 
@@ -12,8 +12,8 @@ und startet den Emulator-Dienst selbst.
 - Die Electribe hängt am Rechner. Auf macOS und Linux sendet und empfängt die Desktop-App
   MIDI nativ über den Rust-Teil von Tauri: CoreMIDI auf macOS und ALSA unter Linux.
   Die Oberfläche benutzt dafür eine interne Schnittstelle.
-  Beim Start mit `npm start` bleibt es bei Web MIDI mit SysEx in Chrome oder Edge. Safari
-  kann das nicht. Unter Windows bleibt die App vorerst auf dem bisherigen Web-MIDI-Weg.
+  Beim Start mit `npm start` bleibt es bei Web MIDI mit [SysEx](glossary.md#sysex) in Chrome oder Edge. Safari
+  kann das nicht. Unter Windows läuft die App über Web MIDI (`nativeMidi` ist dort aus, `src-tauri/src/desktop.rs`).
 - Die Firmware kommt von der eigenen Platte und verlässt den Rechner nie. Es
   liegt nirgends Korg-Firmware auf einem Server.
 - Der Kern in `src/` läuft ohne Node-Bibliotheken im Browser, mit Ausnahme von
@@ -56,11 +56,11 @@ lange halten.
 | Pattern senden | bis zum nächsten Pattern-Wechsel, dauerhaft erst mit Write am Gerät oder über die Backup-Datei | Patterns, Expertenmodus für Pattern-Felder |
 | Firmware schreiben | dauerhaft | alles, was in der Firmware liegt |
 
-Dazu kommt Laden und Speichern der Backup-Dateien `.e2sallpat` ganz ohne Gerät.
+Dazu kommt Laden und Speichern der Backup-Dateien `.e2sallpat` (siehe [Glossar](glossary.md#e2sallpat)) ganz ohne Gerät.
 Patterns und Globals gehen über Korgs eigene Nachrichten und brauchen weder
 Hacktribe noch eine Firmware-Datei. RAM- und Firmware-Funktionen gibt es nur, wenn
-das Gerät eigene Befehle dafür kennt: BLECHTRIBEs (`0x60` bis `0x63`, auch auf Korgs
-Original) oder Hacktribes (`0x52` bis `0x57`). Ohne beide kommt Schweigen, darum wird
+das Gerät eigene Befehle dafür kennt: BLECHTRIBEs (`0x60` bis `0x67` und `0x6F`, auch auf Korgs
+Original, `BLECH` in `src/protocol.mjs`) oder Hacktribes (`0x52` bis `0x57`). Ohne beide kommt Schweigen, darum wird
 bei der Gerätesuche zuerst BLECHTRIBEs INFO gefragt, dann Hacktribes Lesen, und die
 Funktionen werden sonst ausgeblendet. Mit BLECHTRIBE gehen auch Flash lesen (`0x64`) und Code
 ausführen (`0x6F`) über BLECHTRIBE; die Firmware mit BLECHTRIBE verwirft Hacktribes Befehle, außer nach
@@ -85,7 +85,7 @@ ist eine Auswahl der sieben gemessenen Wellenformen. Alles ist im Emulator an En
 nicht gehört. Die Regeln in `src/modtable-rules.mjs` warnen, wo ein Wert die gemessenen Bereiche
 verlässt ([Linter](linter.md)).
 
-**Samples (Seite Samples).** Die Seite liest die Namenstabelle aus dem RAM des Emulators oder des
+**Samples (Seite Samples, nicht in der Navigation, nur mit `?labs`, siehe [Entscheidungen](entscheidungen.md)).** Die Seite liest die Namenstabelle aus dem RAM des Emulators oder des
 verbundenen Geräts, öffnet ein Sample mit den gelesenen Werten und ändert Name und Tune. Mehr
 schreibt sie nicht: das Namensfeld (16 Byte) und das Tune-Byte je Sample sind die zwei Felder der
 Karte, die am Gerät geschrieben wurden ([Namen](messungen/2026-10-07-sample-name-ram.md),
@@ -100,12 +100,12 @@ Karte schreibt, ist nicht gemessen; die Seite sagt das und rät, mit einem Verlu
 
 ## Der Türsteher
 
-Jede Änderung läuft vor dem Senden durch zwei Stufen.
+Der [Türsteher](glossary.md#tuersteher) prüft jede Änderung, bevor sie ans Gerät geht. Jede Änderung läuft vor dem Senden durch zwei Stufen.
 
 **1. Linter.** Die Regeln aus [linter.md](linter.md), erweitert von FX auf alle
 Bereiche. Jede Regel stammt aus einem Fehler, der schon etwas gekostet hat.
 
-**2. Probelauf.** Die Simulation bekommt exakt den Byte-Strom, der gleich ans
+**2. Probelauf.** Die Simulation (der [Emulator](emulator.md)) bekommt exakt den Byte-Strom, der gleich ans
 Gerät ginge, und spielt ihn gegen eine Kopie durch. Das fängt, was der Linter
 nicht sehen kann: falscher Kanal, eine Schreibnachricht ohne Adresse davor, der
 Kodierfehler bei Längen mit Rest sechs.
@@ -247,11 +247,11 @@ Entscheidungen dabei:
   wiederholt. Am Gerät lesen nur die Teile, die zu einem Schreiben gehören: die
   Sicherung davor, das Zurücklesen danach, die Prüfung von Firmware-Code vor dem
   Ausführen.
-  Das gilt auch für `ram.snapshot`, `ram.diff` und `ram.search` (Idee 11): ein Skript, das nur liest, ist
+  Das gilt auch für `ram.snapshot`, `ram.diff` und `ram.search`: ein Skript, das nur liest, ist
   probierbar und nicht sendbar.
 - **Tastendrücke** (`KORG.press`, `KORG.turn`) gehen mit dem BLECHTRIBE-Satz über `KORG.exec` und damit auch ans
   Gerät ([Messung](messungen/2026-10-22-tasten-vom-rechner.md)); ohne ihn drückt `KORG.press` nur im Emulator.
-  Ab 1.3.8 gehen so auch Regler, Pads, Touchpad, gehaltene Tasten und der Test-Modus (`KORG.knob`, `KORG.pad`,
+  Mit BLECHTRIBE gehen so auch Regler, Pads, Touchpad, gehaltene Tasten und der Test-Modus (`KORG.knob`, `KORG.pad`,
   `KORG.touch`, `KORG.hold`, `KORG.testMode`, [Test-Modus](test-modus.md)).
 - **Zurückschreiben** nach Code nimmt die Bytes, die das Gerät vorher hatte, nicht
   die des Emulators.

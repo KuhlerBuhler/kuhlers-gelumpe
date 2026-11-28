@@ -22,6 +22,16 @@ const elsewhere = {
   "script-runtime-hooks.test.mjs": ["test_script_hooks", "test_script_vm_optimizations", "test_script_vm_validator"],
   "script-runtime-card.test.mjs": ["test_script_card"],
   "blech-sysex.test.mjs": ["test_blech_sysex_buffer"],
+  "sample-swap-io.test.mjs": ["test_sample_swap_io"],
+  "sample-swap.test.mjs": ["test_sample_swap"],
+  "sample-transaction-native.test.mjs": ["test_sample_store"],
+  "native-dsp-scope.test.mjs": ["test_native_dsp_scope", "test_native_dsp_acquire"],
+  "capture-fault.test.mjs": ["test_capture_fault"],
+  "sample-export-fault.test.mjs": ["test_sample_export_fault"],
+  "sample-owner.test.mjs": ["test_sample_owner"],
+  "sample-snapshot.test.mjs": ["test_sample_snapshot", "test_native_sample_persistence"],
+  "sample-versions.test.mjs": ["test_sample_versions"],
+  "sample-protection.test.mjs": ["test_sample_protection"],
 };
 const owned = new Set(Object.values(elsewhere).flat().map(name => `${name}.py`));
 const modules = readdirSync(dir).filter(f => /^test_.*\.py$/.test(f) && !owned.has(f)).sort();

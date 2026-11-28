@@ -22,10 +22,11 @@ explicit exception to rule 2 of docs/patcher.md: start-phase code a patch
 replaces on purpose, with its reason in the patch (`startPhase`). Every
 exception is listed in the result. --foreign is for a patch that is not ours (IPS, bsdiff,
 e.g. Hacktribe on Korg's): it changes start code by nature and says nothing about it, so the start phase is not
-checked at all; every other check, the boots included, stays. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
+checked at all; every other check, the boots included, stays. Every copy, also with --quick, has to pass the DSP interface cases (dsp_cases.py): the
+start reaches the DSP, a pad and the pattern open and close voices, every transfer to the DSP is well formed. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
 hook also has to pass its storage and kill switch cases (splash_cases.py); one with the MFX 2
 switch's key hook has to pass its switch, DSP and kill switch cases (mfx_cases.py); one with the BLECH menu has to pass the menu, settings and look
-cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), every copy with the BLECH menu the cases of the device from the computer, of the test mode, of the plugin timers, of the plugin edits, of the live write paths, of the touchpad and key calls and of the object tree (remote_cases.py, testmode_cases.py, timer_cases.py, plugin_edit_cases.py, live_write_cases.py, plugin_api15_cases.py, objects_cases.py, plugin_api18_cases.py, plugin_api19_cases.py, global_cases.py, pattern_parts_cases.py, plugin_api22_cases.py, plugin_api23_cases.py, plugin_api24_cases.py, plugin_api25_cases.py, plugin_catalog15_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the tube curve has to pass its page, live write, TUBE DRIVE, WRITE, start and no-patch cases (tube_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py); one with the BEAT 8 table entry has to pass its step, clock, menu, WRITE, Gate Arp, export, slice and REC cases (beat_eighth_cases.py); one with TOUCH SCALE RANGE 0 has to pass its menu, note, octave, key, Gate Arp and power-on cases (touch_scale_zero_cases.py); one whose value window lets keys through has to pass its MENU, WRITE, key, SHIFT + key, filter, knob, pad, dial, sample window and menu dial cases (value_popup_cases.py); one with the update guard has to refuse a cut short, an empty and a too long SYSTEM.VSB at each read and still update from a whole one (update_guard_cases.py); one with the Hacktribe oscillators has to pass its name, card, knob, voice, pattern, export, EXIT and FEATURES page cases (ht_osc_cases.py); every copy with the BLECH menu the cases of a card that stops answering, a locked card, an SDSC card, a card that damages data and a dead card at the start (card_error_cases.py).
+cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), every copy with the BLECH menu the cases of the device from the computer, of the test mode, of the plugin timers, of the plugin edits, of the live write paths, of the touchpad and key calls and of the object tree (remote_cases.py, testmode_cases.py, timer_cases.py, plugin_edit_cases.py, live_write_cases.py, plugin_api15_cases.py, objects_cases.py, plugin_api18_cases.py, plugin_api19_cases.py, global_cases.py, pattern_parts_cases.py, plugin_api22_cases.py, plugin_api23_cases.py, plugin_api24_cases.py, plugin_api25_cases.py, plugin_api26_cases.py, plugin_api27_cases.py, plugin_api28_cases.py, plugin_api29_cases.py, plugin_api30_cases.py, plugin_api31_cases.py, plugin_api31_spectrum_cases.py, plugin_api32_cases.py, plugin_api33_cases.py, plugin_api34_cases.py, plugin_catalog_api_cases.py, plugin_catalog15_cases.py, meter_led_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py); one with the BEAT 8 table entry has to pass its step, clock, menu, WRITE, Gate Arp, export, slice and REC cases (beat_eighth_cases.py); one with TOUCH SCALE RANGE 0 has to pass its menu, note, octave, key, Gate Arp and power-on cases (touch_scale_zero_cases.py); one whose value window lets keys through has to pass its MENU, WRITE, key, SHIFT + key, filter, knob, pad, dial, sample window and menu dial cases (value_popup_cases.py); one with CATEGORY in SAMPLE EDIT has to pass its page, dial, export, sliced sample, factory slot, guard and EXIT-at-power-on cases (sample_category_cases.py); one with the tube curve has to pass its page, live write, TUBE DRIVE, WRITE, start and no-patch cases (tube_cases.py); one with the import destination range has to pass its wrap, factory slot import and restart cases (import_slots_cases.py); one with the update guard has to refuse a cut short, an empty and a too long SYSTEM.VSB at each read and still update from a whole one (update_guard_cases.py); one with the Hacktribe oscillators has to pass its name, card, knob, voice, pattern, export, EXIT and FEATURES page cases (ht_osc_cases.py); every copy with the BLECH menu the cases of a card that stops answering, a locked card, an SDSC card, a card that damages data and a dead card at the start (card_error_cases.py). one with the user samples of the synth has to pass its load, PCM, loop, pitch, pad, skip, kill switch and no-file cases (user_samples_cases.py); every copy with the BLECH menu the page, no-row and hot-text cases of DEV MODE (dev_mode_cases.py) and the text table, Korg's pointer words and, with lang-de, the German pages, umlauts and Korg screens (lang_cases.py); one with the sample swap has to pass its start, switch, chain, budget, cache and cache owner cases (swap_cases.py), and where a Blackfin worker is built (in CI always) the PCM transport, voice address and sample reads of the executed DSP code (blackfin_swap_cases.py).
 """
 
 import argparse
@@ -48,8 +49,12 @@ from pswitch_cases import GROUPS as PSWITCH_GROUPS, has_hooks as has_pswitch
 from power_off_cases import cases_tasks as power_off_tasks, has_hook as has_power_off_hook
 from preset_cases import has_patch as has_presets
 from sample_error_cases import GROUPS as SAMPLEERR_GROUPS, has_hooks as has_sampleerr
+from sample_category_cases import GROUPS as SAMPLECAT_GROUPS, has_hooks as has_samplecat
 from splash_cases import BOOT_CASES, has_start_hook
 from synth_filter_cases import GROUPS as SYNTH_GROUPS, has_hooks as has_synth
+from user_samples_cases import GROUPS as USERSAMPLES_GROUPS, has_hooks as has_usersamples
+from dev_mode_cases import GROUPS as DEVMODE_GROUPS, has_page as has_devmode
+from lang_cases import GROUPS as LANG_GROUPS, has_page as has_lang
 from sysex_cases import GROUPS as SYSEX_GROUPS, has_hooks as has_sysex
 from tap_motion_cases import GROUPS as TAPMOTION_GROUPS, has_hooks as has_tapmotion
 from note_assist_cases import GROUPS as NOTEASSIST_GROUPS, has_hooks as has_noteassist
@@ -59,17 +64,24 @@ from shortcut_cases import GROUPS as SHORTCUT_GROUPS, has_hooks as has_shortcuts
 from migrate_cases import GROUPS as MIGRATE_GROUPS, has_hooks as has_migrate
 from fx_card_cases import GROUPS as FXCARD_GROUPS, has_hooks as has_fxcard
 from remote_cases import GROUPS as REMOTE_GROUPS, has_hooks as has_remote
+from swap_cases import GROUPS as SWAP_GROUPS, has_hooks as has_swap
+from blackfin_swap_cases import has_native_swap
 from last_pattern_cases import GROUPS as LASTPATTERN_GROUPS, has_hooks as has_lastpattern
 from card_error_cases import GROUPS as CARDERROR_GROUPS, has_hooks as has_carderror
 from init_pattern_cases import GROUPS as INITPATTERN_GROUPS, has_hooks as has_initpattern
 from stereo_pad_cases import GROUPS as STEREOPAD_GROUPS, has_hooks as has_stereopad
+from import_slots_cases import GROUPS as IMPORTSLOTS_GROUPS, has_hooks as has_importslots
 from tube_cases import GROUPS as TUBE_GROUPS, has_hooks as has_tube
 from ht_osc_cases import GROUPS as HTOSC_GROUPS, has_hooks as has_htosc
 from beat_eighth_cases import GROUPS as BEATEIGHTH_GROUPS, has_hooks as has_beateighth
 from touch_scale_zero_cases import GROUPS as TOUCHZERO_GROUPS, has_hooks as has_touchzero
 from value_popup_cases import GROUPS as VALUEPOPUP_GROUPS, has_hooks as has_valuepopup
+from stage2_memory_check import dsp_stream as stage2_dsp_stream
 from update_guard_cases import GROUPS as UPDATEGUARD_GROUPS, has_hooks as has_updateguard
 from doom_loader_cases import GROUPS as DOOM_GROUPS, has_hooks as has_doom
+import check_shards
+import lifetime
+import shard_weights
 
 HEADER = 0x100
 PAYLOAD = 0x200000
@@ -93,14 +105,13 @@ def known_dsp_changes(base, patched):
 
 
 def same_dsp_program(base, patched):
-    """The complete DSP upload measured for this firmware build is unchanged, apart from a whole DSP_PATCHES patch."""
+    """(ok, detail): the DSP upload measured for this firmware build is unchanged but for the stage 2 memory patch and a whole
+    DSP_PATCHES patch."""
     span = SYNTH_DSP_STREAM if is_synth(base[HEADER:]) else DSP_STREAM
-    if base[span] == patched[span]:
-        return True
     undone = bytearray(patched)
     for at, n in known_dsp_changes(base, patched):
         undone[at:at + n] = base[at:at + n]
-    return base[span] == undone[span]
+    return stage2_dsp_stream(base, bytes(undone), span)
 
 
 def changed_runs(base, patched):
@@ -182,7 +193,8 @@ def start_phase_checks(runs, ranges, allow, allow_code, foreign=False):
 def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False, boot_flash=None, cases=None,
            shard=None, reports=None, metrics=None, foreign=False):
     """base and patched are whole VSB files. Returns {ok, checks, changed}. `quick` runs only what keeps the device safe:
-    the start scenarios (normal start, update offer, panel update, start modes, EXIT, DSP once, start phase), not the
+    the start scenarios (normal start, update offer, panel update, start modes, EXIT, DSP once, start phase) and the DSP
+    interface (dsp_cases.py), not the
     cases of the patches, which test the patches' own code, the same in every file. `cases` limits the cases to these
     modules (CASE_MODULES); an empty list is `quick`."""
     if cases is not None and not cases:
@@ -195,7 +207,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     add("header", base[:HEADER] == patched[:HEADER], "der Kopf der VSB ist unverändert")
     # The emulator stubs the DSP upload, so a changed DSP stream never shows up in a boot;
     # a broken block can hang the device before the rescue paths.
-    add("dsp_stream", same_dsp_program(base, patched), "der DSP-Strom des Firmware-Builds ist unverändert, bis auf einen geprüften DSP-Patch")
+    add("dsp_stream", *same_dsp_program(base, patched))
     runs = changed_runs(base[HEADER:], patched[HEADER:])
     payload = patched[HEADER:]
     want = lambda has: not quick and (cases is None or has.__module__ in cases) and has(payload)
@@ -230,10 +242,16 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("loadbar_cases", "cases_task", (i,)) for i in range(len(LOADBAR_GROUPS))]
     if want(has_sampleerr):
         tasks += [("sample_error_cases", "cases_task", (i,)) for i in range(len(SAMPLEERR_GROUPS))]
+    if want(has_samplecat):
+        tasks += [("sample_category_cases", "cases_task", (i,)) for i in range(len(SAMPLECAT_GROUPS))]
     if want(has_synth):
         tasks += [("synth_filter_cases", "cases_task", (i,)) for i in range(len(SYNTH_GROUPS))]
     if want(has_sysex):
         tasks += [("sysex_cases", "cases_task", (i,)) for i in range(len(SYSEX_GROUPS))]
+    if want(has_swap):
+        tasks += [("swap_cases", "cases_task", (i,)) for i in range(len(SWAP_GROUPS))]
+    if want(has_native_swap):
+        tasks.append(("blackfin_swap_cases", "cases_task", ()))
     if want(has_lastpattern):
         tasks += [("last_pattern_cases", "cases_task", (i,)) for i in range(len(LASTPATTERN_GROUPS))]
     if want(has_carderror):
@@ -252,21 +270,28 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("touch_scale_zero_cases", "cases_task", (i,)) for i in range(len(TOUCHZERO_GROUPS))]
     if want(has_valuepopup):
         tasks += [("value_popup_cases", "cases_task", (i,)) for i in range(len(VALUEPOPUP_GROUPS))]
+    if want(has_importslots):
+        tasks += [("import_slots_cases", "cases_task", (i,)) for i in range(len(IMPORTSLOTS_GROUPS))]
     if want(has_updateguard):
         tasks += [("update_guard_cases", "cases_task", (i,)) for i in range(len(UPDATEGUARD_GROUPS))]
     if want(has_doom):
         tasks += [("doom_loader_cases", "cases_task", (i,)) for i in range(len(DOOM_GROUPS))]
+    if want(has_usersamples):
+        tasks += [("user_samples_cases", "cases_task", (i,)) for i in range(len(USERSAMPLES_GROUPS))]
+    if want(has_devmode):
+        tasks += [("dev_mode_cases", "cases_task", (i,)) for i in range(len(DEVMODE_GROUPS))]
+    if want(has_lang):
+        tasks += [("lang_cases", "cases_task", (i,)) for i in range(len(LANG_GROUPS))]
     power_off, combine_power_off = power_off_tasks(payload) if want(has_power_off_hook) else ([], None)
     tasks += power_off
     if want(has_presets):
         tasks.append(("preset_cases", "cases_task", ()))
+    tasks.append(("dsp_cases", "cases_task", ()))
     boot = flash if boot_flash is None else boot_flash
     names = scenario_names(boot)
     tasks += [("bootmap", "scenario_task", (name,)) for name in names]
     data = {"payload": payload, "flash": flash, "boot_flash": boot, "base": base[HEADER:]}
     if shard is not None or reports is not None:
-        import check_shards
-        import shard_weights
         weights = shard_weights.weights_for(tasks)
         config = {"allow": sorted(map(tuple, allow)), "allow_code": sorted(map(tuple, allow_code)), "quick": quick, "cases": cases,
                   **({"foreign": True} if foreign else {}),
@@ -315,8 +340,11 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     remote = [c for _ in range(len(REMOTE_GROUPS) if want(has_remote) else 0) for c in done.pop(0)]
     loadbar = [c for _ in range(len(LOADBAR_GROUPS) if want(has_loadbar) else 0) for c in done.pop(0)]
     sampleerr = [c for _ in range(len(SAMPLEERR_GROUPS) if want(has_sampleerr) else 0) for c in done.pop(0)]
+    samplecat = [c for _ in range(len(SAMPLECAT_GROUPS) if want(has_samplecat) else 0) for c in done.pop(0)]
     synth = [c for _ in range(len(SYNTH_GROUPS) if want(has_synth) else 0) for c in done.pop(0)]
     sysex = [c for _ in range(len(SYSEX_GROUPS) if want(has_sysex) else 0) for c in done.pop(0)]
+    swap = [c for _ in range(len(SWAP_GROUPS) if want(has_swap) else 0) for c in done.pop(0)]
+    swap += done.pop(0) if want(has_native_swap) else []
     lastpattern = [c for _ in range(len(LASTPATTERN_GROUPS) if want(has_lastpattern) else 0) for c in done.pop(0)]
     carderror = [c for _ in range(len(CARDERROR_GROUPS) if want(has_carderror) else 0) for c in done.pop(0)]
     initpattern = [c for _ in range(len(INITPATTERN_GROUPS) if want(has_initpattern) else 0) for c in done.pop(0)]
@@ -326,10 +354,15 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     beateighth = [c for _ in range(len(BEATEIGHTH_GROUPS) if want(has_beateighth) else 0) for c in done.pop(0)]
     touchzero = [c for _ in range(len(TOUCHZERO_GROUPS) if want(has_touchzero) else 0) for c in done.pop(0)]
     valuepopup = [c for _ in range(len(VALUEPOPUP_GROUPS) if want(has_valuepopup) else 0) for c in done.pop(0)]
+    importslots = [c for _ in range(len(IMPORTSLOTS_GROUPS) if want(has_importslots) else 0) for c in done.pop(0)]
     updateguard = [c for _ in range(len(UPDATEGUARD_GROUPS) if want(has_updateguard) else 0) for c in done.pop(0)]
     doom = [c for _ in range(len(DOOM_GROUPS) if want(has_doom) else 0) for c in done.pop(0)]
+    usersamples = [c for _ in range(len(USERSAMPLES_GROUPS) if want(has_usersamples) else 0) for c in done.pop(0)]
+    devmode = [c for _ in range(len(DEVMODE_GROUPS) if want(has_devmode) else 0) for c in done.pop(0)]
+    lang = [c for _ in range(len(LANG_GROUPS) if want(has_lang) else 0) for c in done.pop(0)]
     power_off_done = [done.pop(0) for _ in power_off]
     presets = done.pop(0) if want(has_presets) else []
+    dsp = done.pop(0)
     ranges, report = combine(dict(zip(names, done)))
 
     def state(name):
@@ -373,8 +406,10 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(remote)
     checks.extend(loadbar)
     checks.extend(sampleerr)
+    checks.extend(samplecat)
     checks.extend(synth)
     checks.extend(sysex)
+    checks.extend(swap)
     checks.extend(lastpattern)
     checks.extend(carderror)
     checks.extend(initpattern)
@@ -384,11 +419,16 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(beateighth)
     checks.extend(touchzero)
     checks.extend(valuepopup)
+    checks.extend(importslots)
     checks.extend(updateguard)
     checks.extend(doom)
+    checks.extend(usersamples)
+    checks.extend(devmode)
+    checks.extend(lang)
     if power_off:
         checks.extend(combine_power_off(power_off_done))
     checks.extend(presets)
+    checks.extend(dsp)
     if cases and not quick:
         add("partial", True, "Teilprüfung: Start und Rettungswege, Tests nur aus " + ", ".join(sorted(cases)))
     if quick:
@@ -400,8 +440,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
 # The modules whose cases _check runs, one has_* test each; its __module__ is the name --cases takes.
 CASE_MODULES = ("mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases", "note_assist_cases",
                 "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
-                "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-                "init_pattern_cases", "stereo_pad_cases", "tube_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "value_popup_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases")
+                "loadbar_cases", "sample_error_cases", "sample_category_cases", "synth_filter_cases", "sysex_cases", "swap_cases", "blackfin_swap_cases", "last_pattern_cases",
+                "init_pattern_cases", "stereo_pad_cases", "tube_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "value_popup_cases", "import_slots_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases", "dev_mode_cases", "lang_cases")
 
 
 def case_list(text):
@@ -418,7 +458,6 @@ def span(text):
 
 
 def shard_number(text):
-    import check_shards
     try:
         index, count = map(int, text.split("/"))
         check_shards.indices(0, index, count)
@@ -428,7 +467,6 @@ def shard_number(text):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -449,13 +487,18 @@ def main():
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--shard", type=shard_number, metavar="I/N", help="run one deterministic partition, without a complete verdict")
     mode.add_argument("--join", nargs="+", type=Path, metavar="RESULT", help="validate and combine every partition with these firmware inputs")
+    p.add_argument("--report", type=Path, help="also write the result with the VSB's sha256 here (tools/device/hot_patch.py --checked)")
     a = p.parse_args()
+    bootcache.prune()
     flash = load_flash(a.flash) if a.flash else bytes(hardware_flash(a.hardware)) if a.hardware else None
     result = check(a.base.read_bytes(), a.patched.read_bytes(), flash, a.allow, a.allow_code,
                    progress=progress_lib.to_stderr, quick=a.quick, boot_flash=load_flash(a.boot_flash) if a.boot_flash else None,
                    cases=a.cases, shard=a.shard, reports=[json.loads(path.read_text()) for path in a.join] if a.join else None,
                    metrics=lambda event: print(json.dumps({"metrics": event}), file=sys.stderr, flush=True), foreign=a.foreign)
     print(json.dumps(result, indent=1, ensure_ascii=False))
+    if a.report:
+        a.report.write_text(json.dumps({"vsb_sha256": hashlib.sha256(a.patched.read_bytes()).hexdigest(), "ok": bool(result.get("ok")),
+                                        "quick": bool(a.quick), "partial": bool(a.cases or a.shard), "result": result}, indent=1, ensure_ascii=False))
     return 0 if (result["passed"] if a.shard else result["ok"]) else 1
 
 

@@ -16,6 +16,8 @@ from firmware import identify
 from machine import load_flash
 from sdcard import MemoryMedium, SDCard
 from splash_cases import Dev
+import lifetime
+import menu_cases
 
 CARD_FILE = "/KORG/blechtribe/Plugin/e2sPlugin.all"
 
@@ -100,7 +102,6 @@ def store_files(image):
 
 def leave_menu(dev):
     """EXIT until the firmware shows its main screen (a group goes up one level first)."""
-    import menu_cases
     for _ in range(6):
         if dev.screen()["number"] == 1:
             return
@@ -108,12 +109,10 @@ def leave_menu(dev):
 
 
 def texts(dev):
-    import menu_cases
     return menu_cases.texts_of(dev)
 
 
 def with_card(payload, flash, files, held=0):
-    import menu_cases
     menu_cases.for_build(payload)
     dev = Dev(payload[0x100:], flash, held)
     dev.m.insert_card(SDCard(MemoryMedium(card_image(files))))
@@ -184,7 +183,6 @@ def footprint(dev):
 
 
 def firmware_cases(vsb, flash, request):
-    import menu_cases
     menu_cases.for_build(vsb)
     stock = baseline(vsb)
     built = script_hooks.build(request["include"], build=identify(vsb[0x100:]).build)
@@ -340,7 +338,6 @@ def pad_hold_cases(programs, built, patched, flash, check):
     part (0xC06B2428); padHold(0) and closing the app give the pads back. The app holds them from `open`, pad 15 lets go, pad 14
     holds again. Pad 14's press went through before the hold, so its release has to as well: otherwise the firmware keeps the pad
     down and no later pad selects a part (pad 8 after EXIT)."""
-    import menu_cases
     dev = with_card(patched, flash, {CARD_FILE: archive([bytes.fromhex(programs["padhold"]["blob"])])})
     dev.run(2)
     entry = plugin_entry(dev, built.layout["runtime"])
@@ -441,7 +438,6 @@ def with_flags(block, flags):
 
 def menu_script_cases(programs, built, patched, flash, check):
     """The BLECH menu's script pages: list, on and off, faults, and no input for scripts while the menu is open."""
-    import menu_cases
     runtime = built.layout["runtime"]
     blocks = [bytes.fromhex(programs[name]["blob"]) for name in ["healthy", "fault"]]
     dev = with_card(patched, flash, {CARD_FILE: archive(blocks)})
@@ -470,7 +466,7 @@ def menu_script_cases(programs, built, patched, flash, check):
     for _ in range(menu_cases.LIST_COUNT):
         titles.append(menu_cases.text(dev, menu_cases.S_TITLE))
         menu_cases.press(dev, "edit_next")
-    check("menu-liste-ohne-about", titles == menu_cases.LIST_PAGES + [menu_cases.version_texts(patched)[0]] and "ABOUT" not in titles and menu_cases.text(dev, menu_cases.S_TITLE) == "FEATURES", titles)
+    check("menu-liste-ohne-about", titles == menu_cases.LIST_PAGES + ([] if menu_cases.LIST_DEV is None else ["DEV MODE"]) + [menu_cases.version_texts(patched)[0]] and "ABOUT" not in titles and menu_cases.text(dev, menu_cases.S_TITLE) == "FEATURES", titles)
     check("menu-blechy-keine-plugin-seite", dev.u32(menu_cases.STATE + 40) == 2 and plugin_entry(dev, runtime, 2) == 0, dict(count=dev.u32(menu_cases.STATE + 40)))
     menu_cases.goto_plugin(dev, 0)
 
@@ -672,7 +668,6 @@ def full_list_case(programs, built, patched, flash, check, restart):
     allowed checksums, the marker of one plugin that is off three times; 16 entries, full up to 1.3.7. Since 1.3.8 the list
     holds 64: 48 more checksums of older builds fill it. Switching one more plugin off and WRITE still has to keep it off over
     a restart."""
-    import menu_cases
     runtime = built.layout["runtime"]
     blocks = [renamed(bytes.fromhex(programs["healthy"]["blob"]), "plugin%02d" % i) for i in range(13)]
     checksum = lambda block: struct.unpack_from("<I", block, 12)[0]
@@ -701,7 +696,6 @@ def full_list_case(programs, built, patched, flash, check, restart):
 def settings_v3_cases(programs, built, patched, flash, check, restart):
     """Settings file version 3 (1.3.8): version 2 with up to 64 checksums. A version 2 file with 16 entries is read and written
     again as version 3, 40 plugins switched off stay off over WRITE and a restart, and a version 1 file is still read."""
-    import menu_cases
     runtime = built.layout["runtime"]
     trust = built.symbols["MENU_TRUST"]
     listed = lambda dev: [dev.u32(trust + 4 * i) for i in range(dev.u32(menu_cases.STATE + 44))]
@@ -765,7 +759,6 @@ def request_errors(programs):
 
 def menu_add_cases(programs, built, patched, flash, check):
     """korg.menu.add: the pages a script adds show in the menu, turning one sends the script its menu event."""
-    import menu_cases
     runtime = built.layout["runtime"]
     dev = with_card(patched, flash, {CARD_FILE: archive([bytes.fromhex(programs["menuadd"]["blob"])])})
     dev.run(2)
@@ -819,7 +812,6 @@ def import_cases(programs, built, patched, flash, check):
     loaded, a plugin of both once): one page a plugin, its name and its state (OFF for one not loaded), the dial moves through the
     list; ENTER opens its pages, ACTIVE first, where the dial up loads and starts it, then DESCRIPTION, which shows the
     description from the file (the dial scrolls it)."""
-    import menu_cases
     runtime = built.layout["runtime"]
     sym = built.symbols
     folder = "/KORG/blechtribe/Plugin/"
@@ -1023,7 +1015,6 @@ def manage_cases(programs, built, patched, flash, check):
     and REMOVE left the file, so the plugin came back as OFF). The list holds 64 files, as many as the settings' checksum list, and
     says so on a last page LIST FULL when the folder has more; REMOVE deletes the .blech of the plugin with f_unlink of the firmware,
     which the blue Electribe 2's image does not have (there the file stays and the menu says so)."""
-    import menu_cases
     runtime = built.layout["runtime"]
     sym = built.symbols
     folder = "/KORG/blechtribe/Plugin/"
@@ -1131,7 +1122,6 @@ def manage_cases(programs, built, patched, flash, check):
 
 def foreign_cases(programs, built, patched, flash, check):
     """A block the editor did not probe waits for the user's yes, once."""
-    import menu_cases
     runtime = built.layout["runtime"]
     healthy_block = bytes.fromhex(programs["healthy"]["blob"])
     foreign_block = with_flags(bytes.fromhex(programs["input"]["blob"]), 0)
@@ -1190,7 +1180,6 @@ def volume_read(image, path):
 
 def open_app(dev, group, page=0):
     """The way a user opens an app: its page in the BLECH menu, then ENTER (the MENU key). The firmware is on its main screen afterwards."""
-    import menu_cases
     menu_cases.goto_group(dev, group, page)
     menu_cases.press(dev, "menu", wait=0.4)
 
@@ -1204,7 +1193,6 @@ def tap(dev, key=3, hold=0.12):
 
 def app_cases(programs, built, patched, flash, check, reference, displays):
     """Apps: loading changes nothing on the display, an app opens from the BLECH menu and only then draws, EXIT always leaves."""
-    import menu_cases
     import unicorn
     runtime = built.layout["runtime"]
     block = lambda name: bytes.fromhex(programs[name]["blob"])
@@ -1541,7 +1529,6 @@ def card_cases(request, programs, built, patched, stock, flash, check):
     again = Dev(patched[0x100:], flash, 0)
     again.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
     again.run(2)
-    import menu_cases
     open_app(again, menu_cases.GROUP_TOOLS)
     check("speicher-neustart-zaehler", shows(again, "klickerThree") and not again.m.asserts)
     broken = bytearray(image)
@@ -1570,7 +1557,6 @@ def card_cases(request, programs, built, patched, stock, flash, check):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", required=True, type=Path)

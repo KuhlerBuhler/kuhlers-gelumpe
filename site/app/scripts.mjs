@@ -24,10 +24,10 @@ import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
 import { KNOB_NAMES } from "../../data/script/properties.mjs";
 import { hintAt } from "../../src/script/names.mjs";
 import { Workspace, sourceKey, validName } from "../../src/script/workspace.mjs";
-import { SimDevice, probe as runProbe, FRAME_MS } from "../../src/script/sim.mjs";
+import { SimDevice, probe as runProbe, thumbnail, FRAME_MS } from "../../src/script/sim.mjs";
 import { exportGate } from "../../src/script/gate.mjs";
 import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
-import { storePlugin } from "../../src/usb-update.mjs";
+import { chooseTarget, sendPlugin, targetLabel, findCards } from "./target.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
 import { drawFeature } from "./features.mjs";
@@ -86,20 +86,52 @@ const confirmed = async options => (window.ui?.confirm ? window.ui.confirm(optio
 export function scriptsPanel(root, { storage = null, sub = null, session = () => null, onRun = () => {}, trail: setTrail = () => {}, navbar = () => {} } = {}) {
   // The title in the breadcrumb leads to the catalog, the start of the page.
   const trail = parts => setTrail(parts, () => page("catalog"));
-  /** A packed .blech onto the connected device's card; MANAGE PLUGINS in the BLECH menu then lists it. */
+  /** A packed .blech onto the card, over USB with a device connected, else straight onto the card in the computer; MANAGE PLUGINS then lists it. */
   async function toDevice(bytes, id, button) {
-    const s = session();
-    if (!s) { toast(t("console.forwardFirst"), "error"); return; }
     button.disabled = true;
     try {
-      const name = await storePlugin(s, id, bytes);
-      toast(t("plugins.onCard", { name }), "ok");
+      const target = await chooseTarget({ session: linked() });
+      if (target.kind === "none") { toast(t(target.why, { list: target.cards?.join(", ") ?? "", name: target.name ?? "" }), "error"); return; }
+      const name = await sendPlugin(target, id, bytes);
+      toast(t(target.kind === "card" ? "plugins.onSdCard" : "plugins.onCard", { name, card: target.card?.name ?? "" }), "ok");
     } catch (e) {
-      toast(e.message, "error");
+      toast(e?.message ?? String(e), "error");
     } finally {
       button.disabled = false;
     }
   }
+
+  /** The buttons that send a plugin, each with whether it shows its words. They say Aufs Gerät or Auf die Karte and hide with neither. */
+  const sendButtons = new Map();
+  // an unplugged device keeps its session until the next connect, marked disconnected
+  const linked = () => { const s = session(); return s && !s.sender?.disconnected ? s : null; };
+  let cards = [];
+  const sendKey = () => targetLabel(linked(), cards);
+  const sendLabel = () => t(sendKey() ?? "plugins.toDevice");
+  function relabel() {
+    const shown = !!sendKey();
+    const label = sendLabel();
+    for (const [b, text] of sendButtons) {
+      if (!b.isConnected && b !== usbButton) { sendButtons.delete(b); continue; }
+      b.hidden = !shown || (b === usbButton && exportButton.hidden);
+      b.title = label;
+      if (text) b.lastChild.textContent = label;
+      else b.setAttribute("aria-label", label);
+    }
+  }
+  // A card put in or taken out shows by itself: about every 2 s while the page is up and no device is connected.
+  let scanning = false;
+  async function scanCards() {
+    if (scanning || linked() || !root.getClientRects().length) return;
+    scanning = true;
+    let found;
+    try { found = await findCards(); } catch { found = []; } finally { scanning = false; }
+    if (found.map(c => c.root).join("\n") === cards.map(c => c.root).join("\n")) return;
+    cards = found;
+    relabel();
+  }
+  setInterval(scanCards, 2000);
+  scanCards();
 
   const workspace = new Workspace(storage);
   const saved = new Map();
@@ -137,7 +169,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const recordButton = button("cee-script-record", t("plugins.record"), () => toggleRecording(), "sm");
   const clearInputs = button("cee-script-clear-inputs", t("plugins.clearInputs"), () => dropInputs(), "sm");
   const exportButton = button("cee-script-export", t("plugins.download"), () => exportOne(), "");
-  const usbButton = button("cee-script-usb", t("plugins.toDevice"), () => exportOne(usbButton), "");
+  const usbButton = button("cee-script-usb", sendLabel(), () => exportOne(usbButton), "");
+  sendButtons.set(usbButton, true);
   const exportAll = button("cee-script-export-all", t("plugins.saveAll"), () => exportCollection(), "sm");
   exportAll.title = t("plugins.saveAll.title", { file: ARCHIVE.file });
   const open = el("input", { type: "file", className: "cee-visually-hidden", id: "cee-script-open", accept: ".blech" });
@@ -179,7 +212,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     built = result;
     marks.error = null;
     problems.replaceChildren();
-    editor.setErrors(result.ok ? [] : result.errors);
+    editor.setErrors(result.ok ? [] : result.errors, result.ok ? result.warnings : []);
     if (!result.ok) {
       marks.error = result.errors[0]?.line ?? null;
       status.textContent = t("plugins.compileFailed");
@@ -194,6 +227,9 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       status.textContent = t("plugins.size", { size, vars: h.varCount, varMax: BUDGET.variableSlots, code: h.codeSize, codeMax: LIMITS.code, strings: h.stringCount, stringMax: LIMITS.strings, consts: h.constCount, constMax: LIMITS.consts });
       status.title = t("plugins.size.title", { size: status.textContent, max: ARCHIVE.maxBlock });
       if (size > ARCHIVE.maxBlock) problems.append(el("li", { className: "cee-script-problem-text", textContent: t("plugins.tooBig", { size, max: ARCHIVE.maxBlock }) }));
+      for (const w of result.warnings) {
+        problems.append(el("li", {}, el("button", { type: "button", className: "cee-script-problem", textContent: formatError(w), onclick: () => editor.jump(w) })));
+      }
     }
     drawGutter();
     updateActions();
@@ -251,7 +287,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     recordButton.textContent = recording ? t("plugins.recordStop") : t("plugins.record");
     clearInputs.hidden = !isOwn || !mine?.inputs?.length;
     exportButton.hidden = !isOwn;
-    usbButton.hidden = !isOwn;
+    usbButton.hidden = !isOwn || !sendKey();
     exportAll.disabled = workspace.list().length === 0;
     const n = mine?.inputs?.length ?? 0;
     inputsInfo.textContent = isOwn ? (n ? t("plugins.inputs", { count: n, frame: mine.inputs.at(-1).frame }) : t("plugins.noInputs")) : "";
@@ -409,11 +445,11 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     if (device.apps.length && !loaded.error) device.openApp(device.apps[0].id);
     live.timer = setInterval(() => {
       showFaults(device.run(1));
-      panel().show(device.shown, device.leds);
+      panel().show(device.lcd, device.leds);
       panel().menus(device.menus, (id, value) => device.menuSet(id, value));
       panel().apps(device.apps, appActions);
     }, FRAME_MS);
-    panel().show(device.shown, device.leds);
+    panel().show(device.lcd, device.leds);
     panel().menus([], () => null);
     panel().apps(device.apps, appActions);
     panel().say(t("plugins.run", { label, hz: Math.round(1000 / FRAME_MS), app: device.apps.length ? ` ${t("plugins.run.app")}` : "" }));
@@ -860,18 +896,14 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const THUMB_FRAMES = 40;
   const noStore = { load: () => null, save: () => {} };
 
-  /** The display of a plugin after a few frames, drawn with the LCD drawing of the emulator page; a catalog plugin that
+  /** The display of a plugin after a few frames as the panel shows it (DISPLAY INVERT, SimDevice.lcd), drawn with the LCD drawing of the emulator page; a catalog plugin that
    * leaves the display alone shows its picture (site/img/plugins, tools/plugin-art.mjs), an own one its pads. */
   function renderThumb(canvas, preset) {
     const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
     drawDisplay(canvas, new Uint8Array(1024));
     if (!result.ok) return;
-    const device = new SimDevice({ storage: noStore });
-    const loaded = device.load(result.blob);
-    if (loaded.ok && device.apps.length) device.openApp(device.apps[0].id);
-    device.run(THUMB_FRAMES);
-    const bytes = device.shown;
-    if (bytes.some(b => b)) { drawDisplay(canvas, bytes); return; }
+    const { device, drawn, picture } = thumbnail(result.blob, THUMB_FRAMES, noStore);
+    if (drawn) { drawDisplay(canvas, picture); return; }
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = getComputedStyle(canvas).getPropertyValue("--cee-lcd-on");
     for (const pad of PADS) {
@@ -907,10 +939,12 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       const bytes = pack();
       if (bytes) saveFile(bytes, `${preset.id}.blech`, { note: t("plugins.copyTo", { folder: ARCHIVE.folder }) });
     });
-    const usb = make("usb", t("plugins.toDevice"), () => {
+    const usb = make("usb", sendLabel(), () => {
       const bytes = pack();
       if (bytes) toDevice(bytes, preset.id, usb);
     }, true);
+    sendButtons.set(usb, text);
+    usb.hidden = !sendKey();
     return { get, usb };
   }
 
@@ -962,6 +996,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     },
     stop,
     page,
+    /** A device came or went: the send buttons say Aufs Gerät or Auf die Karte. */
+    sessionChanged() { relabel(); scanCards(); },
     get running() { return !!live; },
   };
 }

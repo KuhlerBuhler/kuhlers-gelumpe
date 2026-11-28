@@ -2,7 +2,7 @@
 
 Stand 2026-10-15. Für die Firmware mit dem BLECH-Satz, nachdem [blech-datei.md](blech-datei.md) durchgespielt ist.
 Alles hier ist im Emulator gemessen ([Patternwechsel](../messungen/2026-10-15-patternwechsel.md),
-[Ladebalken](../messungen/2026-10-15-ladebalken.md), [Startbild auf der Karte](../messungen/2026-10-15-startbild-karte.md)),
+[Ladebalken](../messungen/2026-10-15-ladebalken.md), [Startbild-Editor](../hintergrund/startbild-editor.md)),
 **am Gerät ist nichts davon bestätigt**. Du veränderst nichts an der Firmware, nur die Karte bekommt zwei Dateien
 (der Startbild-Editor in den Flash-Sektor `0x7F0000`), und das nur, wenn du im Editor WRITE drückst.
 
@@ -50,7 +50,7 @@ Ein Pattern spielen lassen (PLAY), am besten eins mit vier Takten.
 
 ## 4. TAP Motion
 
-Im Emulator gemessen ([Messung](../messungen/2026-10-15-tap-motion-patch.md)), am Gerät nichts davon bestätigt. Ein Pattern mit einem Part, Part 1 gewählt.
+Im Emulator gemessen ([Messung](../messungen/2026-10-15-tap-motion-patch.md)); am Gerät lief TAP mit MFX 2 und TOUCH SCALE (dort beschrieben), die Schritte hier sind am Gerät offen. Ein Pattern mit einem Part, Part 1 gewählt.
 Der Patch ersetzt das Tap-Tempo der TAP-Taste; SHIFT + TAP (Seite BPM) bleibt.
 
 1. REC, PLAY, einen Regler (zum Beispiel FILTER oder LEVEL) im Takt hin und her drehen, STOP. Danach PLAY. **Erwartet:** die Bewegung spielt wie immer
@@ -69,7 +69,7 @@ Der Patch ersetzt das Tap-Tempo der TAP-Taste; SHIFT + TAP (Seite BPM) bleibt.
 
 ## 5. Notenassistent
 
-Im Emulator gemessen ([Messung](../messungen/2026-10-15-note-assistant.md)), am Gerät nichts davon bestätigt. Ein Pattern mit Tonart und Tonleiter, die du kennst (zum Beispiel C, Dorian),
+Im Emulator gemessen ([Messung](../messungen/2026-10-15-note-assistant.md)). Am Gerät bestätigt ist, dass die Hinweise rosa erscheinen, und dass eine Pad-LED nur an und aus kennt: jeder Wert ab 1 leuchtet voll, "schwächer" gibt es am Gerät nicht. Ein Pattern mit Tonart und Tonleiter, die du kennst (zum Beispiel C, Dorian),
 Part 1 gewählt. Der Patch rührt nichts an, was du spielst; er schaltet nur LEDs der Pads.
 
 1. KEYBOARD drücken, ein Pad antippen. **Erwartet:** sofort leuchten mehrere Pads rosa, nach etwa 1,5 s gehen sie wieder aus, die anderen bleiben dunkel. Das Pad des gewählten Parts ist solange wie jedes andere (rosa, wenn seine Note passt, sonst dunkel) und leuchtet danach wieder blau.

@@ -1,125 +1,101 @@
 # Ideen und offene Forschung
 
-Stand 2026-11-10. Gesammelt aus der Arbeit an Flash und RAM (Oktober 2026) und aus den Entwürfen des Projekts. Eine Idee hier ist noch keine Entscheidung und keine Freigabe; was davon gebaut wird, steht danach in den Fachseiten ([Übersicht](README.md), [Entscheidungen](entscheidungen.md)).
+Hier steht, was noch nicht gebaut oder noch nicht entschieden ist. Eine Idee hier ist keine Freigabe; was gebaut wird,
+steht danach in den Fachseiten ([Übersicht](README.md), [Entscheidungen](entscheidungen.md)). Ideen mit mehr als einem
+Satz Beschreibung haben eine eigene Seite in `docs/ideen/`. Aufbau, Start und Bedienung des Emulators stehen in
+[Emulator](emulator.md).
 
-Ideen mit mehr als einem Satz Beschreibung haben eine eigene Seite in `docs/ideen/`. Was als Nächstes gemessen werden sollte, steht in [Offene Messungen](ideen/offene-messungen.md). Aufbau, Start und Bedienung des Emulators stehen in [Emulator](emulator.md).
+Was als Nächstes kommt, steht im [Fahrplan](fahrplan.md); die Liste unten ist breiter und nicht nach Version geordnet.
 
 ## Leitplanke
 
-Ein Absturz oder Datenverlust ist akzeptabel. Schäden an Software, Hardware oder SD-Karte sind es nicht. Daraus folgt: Experimente gehen zuerst über RAM oder gegen ein vollständiges, wiederherstellbares SD-Backup; Firmware und Flash bleiben gesperrt, bis ein Rückweg belegt ist.
+Ein Absturz oder Datenverlust ist akzeptabel. Schäden an Software, Hardware oder SD-Karte sind es nicht. Daraus folgt:
+Experimente gehen zuerst über RAM oder gegen ein vollständiges, wiederherstellbares SD-Backup; Firmware und Flash bleiben
+gesperrt, bis ein Rückweg belegt ist.
 
-## Ideen
+## Samples und Speicher
 
-| Idee | Stand | Link |
-|---|---|---|
-| 1. **Samples ohne SD-Karte per USB importieren.** Den Importablauf der Firmware mit Daten aus einem RAM-Puffer ausführen. | offline im Emulator nachvollzogen, am Gerät offen | [Import](messungen/2026-10-08-usb-sample-import-offline.md) |
-| 2. **Importbefehle aufzeichnen und wiederverwenden.** Prüfen, ob sich der Import mitschneiden und später über Kabel nachbilden lässt. | offen | |
-| 3. **Werks-Samples durch eigene ersetzen.** Die dauerhaft gespeicherte Samplebank über Kabel überschreiben; offen, ob die Bank auch die Slots ab 501 abdecken kann. Auf der roten geht es laut Gerätenutzer heute schon, wenn man in der `.e2sallsample`-Datei mit einem Editor ein anderes Sample auf den Platz legt (nicht nachgeprüft). Am Gerät wäre der Weg ein Patch, der im Import-Menü SELECT DESTINATION auch die Plätze unter 501 erlaubt. | Werksbank ab Flash `0x800000` dekodiert, kein sicherer Schreibweg über Kabel; Weg über das Import-Menü offen | [Flash](messungen/2026-10-07-werks-sample-flash.md) |
-| 4. **SD-Karte über USB lesen, ohne sie aus dem Gerät zu nehmen.** Wichtig. | Dateifunktionen der Firmware im Emulator aufgerufen, Host-Zugriff am Gerät ungeprüft | [Karte am Gerät](geraetetests/karte.md) |
-| 5. **Sample-Export als Übertragungsweg.** Prüfen, ob exportiertes Audio über einen Arbeitspuffer per Kabel abgeholt werden kann. | Exportpfad offline untersucht, am Gerät offen | [DSP-Pfade](messungen/2026-10-08-dsp-audiopfade.md) |
-| 6. **Sample-Metadaten im RAM ändern:** Name, Tune und weitere Eigenschaften. | Name und Tune stehen in der Gerätekarte und sind auf der Seite Samples editierbar (live ins RAM, durch den Türsteher, bei einem Gerät zuerst durch den Emulator, Stand 2026-10-15). Die übrigen Felder, die die Messung belegt, sind in der Karte nur lesbar. Offen: ob eine Änderung einen Neustart überlebt oder mit EXPORT ALL SAMPLE auf die Karte geht, die Skala von Tune, was ein Schreiben der anderen Felder bewirkt, und die Größe der Tabellen (Platz 999 ist ausgelassen). Im Emulator geprüft (`test/emulator-sample-meta.test.mjs`): Lesen, Schreiben, Zurücknehmen an einem unbenutzten Platz; dort steht `SampleNNN` mit 48000 Hz und PCM-Länge 0 | [Namen](messungen/2026-10-07-sample-name-ram.md), [Metadaten](messungen/2026-10-07-sample-metadaten-ram.md), [Gerätekarte](geraetekarte.md), [Architektur](architektur.md) |
-| 7. **Die ganze Firmware erfassen,** alle Befehle und Funktionen statt einzelner Ausschnitte. | Speicherkarte bis zum Interrupt-Stack zusammenhängend, Code nicht vollständig zugeordnet | [Speicherbereiche](speicherbereiche.md) |
-| 8. **Objekt-API im Editor,** etwa `electribe.ram.MFX_Presets[0].parameter.level = 64`, aus der der passende Gerätezugriff entsteht (`flash` bezeichnet nie einen Live-RAM-Zugriff). | Vorschlag, Schreibzugriff nicht gebaut | [Idee 36](ideen/36-terminal.md) |
-| 9. **Zugriffe vor dem Senden prüfen:** vorhersagen, ob ein Befehl einen Gerätefehler auslösen kann. | gebaut: Prüfer, Bereichsprüfung und Probelauf im Emulator | `src/gate.mjs` |
-| 10. **Gefährliche Speicherbereiche sperren:** Firmware, Systemdaten und andere geschützte Bereiche. | gebaut: Schreiben nur in erklärte Bereiche (`allowedRegions()`) und nie in die Sperrliste (`data/protected.mjs`), die Türsteher und Sender prüfen, das Terminal gleich mit | [Sperrliste](speicherbereiche.md#die-sperrliste-als-maschinenregel) |
-| 11. **Bekannte Bereiche aus der Suche ausblenden:** Effekte, Presets, Einstellungen und Zugeordnetes ausschließen, um den Rest gezielt zu untersuchen. | gebaut im Terminal: `KORG.ram.snapshot`, `diff`, `search` und `where` lesen nur, in Blöcken, und blenden aus, was Gerätekarte, Sperrliste und Speicherkarte erklären. Geprüft gegen die Simulation, am Gerät nicht erprobt | [Idee 36](ideen/36-terminal.md#ram-erforschen-idee-11), [Speicherbereiche](speicherbereiche.md#bekanntes-in-der-ram-suche-ausblenden) |
-| 12. Leere Sample- und Patternbank laden, um Unbekanntes leichter zu erkennen. | verworfen, Ausblenden (11) geht ohne das Gerät zu leeren | |
-| 13. **Alle Forschungsergebnisse im Editor-Repo sammeln.** | erledigt, wird fortgeführt | [Messungen](messungen/README.md) |
-| 14. **Mit vollständigem SD-Backup auf der Karte experimentieren:** wiederherstellbare SD-Daten ändern, Firmwarezugriffe bleiben gesperrt. | Backup vorhanden, siehe Leitplanke | |
-| 15. **Das Gerät im Emulator starten,** ohne Sound. | gebaut, der DSP bleibt eine Attrappe | [Idee 15](ideen/15-emulator-geraet.md), [Boot](messungen/2026-10-08-emulator-boot.md), [Bedienung](messungen/2026-10-08-panel-bedienung.md) |
-| 16. **Firmware ändern und gefahrlos prüfen:** eigene Funktionen, Effektbausteine, LED-Mods, Optimierungen, in drei Stufen. | teilweise: LED-Steuerung und MFX 2 am Gerät, eigene Menüseiten im Emulator | [Idee 16](ideen/16-firmware-aendern.md), [LED-Execute](messungen/2026-10-08-led-execute.md) |
-| 17. **Eigener Patcher statt Hacktribe.** Änderungen und eigener Code als Patch auf eine VSB-Kopie, geprüft im Emulator, exportiert als neue Firmware. | gebaut | [Idee 17](ideen/17-patcher.md), [Patcher](patcher.md) |
-| 18. **Patcher lokal statt GitHub Actions.** Der entschlüsselte Stand verlässt nie den Rechner. | gebaut, Teil von 17 | [Idee 18](ideen/18-patcher-lokal.md) |
-| 19. **Debrick-Hilfe im Tool:** durch Korgs Update-Modus-Rettung führen (der „00“-Fehler); der Bootloader bleibt tabu, danach nur JTAG. | gebaut: Seite Rettung im Editor, nur was gemessen ist, Rest als offen markiert; die Rettung am Gerät bleibt ungeübt | [Rettung](rettung.md), [Firmware-Rückweg](messungen/2026-10-08-firmware-rueckweg.md) |
-| 20. **Startscreen-Bitmap ersetzen:** eigenes 128×64-1-Bit-Bild an VSB-Offset `0xF9954` (1024 Byte). | gebaut als Datenpatch, am Gerät gesehen | [Rückweg geübt](messungen/2026-10-10-rueckweg-geuebt.md), [Boot](messungen/2026-10-08-emulator-boot.md) |
-| 21. **Snake und Tetris als Mod auf dem Gerät:** liest das Panel, schreibt den Display-Doppelpuffer `0xC031B310`; über MIDI zu langsam. | Snake als Plugin im Emulator gebaut, am Gerät offen; Tetris offen | [Snake](messungen/2026-10-14-skript-snake.md), [Idee 50](ideen/50-plugins.md) |
-| 22. **Bekannte Firmware-Bugs fixen,** die Korg nicht fixt: finden, patchen, im Emulator und am Gerät prüfen. | offen, konkrete Bugs sammeln | |
-| 23. **Eigene Firmware auf Freetribe-Basis.** Freetribe (AGPL) liefert Treiber und Kernel, eigenes Menü und eigene Architektur kommen obendrauf; Hacktribe ist Patches auf Stock, keine Basis. | Vorschlag; Freetribe früh und unvollständig, großer Aufwand | |
-| 24. **Eigene simple Sound-Engine im Emulator** statt echter Blackfin-Emulation: Samples abspielen, Effekte nach eigener Interpretation nachbauen, nicht exakt wie das Gerät. | Vorschlag, eigenständiges Audioprojekt im Host | |
-| 25. **Mehr Sample-Speicher** über Streaming von der SD-Karte. | Idee, Limit erst messen | [Idee 25](ideen/25-mehr-sample-speicher.md) |
-| 26. **DSP (Blackfin) erfassen.** | Befund, Werkzeug steht, eigene Baustelle | [Idee 26](ideen/26-dsp-erfassen.md), [DSP, erster Blick](hintergrund/dsp-erster-blick.md) |
-| 27. **UI-Themes:** eigene Schrift, UI-Strings und Bitmaps als Datenpatch; Invertieren braucht wohl Code, die Firmware schickt dem LCD kein Invert-Kommando. | offen | [LCD](messungen/2026-10-12-lcd-helligkeit.md) |
-| 28. **Pseudo-Reverb als Insert-Preset** aus `I_short_delay`. | Vorschlag im Editor gebaut, am Gerät ungehört | [Idee 28](ideen/28-pseudo-reverb.md) |
-| 29. **Würfeln am Gerät:** eine Melodie für den gewählten Part würfeln, als Funktion in der Firmware: SHIFT + PART ERASE. Nur Melodien, kein Drum-Modus. Die Editor-Variante (Pattern-Dump `0x40` aus dem Browser) bleibt gebaut, ist aber versteckt. | Entscheidung 2026-10-15: gehört in die Firmware, nicht in den Editor. Als Firmware-Patch im Emulator gebaut und geprüft (Hacktribe und Korgs Original), am Gerät nichts bestätigt; keine Menüseite, keine Rückmeldung im Display | [Idee 29](ideen/29-wuerfeln.md), [Messung](messungen/2026-10-16-wuerfeln.md), [Geräteprotokoll](messungen/2026-10-08-geraeteprotokoll.md) |
-| 30. **Synthetische Samples am Rechner:** Kicks, Basslines und mehr im Host rendern und als Sample importieren (Importweg aus Idee 1); die Klangerzeugung auf dem Gerät bliebe DSP. | offen, baut auf Idee 1 | |
-| 31. **Gain-Staging-Helfer:** Pegel skalieren, vor unspielbaren Werten warnen. | Linter-Regeln und Pegel-Ansicht gebaut, am Gerät ungehört | [Idee 31](ideen/31-gain-staging.md) |
-| 32. **Web-UI: bedienbare Electribe wie das echte Gerät angeordnet,** in Design-System-Tokens, mit eigenen Beschriftungen, ohne Korg-Logo, Marke oder Foto. | gebaut | `site/app/panel.mjs` |
-| 33. **128 Steps statt 64.** | direkt sehr tief, als Patch praktisch ausgeschlossen; gelöst über SYNC GROUP: zwei Patterns einer Gruppe spielen wie eines, mit dem ganzen Stand (nur rot) | [Idee 33](ideen/33-128-steps.md) |
-| 34. **TAP-Taste als frei belegbarer Shortcut.** | Idee; TAP hat mit dem Patch TAP Motion (Idee 39) eine feste Belegung, im Emulator geprüft; frei belegbar nicht, gehört zu 22 | [Idee 34](ideen/34-tap-shortcut.md), [Messung](messungen/2026-10-15-tap-motion.md) |
-| 35. **Startbild am Gerät zeichnen:** neuer Menüpunkt Global Settings, Splash Screen. | im Emulator gebaut (speichert auf der Karte), am Gerät offen | [Idee 35](ideen/35-startbild-am-geraet.md), [Startbild-Editor](messungen/2026-10-10-startbild-editor.md), [Startbild auf der Karte](messungen/2026-10-15-startbild-karte.md) |
-| 36. **Terminal-Reiter mit einer Electribe-Bibliothek.** | gebaut, am Gerät nicht erprobt | [Idee 36](ideen/36-terminal.md) |
-| 37. **Farbiges Display-Licht.** | am Gerät gemessen, Plugin-Funktion gebaut | [Idee 37](ideen/37-display-licht.md), [Startphase](messungen/2026-10-10-startphase.md) |
-| 38. **Samples übers Kabel rein und raus, ohne Karte umzustecken.** | teilweise gebaut: Samples hinzufügen und entfernen über USB auf der Seite `Gerät -> Samples` (rot), im Emulator gemessen; einzelne Samples als WAV zurückholen und die übrigen Dateien der Karte lesen ist offen | [Idee 38](ideen/38-samples-ueber-kabel.md), [Sample-Datei](hintergrund/sample-datei.md) |
-| 39. **Automationen auf TAP:** Reglerbewegungen aufnehmen und abspielen. | Als Firmware-Patch TAP Motion gebaut (TAP schaltet die aufgenommene Bewegung des Parts, MASTER FX + TAP die der Gesten), im Emulator geprüft, am Gerät nichts bestätigt | [Idee 39](ideen/39-automationen-tap.md), [Messung](messungen/2026-10-15-tap-motion.md) |
-| 40. **Haustier „Blechy“** auf dem Display. | in BLECHTRIBE eingebaut (letzte Seite des Menü-Rings), im Emulator gebaut, am Gerät offen | [Idee 40](ideen/40-blechy.md), [Messung](messungen/2026-10-15-blechy.md) |
-| 41. **Startbild ausbauen:** Blech-Startbild, Animation, Ladebalken. | Bild gebaut und am Gerät gesehen, Ladebalken, Augen und Gesichter am Rand im Emulator gebaut, am Gerät offen | [Idee 41](ideen/41-startbild-ausbauen.md), [Ladebalken](messungen/2026-10-15-ladebalken.md) |
-| 42. **Rot bei digitalem Clipping.** Das Display-Licht wird rot, wenn das Ausgangssignal digital clippt, als Menüoption; so bekommt rotes Licht eine Bedeutung. | Idee, Pegelquelle unbekannt (der Eingangspegel liegt bei `0xFF9030EC`) | [Boot](messungen/2026-10-08-emulator-boot.md) |
-| 43. **Emulator immer an, Firmware von der virtuellen Karte** am offiziellen Pfad statt in einem eigenen Dateifeld; Gerät an und aus ist vom Emulator getrennt. | offen, die VSB kommt noch über ein eigenes Dateifeld | [Emulator](emulator.md) |
-| 44. **MFX 2 auf TOUCH SCALE:** ein zweiter Master-Effekttyp pro Pattern. | läuft am Gerät, Startmodus im Emulator | [Idee 44](ideen/44-mfx-2.md), [am Gerät](messungen/2026-10-13-mfx-umschalter-geraet.md) |
-| 45. **Blechy beim Ein- und Ausschalten:** Ton und eigenes Power-Off-Bild. | Bild gebaut und im Emulator geprüft, Ton offen | [Idee 45](ideen/45-blechy-ein-aus.md), [Messung](messungen/2026-10-15-blechy-power-off.md) |
-| 46. **Patternwechsel erst nach Bestätigung.** | im Emulator gebaut, am Gerät offen | [Idee 46](ideen/46-patternwechsel-bestaetigung.md), [Messung](messungen/2026-10-15-patternwechsel.md), [Patternwechsel](hintergrund/patternwechsel.md) |
-| 47. **Übergänge automatisieren:** Übergangs-Patterns aus zwei Patterns bauen. | verworfen, der Generator ist mit Seite, Befehlszeile und Doku wieder entfernt | |
-| 48. **Lücke beim Patternwechsel:** Stille von etwa 100 ms. | Ursache hergeleitet, am Gerät offen | [Idee 48](ideen/48-luecke-patternwechsel.md) |
-| 49. **Eigene Filtertypen,** auch ein persönlicher. Ein neuer Typ aus vorhandenen DSP-Kernen ist ARM-seitig möglich, ein neuer Kern braucht die DSP-Forschung (Idee 26). | Idee | [DSP, erster Blick](hintergrund/dsp-erster-blick.md) |
-| 50. **Plugins für eigene Features** (Hauptfokus). | gebaut im Emulator, am Gerät nichts getestet | [Idee 50](ideen/50-plugins.md), [Plugins](plugins.md) |
-| 51. **OSC Drawer:** einen eigenen Oszillator auf dem Touchpad malen und als User-Sample speichern. | Idee | [Idee 51](ideen/51-osc-drawer.md) |
-| 52. **Ton im Emulator** über den echten DSP-Code im Blackfin-Simulator. | Idee, zurückgestellt | [Idee 52](ideen/52-ton-im-emulator.md) |
-| 53. **Zweiter Master-Effekt, getrennt vom Touchpad.** | offen, DSP-Fähigkeit unbekannt | [Idee 53](ideen/53-zweiter-master-effekt.md), [MFX und DSP](messungen/2026-10-09-mfx-dsp.md) |
-| 54. **Notenassistent im KEYBOARD-Modus:** nach einer gespielten Note leuchten die Pads der Noten, die dazu passen, rosa; der Rest bleibt dunkel. | als Firmware-Patch gebaut, am Gerät gesehen (16.10.), Pad-LEDs kennen nur an und aus; Menüseite NOTE ASSIST gebaut | [Idee 54](ideen/54-notenassistent.md), [Messung](messungen/2026-10-15-note-assistant.md) |
-| 55. **Synth-Filter auf Korgs Original:** LPF, HPF und BPF laufen durch MS20, MG, P5, OB und Acid wie bei Hacktribe (Teil von 49, soweit es die Oberfläche betrifft; neue Kerne bleiben dort). | im Emulator gebaut, der Setter und die Tastenauswahl, Muster mit Synth-Typ laden und schreiben wie bei Hacktribe; am Gerät offen | [Messung](messungen/2026-10-15-synth-filter.md), [Korrektur zu den Filtertypen](hintergrund/dsp-erster-blick.md) |
-| 56. **Schneller laden, weniger Strom:** Samples beim Start, Export und Import, Energiesparmodus. | recherchiert, im Emulator gemessen; Strom und Ladezeit am Gerät offen | [Idee 56](ideen/56-laden-und-strom.md) |
-| 57. **Vor dem Patternwechsel fragen,** wenn das Pattern ungespeichert ist und nicht spielt. | gebaut im Patternwechsel-Patch, im Emulator geprüft, am Gerät offen | [Idee 57](ideen/57-ungespeichert-warnen.md), [Messung](messungen/2026-10-18-ungespeichert-blaettern.md) |
-| 58. **Blechy spricht:** eine synthetische Stimme statt fester Töne, erzeugt mit dem, was der DSP kann (Formanten, Pulse, Rauschen). Zuerst recherchieren, wie Sprachsynthese mit wenig Rechenleistung überhaupt geht (etwa Formantsynthese wie bei alten Sprachchips), danach prüfen, ob die Electribe das kann. Löst den Ton aus Idee 45 ab. | Idee (19.10.), nicht recherchiert | [Idee 45](ideen/45-blechy-ein-aus.md), [DSP, erster Blick](hintergrund/dsp-erster-blick.md) |
-| 59. **Sample-Editor am Gerät:** ein Sample ins RAM holen, schneiden, normalisieren, umdrehen, ein- und ausblenden und zurückschreiben. Platz dafür ist da: rund 47 MiB RAM nutzt die Firmware beim Spielen nicht. | Idee (24.10.) | [Idee 59](ideen/59-sample-editor.md), [RAM frei](messungen/2026-10-22-ram-frei.md) |
-| 60. **Time-Stretch am Gerät:** das Tempo eines Samples ändern, ohne dass sich die Tonhöhe ändert (etwa ein 128-BPM-Loop auf 145 BPM). Zwei Stufen: offline als Schritt im Sample-Editor (Idee 59), der das Sample neu rechnet und auf die Karte schreibt, und live wie die Stretch-Parts der Electribe SX, wo der Loop beim Spielen dem Tempo folgt. Live braucht Rechenzeit im DSP, die Samples spielt der DSP aus seinem eigenen Speicher. Am Rechner geht das heute mit rubberband (am 24.10. so für die Slots 745 bis 760 gemacht). | Idee (24.10.), live hängt an der DSP-Forschung (Idee 26) | [Idee 59](ideen/59-sample-editor.md), [Voller Samplespeicher](messungen/2026-10-14-sample-speicher-voll.md) |
-| 61. **Makros für die ganze Bedienung:** Handgriffe aufnehmen, dem Tempo folgend wiederholen und die erreichten Änderungen beibehalten. SHIFT + MFX HOLD öffnet die Auswahl, MENU startet, STOP beendet eine Aufnahme, EXIT bricht die Wiedergabe ab. | verworfen (10.11.), TAP MOTION deckt das schon ab | [Idee 61](ideen/61-makros.md) |
-| 62. **Blechy schreibt Plugins:** ein Chat mit Blechy im Editor der Seite Plugins. Man beschreibt ein Plugin, ein lokales Sprachmodell (Gemma 4 E2B, mit genug Leistung E4B, über llama.cpp) schreibt den Code, bekommt dazu die passenden Teile der Doku und die Fehler des Übersetzers. Das Modell lädt einmal und bleibt auf dem Rechner. | geplant, keiner Version zugeordnet, nicht gebaut | [Idee 62](ideen/62-blechy-assistent.md) |
-| 64. **Projekte:** passende Pattern- und Sample-Sätze aus mehreren Projektordnern auf der Karte laden. | verworfen (10.11.2026): Samples kommen einzeln in den Sample-Ordner, dazu Sample Swap | [Idee 64](ideen/64-projekte.md) |
-| 65. **BLECHTRIBE mit Hacktribe für die blaue Electribe:** die BLECHTRIBE-Hacktribe-Datei mit dem Kopf für den Synth (von Korgs Blauer aus) oder dem Kopf des Samplers (von Hacktribe oder BLECHTRIBE aus), dazu der Weg zurück zu Korgs Blauer. | Gebaut (26.10.), im Emulator geprüft: Start auf dem Flash der blauen, alle Update-Wege, Kartenordner blechtribe auch auf der blauen; am Gerät offen | [Idee 65](ideen/65-blech-hacktribe-blau.md) |
-| 66. **Tasten bei offener App durchlassen:** eine App legt fest, welche Tasten trotzdem die Firmware erreichen (etwa `korg.passKeys(...)`), ohne `korg.passKeys` kommen bei offener App nur REC, STOP, PLAY und EXIT durch. Wunsch aus dem Discord (25.10.). | gebaut als `korg.passKeys` (API 14), kommt mit 1.4.5, im Emulator geprüft, Gerät offen | [Plugins: Apps und das Display](plugins.md) |
-| 67. **USB-Symbol auf dem Display:** solange die Electribe per USB an einem Rechner hängt, zeigt der Hauptbildschirm ein kleines Symbol, wie das Symbol in der App. Die Firmware merkt sich die USB-Konfiguration in einem Byte, ob es nach dem Abziehen zurückfällt, ist am Gerät zu prüfen. | Idee (26.10.), untersucht (27.10.) | [Idee 67](ideen/67-usb-symbol.md) |
-| 68. **Blechy läuft auf dem Gerät:** dieselbe Laufanimation wie auf der Discord-Seite der App (Posen idle und walk im Wechsel, gespiegelt, wenn er in die andere Richtung läuft), auf dem Display der Electribe. Geplant für 1.3.6. | Gebaut, im Browsermodell und im Emulator (rot, Hacktribe) geprüft (Bilder aus denselben Sprites, 240 ms Wechsel, gespiegelt nach links), Gerät offen | [Idee 40](ideen/40-blechy.md), `site/app/discord.mjs` |
-| 69. **Gerätename "Electribe 3":** der Rechner zeigt die Electribe als "Electribe 3", als abschaltbarer Datenpatch. | erschienen in 1.3.6 als Haken im Patcher (aus, bis man ihn setzt); blau mit kürzeren Portnamen | [Idee 69](ideen/69-geraetename.md) |
-| 70. **Plugin Reglertausch:** IFX EDIT wird Resonance, SHIFT + IFX EDIT wird EG Int, Resonance wird IFX Edit. | verworfen, der IFX hat nur einen Wert. Im Oktober 2026 von mehreren Nutzern erneut gewünscht (SHIFT + IFX EDIT steuert einen zweiten Effektparameter); die Annahme "nur ein Wert" ist neu zu prüfen, denn der IFX hat laut Entwickler ein X und ein Y, Korg nutzt nur X | [Idee 70](ideen/70-reglertausch.md) |
-| 71. **Eigene Ladeanimation von der Karte,** ein Bild je Ladefortschritt statt eines einfachen GIFs. | erschienen in 1.4.0 als Ladeanimation im Bereich Design (100 Bilder, Editor, GIF-Import) | [Idee 71](ideen/71-ladeanimation-karte.md) |
-| 72. **Plugin Gate Arp:** die Note bleibt fest, X wählt den Gate-Arp-Rhythmus aus dem Menü. | gebaut als Plugin Gate Hold (API 15), kommt mit 1.4.5, Simulator und Emulator geprüft, Gerät offen | [Idee 72](ideen/72-gate-arp-note-halten.md) |
-| 73. **Schrift-Editor in der App:** eigene Schrift pixeln, beim Patchen eingebaut. | untersucht, entschieden: nur beim Patchen, nicht von der Karte | [Idee 73](ideen/73-schrift-editor.md) |
-| 74. **Plugin-API für 1.4 (Feedback):** Parameter lesen und schreiben, Ereignisse verschlucken, mehr Speicher oder Dateien, Doku zu Reglern und Drehgebern. | Parameter schreiben und Eingaben halten oder durchlassen gebaut als Plugin-API 12 bis 21, kommt mit 1.4.5; mehr Speicher und Dateien hier nicht nachgeprüft | [Idee 74](ideen/74-plugin-api-feedback.md) |
-| 75. **Wellenform beim Schneiden (rot):** beim Einstellen von Start und Ende zeigt das Display die Wellenform und den Ausschnitt, auf dem Hauptbildschirm und in SAMPLE EDIT. | untersucht, machbar über eine Übersicht je Sample beim Laden | [Idee 75](ideen/75-wellenform.md) |
-| 76. **Letztes Pattern beim Einschalten:** das Gerät merkt sich das angesehene Pattern und öffnet es beim Start statt 001. | erschienen in 1.3.7 (rot und blau), Schalter LAST PATTERN in 1.4.0 | [Idee 76](ideen/76-letztes-pattern.md) |
-| 77. **Neustart nach dem Update:** nach einem Firmware-Update startet das Gerät von selbst neu, und ein Neustart ist auch sonst möglich, ohne auszuschalten. | aufgeschrieben | [Idee 77](ideen/77-neustart.md) |
-| 78. **Plugin: MIDI-CC je Regler umlegen:** `korg.setMidiCC("Cutoff", 37, range)`, je Part, damit ein Regler den CC eines externen Geräts schickt (Roland Cutoff CC 60); Presets etwa für den Circuit Tracks. | aufgeschrieben, nichts gemessen | [Idee 78](ideen/78-midi-cc-umlegen.md) |
-| 79. **Gate Arp: Start auf dem Raster:** bei 2 oder 4 Steps startet der Kick im Moment der Berührung, gewünscht ist der Start auf dem Raster. | Meldung, nichts gemessen | [Idee 79](ideen/79-gate-arp-takt-start.md) |
-| 80. **Klang verzögert auf einer blauen Electribe:** Verzögerung auch am Kopfhörer, mit Korg, Hacktribe und BLECHTRIBE gleich, die rote hat sie nicht. | Meldung, Ursache unbekannt | [Idee 80](ideen/80-latenz-blaue-electribe.md) |
-| 81. **Filter schnell an und aus:** SHIFT + Filtertaste schaltet das Filter und holt den zuletzt benutzten Typ je Taste zurück (zu Idee 55). | fest eingebaut als FILTER TOGGLE (BLECH > FEATURES, Fenster "FILTER TYPE" der Firmware, ersetzt das Plugin Filter Toggle), kommt mit 1.4.5, Emulator geprüft (Hacktribe, rot, blau), Gerät offen | [Idee 81](ideen/81-filter-schnellschalter.md) |
-| 82. **Vorschau: Part ins laufende Pattern holen:** der erste Druck auf ein Pad in der Vorschau kopiert den Part mit Copy Part ins laufende Pattern, er spielt sofort, ohne Wechsel. Die Pads der Parts, die im angesehenen Pattern an sind, blinken bis zum Druck. | Vorschau erschienen in 1.4.0, Hereinholen und Blinken kommen mit 1.4.5, im Emulator geprüft (Hacktribe, rot, blau), Gerät offen | [Idee 82](ideen/82-vorschau-part-reinholen.md) |
-| 83. **Plugin: Werte eines Parts setzen, Steps lesen:** `korg.parts[i].pitch = x` und die übrigen Werte aus `PART_FIELDS`, heute nur lesbar; dazu Note, Gate und Velocity eines Steps lesen. | Pattern- und Part-Werte schreibbar mit Plugin-API 12 bis 21, `sample`, `ifxOn`, `ifxType` und `ampEg` mit API 23, weitere Werte und Regler, Tasten und Menüseiten über denselben Weg mit API 24, Tasten, Pads, Drehgeber und Touchpad wie ein Finger mit API 25; Steps lesen mit API 22 (`korg.seq.getOn`, `getGate`, `getNote`, `getVelocity`); kommt mit 1.4.5, im Emulator geprüft (Hacktribe, rot, blau), Gerät offen | [Idee 83](ideen/83-part-werte-setzen.md) |
-| 84. **TOUCH SCALE RANGE 0:** mit Umfang 0 spielt X auf dem Touchpad überall den Grundton des Patterns, in der Oktave der Tastatur; Y bleibt, auch mit Gate Arp. | erschienen in 1.4.0 (rot und blau) | [Idee 84](ideen/84-touch-scale-umfang-null.md) |
-| 85. **KEYBOARD + Pad wählt den KEY:** KEYBOARD gehalten, ein Pad setzt den KEY des Patterns auf seinen Ton (Lage wie im KEYBOARD-Modus), wie Transpose auf dem EA-1 mkII. | fest eingebaut als KEY PADS (BLECH > FEATURES, Wertefenster zeigt den KEY, ersetzt das Plugin Key Pads), kommt mit 1.4.5, Emulator geprüft, Gerät offen | [Idee 85](ideen/85-keyboard-tonart.md) |
-| 86. **Patcher: neue Startseite, SD-Karte wählen:** ein klarer Weg statt nur dem USB-Knopf, Hacktribe in der ersten Auswahl, am Ende die SD-Karte wählen und die Datei landet im richtigen Ordner. | Patcher-Assistent erschienen in 1.4.0, neu geordnet mit 1.4.5 (Farbe, laufende Firmware, Ziel); mit 1.4.5 speichert die App die Datei auf die gefundene SD-Karte in den Ordner der laufenden Firmware oder über den Speicherdialog, im Browsertest geprüft, Gerät offen | [Idee 86](ideen/86-patcher-startseite.md) |
-| 87. **Parameter-Locks im Step-Editor, bis hin zu einem vollen Motion Edit.** | von mehreren gewünscht, ein kompletter Motion Edit wäre der große Weg; Wunsch aus der Community (Oktober 2026), offen |  |
-| 88. **Ratchet: ein Step löst 2 oder 4 Mal aus,** etwa die Snare auf einem Schritt. | Wunsch aus der Community (Oktober 2026), offen, ein Pull Request ist willkommen |  |
-| 89. **Mehrere Insert-Effekte auf einem Pad schichten.** | Wunsch aus der Community (Oktober 2026), offen; der Eingriff in die Soundengine wäre groß, Monate Arbeit |  |
-| 90. **Samples vor dem Ausschalten exportieren oder automatisch sichern:** das Gerät fragt beim Ausschalten, ob alle Samples exportiert werden sollen. Idee 57 deckt nur Patterns; Idee 64 (Projektformat) ist verworfen. | Wunsch aus der Community (Oktober 2026), offen | [Idee 57](ideen/57-ungespeichert-warnen.md), [Idee 64](ideen/64-projekte.md) |
-| 91. **Part-Mute nur solange gedrückt,** nach dem Vorbild des ESX: Katalog-Plugin Momentary Mute, Mutes ändern sich nur bei gehaltenem PART MUTE, sonst spielen die Pads wie TRIGGER. | gebaut (Plugin, Simulator, Emulator), kommt mit 1.4.5, Gerät offen | [Idee 91](ideen/91-moment-mute.md) |
-| 92. **Sample-Wechsel in einem Part per LFO.** | Wunsch aus der Community (Oktober 2026), offen; eingeplant nach 1.4.5 |  |
-| 93. **Bild-Betrachter für mehrere BMPs von der Karte,** als Plugin machbar. Der GIF Player existiert schon. | gebaut als Katalog-Plugin Image Viewer, kommt mit 1.4.5, im Simulator geprüft, am Gerät offen | [Idee 93](ideen/93-bild-betrachter.md) |
-| 94. **OSCs der EMX auf die E2 laden.** | Wunsch aus der Community (Oktober 2026), offen, noch nicht untersucht |  |
-| 95. **Einfacher Effekt-Baukasten** nach dem Touchpad-Modell, der auch ohne Vorwissen funktioniert. | Wunsch aus der Community (Oktober 2026), offen; bleibt vorerst, wie er ist |  |
-| 96. **Einheitliches, scrollbares Kontextmenü für Plugins** mit MENU und ENTER. | Wunsch aus der Community (Oktober 2026), offen; in Idee 74 nicht enthalten | [Idee 74](ideen/74-plugin-api-feedback.md) |
-| 97. **Echter TB-303-Filter** als eigener Filtertyp. | Wunsch aus der Community (Oktober 2026), offen; der allgemeine Fall steht in Idee 49 | [DSP, erster Blick](hintergrund/dsp-erster-blick.md) |
-| 98. **Video-Tutorial zur Installation.** Kein Feature, sondern ein Hinweis für den Wizard und die Startseite. | Wunsch aus der Community (Oktober 2026), offen |  |
-| 99. **STEREO 1 PAD:** ein Stereo-Sample auf Pad 1 belegt nur Pad 1, Pad 2 bleibt frei. Schalter unter BLECH, FEATURES. | erschienen in 1.4.0 (rot und Hacktribe, Voreinstellung an); in der Community-Umfrage am 29.10. klar gewünscht | [Messung](messungen/2026-10-29-stereo-ein-pad.md), `tools/patch/stereo_pad.py` |
-| 100. **BEAT 8:** ein fünfter BEAT-Wert spielt jeden Step als Achtel, ein Pattern läuft doppelt so lang (bei 160 BPM wie BEAT 16 bei 80 BPM), die MIDI-Clock bleibt im echten Tempo, damit zwei Geräte synchron laufen. | erschienen in 1.4.0 (rot und blau) | [Messung](messungen/2026-10-29-beat-achtel.md), `tools/patch/beat_eighth.py` |
-| 101. **Nach dem Resampling auf dem Pad bleiben:** heute springt die Auswahl danach auf Pad 1 (oben links), sie soll auf dem Pad bleiben, auf dem geresampled wurde. | Wunsch (31.10.), Ursache offen: im Emulator nicht nachstellbar, weil RESAMPLING dort kein Audio bekommt | [Idee 101](ideen/101-resampling-auf-dem-pad-bleiben.md) |
-| 102. **Gate Arp: Y wählt den Rhythmus:** mit Gate Arp + Touch Scale wählt Y die Einstellung GATE ARP (50 Rhythmen), X bleibt die Tonhöhe; heute ist Y die Notenlänge, daher als Schalter. | Wunsch (02.11.), aufgeschrieben, nichts gebaut | [Idee 102](ideen/102-gate-arp-y-rhythmus.md) |
-| 103. **Step Copy:** die Steps eines Takts in andere Takte kopieren, etwa 1 bis 16 auf 17 bis 32. Die Motion Sequence wird nicht mitkopiert. | gebaut als Katalog-Plugin, kommt mit 1.4.5, Gerät offen | [Plugins](plugins.md) |
-| 104. **Hacktribe-Warnung und Rettung:** der Patcher warnt beim Hacktribe-Haken, dass Hacktribe die Samples vom Gerät nimmt, und verlangt vorher ein Häkchen für die Sicherung; die Rettung prüft Name und Ordner der `SYSTEM.VSB` auf der Karte. | gebaut, kommt mit 1.4.5 | [Rettung](rettung.md) |
-| 105. **Zurück zu Korgs Original,** auch für die blaue Electribe, mit und ohne Hacktribe darauf. | gebaut als Fall und Anleitung in der Rettung, kommt mit 1.4.5 | [Anleitung](original-zurueck.md) |
-| 106. **News nach dem Update aus den Release Notes erzeugen:** der Hinweis nach einem App-Update (`data/news.mjs`) wird heute von Hand gepflegt und ist bei 1.3.7 stehen geblieben. | Idee (06.11.) | [Release](development.md) |
-| 107. **Ein gemeinsames Format für alle Anpassungen,** in einer Datei wie bei der ESX statt verteilt über die Karte. | abgesagt (10.11.) wie die Projekte (Idee 64), wird später neu geplant | |
-| 108. **Vollen Test im gebauten Emulator-Dienst prüfen,** ohne `node` auf dem Rechner, so wie bei den Nutzern. Mit 1.4.2 brach der volle Test bei allen ab, weil Testgruppen `node` aufriefen. | Idee (06.11.), der Fix dafür ist in Arbeit | [Emulator](emulator.md) |
-| 109. **Rettung in der richtigen Reihenfolge:** Farbe einmal, was läuft einmal, Datei, Ordner als Baum, Prüfung der Karte, keine Sackgasse. | gebaut, im Browsertest geprüft, am Gerät offen | [Idee 109](ideen/109-rettung-ablauf.md), [Rettung](rettung.md) |
-| 110. **Hacktribe-Oszillatoren auf der roten Firmware:** die leeren Plätze 422 bis 497 zwischen Werks-Samples und eigenen Samples tragen Hacktribes DUAL, OCT, CHIP, RING (je 4), X (je 7 Stufen) und VPM (je 8 Stufen), Werks-Samples bleiben. Kein Schalter, immer an: die Plätze waren immer leer. | gebaut (rot, immer an), im Emulator geprüft, Klang am Gerät offen | [Messung](messungen/2026-11-08-ht-osc-freie-plaetze.md), `tools/patch/ht_osc.py` |
-| 111. **Noten aus einer MIDI-Datei auf einen Part:** die Noten einer `.mid`-Datei als Steps in einen Part schreiben, damit er die Melodie im Pattern spielt. | Wunsch (Discussion #337, 10.11.), aufgeschrieben, nichts gebaut | [Idee 111](ideen/111-midi-datei-auf-part.md) |
-| 112. **Aufnahme läuft über eine Kette in einer Sync Group weiter:** ist das Pattern gekettet und in einer Sync Group, wechselt eine laufende Aufnahme mit ins nächste Pattern; das vorige merkt sich das Aufgenommene im RAM, ohne WRITE. Nur gekettet: wie bisher. | Wunsch (10.11.), aufgeschrieben, nichts gebaut | [Idee 112](ideen/112-aufnahme-ueber-kette.md) |
+| Idee | Stand |
+|---|---|
+| **Sample Swap abschließen:** Der Sample Swap (Dateien größer als der DSP-Speicher, Nachladen von der Karte) ist im Patch-Satz BLECH auf develop, aber nicht veröffentlicht. Offen: den Gesamtexport (EXPORT ALL SAMPLE) durch das dauerhafte Speichern jedes geänderten Slots ersetzen und Gerätetests zu Klang, Stimmen und Aufnahme. | im Emulator geprüft, am Gerät offen ([Patcher](patcher.md), [Bau](messungen/2026-10-26-sample-swap-bau.md), [Speicherdienst](messungen/2026-10-27-sample-store.md)) |
+| **Samples über das Kabel rein und raus, ohne Karte umzustecken.** Hinzufügen und Entfernen geht über USB auf der Seite `Gerät -> Samples` (rot). Offen: einzelne Samples als WAV zurückholen, die übrigen Dateien der Karte lesen, Import ganz ohne SD-Karte aus einem RAM-Puffer. | teilweise gebaut ([Sample-Datei](hintergrund/sample-datei.md), [Virtuelle SD-Karte](hintergrund/virtuelle-sd.md), [Import ohne Karte](messungen/2026-10-08-usb-sample-import-offline.md)) |
+| **SD-Karte über USB lesen,** ohne sie aus dem Gerät zu nehmen. | Dateifunktionen der Firmware im Emulator aufgerufen, Host-Zugriff am Gerät ungeprüft ([Virtuelle SD-Karte](hintergrund/virtuelle-sd.md)) |
+| **Werks-Samples über das Kabel ersetzen:** die dauerhaft gespeicherte Samplebank überschreiben. Am Gerät geht es über das Import-Menü (Patch `import-slots`, Slots ab 19, mit Hacktribe ab 275); offen ist der Schreibweg über Kabel und ob die Bank die Slots ab 501 abdecken kann. | Menüweg im Emulator, Kabelweg offen ([Flash](messungen/2026-10-07-werks-sample-flash.md), [Import](messungen/2026-11-16-import-werks-slots.md)) |
+| **Sample-Export als Übertragungsweg:** exportiertes Audio über einen Arbeitspuffer per Kabel abholen. | Exportpfad offline untersucht, am Gerät offen ([DSP-Pfade](messungen/2026-10-08-dsp-audiopfade.md)) |
+| **Sample-Metadaten im RAM ändern.** Name und Tune sind auf der Seite Samples editierbar (live ins RAM, durch den Türsteher). Offen: ob eine Änderung einen Neustart überlebt oder mit EXPORT ALL SAMPLE auf die Karte geht, die Skala von Tune, was ein Schreiben der übrigen Felder bewirkt. | teilweise ([Namen](messungen/2026-10-07-sample-name-ram.md), [Metadaten](messungen/2026-10-07-sample-metadaten-ram.md), [Gerätekarte](geraetekarte.md)) |
+| **Sample-Editor am Gerät:** ein Sample ins RAM holen, schneiden, normalisieren, umdrehen, ein- und ausblenden, zurückschreiben. | Idee ([Idee 59](ideen/59-sample-editor.md)) |
+| **Wellenform beim Schneiden (rot):** beim Einstellen von Start und Ende zeigt das Display Wellenform und Ausschnitt. | untersucht ([Sample-Editor](ideen/59-sample-editor.md#wellenform-beim-schneiden-rot)) |
+| **Time-Stretch am Gerät:** Tempo eines Samples ändern, ohne die Tonhöhe zu ändern; offline auf dem ARM machbar, live braucht DSP-Zeit. | untersucht ([Sample-Editor](ideen/59-sample-editor.md#time-stretch-am-gerät), [Time Stretch](messungen/2026-11-17-time-stretch.md)) |
+| **Nach dem Resampling auf dem Pad bleiben:** die Auswahl springt danach auf Pad 1. | Ursache offen, im Emulator nicht nachstellbar ([Idee 101](ideen/101-resampling-auf-dem-pad-bleiben.md)) |
+| **Samples vor dem Ausschalten exportieren oder automatisch sichern:** das Gerät fragt beim Ausschalten, ob alle Samples exportiert werden sollen. | Wunsch aus der Community |
+| **Sample-Wechsel in einem Part per LFO.** | Wunsch aus der Community |
+| **OSC Drawer:** einen eigenen Oszillator auf dem Touchpad malen und als User-Sample speichern. | Idee ([Idee 51](ideen/51-osc-drawer.md)) |
+| **Synthetische Samples am Rechner:** Kicks, Basslines und mehr im Host rendern und als Sample importieren. | Idee |
+| **Noten aus einer MIDI-Datei auf einen Part schreiben.** | Wunsch ([Idee 111](ideen/111-midi-datei-auf-part.md)) |
+| **OSCs der EMX auf die E2 laden.** | Wunsch aus der Community, nicht untersucht |
+| **Schneller laden, weniger Strom:** Kartentakt, Zeichnen beim Laden, Energiesparen. | recherchiert, am Gerät nichts gemessen ([Idee 56](ideen/56-laden-und-strom.md)) |
+
+## Klang und DSP
+
+Der [DSP](glossary.md#dsp) ist der Blackfin-Prozessor, der den Klang rechnet. Sein Code steckt in der VSB und ist
+teilweise gelesen ([DSP, erster Blick](hintergrund/dsp-erster-blick.md)).
+
+| Idee | Stand |
+|---|---|
+| **Ton im Emulator:** der echte DSP-Code läuft im Emulator (QEMU-Worker), aber ohne Ausgabe und zu langsam für Echtzeit. | offen ([Idee 52](ideen/52-ton-im-emulator.md)) |
+| **Zweiter Master-Effekt,** getrennt vom Touchpad. Es ist unbekannt, ob der DSP ihn rechnen kann. | offen ([Idee 53](ideen/53-zweiter-master-effekt.md), [MFX und DSP](messungen/2026-10-09-mfx-dsp.md)) |
+| **Eigene Filtertypen,** auch ein echter TB-303-Filter: ein neuer Typ aus vorhandenen DSP-Kernen ist ARM-seitig möglich, ein neuer Kern braucht die DSP-Forschung. | Idee ([DSP, erster Blick](hintergrund/dsp-erster-blick.md)) |
+| **Mehrere Insert-Effekte auf einem Pad schichten.** Der Eingriff in die Soundengine wäre groß. | Wunsch aus der Community |
+| **Einfacher Effekt-Baukasten** nach dem Touchpad-Modell, der auch ohne Vorwissen funktioniert. | Wunsch aus der Community |
+| **Rot bei digitalem Clipping:** das Display-Licht wird rot, wenn der Ausgang clippt, als Menüoption. | Idee, Pegelquelle unbekannt |
+| **Lücke beim Patternwechsel:** Stille von etwa 100 ms. | Ursache hergeleitet, am Gerät offen ([Patternwechsel](hintergrund/patternwechsel.md#frage-2-lücke-beim-patternwechsel)) |
+| **Klang verzögert auf einer blauen Electribe,** mit Korg, Hacktribe und BLECHTRIBE gleich. | Meldung, Ursache unbekannt ([Idee 80](ideen/80-latenz-blaue-electribe.md)) |
+| **Blechy spricht:** eine synthetische Stimme (Formanten, Pulse, Rauschen) statt fester Töne, auch für Ein- und Ausschalten. | Idee, nicht recherchiert |
+| **Die ganze Firmware erfassen:** alle Befehle und Funktionen statt einzelner Ausschnitte. | Speicherkarte zusammenhängend, Code nicht vollständig zugeordnet ([Speicherbereiche](speicherbereiche.md)) |
+
+## Bedienung am Gerät
+
+| Idee | Stand |
+|---|---|
+| **Parameter-Locks im Step-Editor,** bis hin zu einem vollen Motion Edit. | Wunsch aus der Community |
+| **Ratchet:** ein Step löst 2 oder 4 Mal aus. | Wunsch aus der Community, ein Pull Request ist willkommen |
+| **TAP-Taste frei belegbar.** | untersucht ([Idee 34](ideen/34-tap-shortcut.md)) |
+| **Gate Arp: Y wählt den Rhythmus.** | Wunsch ([Idee 102](ideen/102-gate-arp-y-rhythmus.md)) |
+| **Gate Arp: Start auf dem Raster** statt im Moment der Berührung. | Meldung ([Idee 79](ideen/79-gate-arp-takt-start.md)) |
+| **Aufnahme läuft über eine Kette in einer [Sync Group](glossary.md#sync-group) weiter.** | Wunsch ([Idee 112](ideen/112-aufnahme-ueber-kette.md)) |
+| **Zweiter IFX-Parameter:** SHIFT + IFX EDIT steuert einen zweiten Effektparameter, auch als Reglertausch (IFX EDIT wird Resonance). Der Reglertausch wurde verworfen, weil der IFX nur einen Wert hat; mehrere Nutzer wünschen es erneut, und der IFX hat laut Entwickler ein X und ein Y, Korg nutzt nur X. Das ist neu zu prüfen. | offen |
+| **Einheitliches, scrollbares Kontextmenü für [Plugins](glossary.md#plugin)** mit MENU und ENTER. | Wunsch aus der Community |
+| **MIDI-CC je Regler umlegen** (Plugin), mit Presets für externe Geräte. | aufgeschrieben ([Idee 78](ideen/78-midi-cc-umlegen.md)) |
+| **USB-Symbol auf dem Hauptbildschirm,** solange ein Rechner angesteckt ist. | untersucht ([Idee 67](ideen/67-usb-symbol.md)) |
+| **Neustart ohne Ausschalten,** auch nach dem Firmware-Update. | Watchdog-Stub und Emulator, Gerät offen ([Idee 77](ideen/77-neustart.md)) |
+| **Eigene Schrift** pixeln und beim Patchen einbauen; **UI-Themes** mit eigenen Strings und Bitmaps (Invertieren braucht wohl Code). | untersucht ([Idee 73](ideen/73-schrift-editor.md), [LCD](messungen/2026-10-12-lcd-helligkeit.md)) |
+| **Bekannte Firmware-Bugs fixen,** die Korg nicht fixt. | offen, konkrete Bugs sammeln |
+| **Vor dem Verwerfen ungespeicherter Änderungen fragen,** auch bei der Pad-Auswahl (MIDI Program Change nicht, dort steuert ein Rechner). | das Rad blättert gestoppt mit ungespeicherten Änderungen schon, statt zu laden ([PATTERN CONFIRM](plugins.md#das-menü-blech-am-gerät)); Pad offen (Idee 57) |
+
+## Firmware-Grundlagen
+
+| Idee | Stand |
+|---|---|
+| **Objekt-API im Terminal,** etwa `electribe.ram.MFX_Presets[0].parameter.level = 64`, aus der der passende Gerätezugriff entsteht. | Vorschlag, Schreibzugriff nicht gebaut ([Idee 36](ideen/36-terminal.md)) |
+| **Eigene Firmware auf Freetribe-Basis** (AGPL: Treiber und Kernel, eigenes Menü obendrauf). Hacktribe ist Patches auf Stock, keine Basis. | Vorschlag, großer Aufwand |
+| **Eigene einfache Sound-Engine im Emulator** statt echter Blackfin-Emulation. | Vorschlag |
+
+## Werkzeuge und Doku
+
+| Idee | Stand |
+|---|---|
+| **Blechy schreibt Plugins:** ein Chat im Editor der Seite Plugins, ein lokales Sprachmodell schreibt den Code. | geplant, nicht gebaut ([Idee 62](ideen/62-blechy-assistent.md)) |
+| **News nach dem Update aus den Release Notes erzeugen:** `data/news.mjs` wird von Hand gepflegt, der letzte Eintrag ist 1.3.7. | Idee ([Release](development.md)) |
+| **Ein gemeinsames Format für alle Anpassungen,** in einer Datei wie bei der ESX. | später neu zu planen |
+| **Video-Tutorial zur Installation:** ein Hinweis für den Wizard und die Startseite. | Wunsch aus der Community |
+
+## Bewusst verworfen
+
+- **Projekte:** Pattern- und Sample-Sätze aus mehreren Projektordnern laden. Samples kommen einzeln in den Sample-Ordner,
+  dazu der Sample Swap.
+- **Makros für die ganze Bedienung:** TAP MOTION deckt das Nötige ab.
+- **Übergangs-Patterns aus zwei Patterns erzeugen:** Generator, Seite und Doku sind wieder entfernt.
+- **128 Steps statt 64:** als Patch praktisch ausgeschlossen (Step, Slot und Bank sind fest); gelöst über SYNC GROUP, zwei
+  Patterns einer Gruppe spielen wie eines (rot und blau).
+- **Leere Sample- und Patternbank laden,** um Unbekanntes im RAM zu erkennen: das Ausblenden in der RAM-Suche geht ohne das
+  Gerät zu leeren.

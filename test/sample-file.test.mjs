@@ -1,7 +1,34 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseRemote, parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, HEADER, ESLI } from "../src/sample-file.mjs";
+import { parseRemote, parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, HEADER, ESLI, toMono16, blueLoad, blueCost, BLUE_MAX, BLUE_ROOM, wavChunks } from "../src/sample-file.mjs";
 import { wav, file, put32 } from "./support/sample-file.mjs";
+
+test("a 48 MiB library accepts another WAV and reads names without reading its audio", async () => {
+  const empty = file({});
+  const source = wav({ frames: 1024 * 1024 });
+  const entries = Array.from({ length: 24 }, (_, i) => ({
+    slot: 500 + i, bytes: entryFromWav(source, 500 + i, `Own${i}`),
+  }));
+  const before = applyPlan(empty, planChange(empty, parseSampleFile(empty), { add: entries }));
+  assert.ok(before.length > 48 * 1024 * 1024);
+  const plan = planChange(before, parseSampleFile(before), {
+    add: [{ slot: 524, bytes: entryFromWav(source, 524, "Added") }],
+  });
+  assert.deepEqual(plan.moves, []);
+  assert.equal(plan.appends[0].at, before.length);
+  const after = applyPlan(before, plan);
+  assert.ok(after.length > 50 * 1024 * 1024);
+  assert.deepEqual(after.subarray(HEADER, before.length), before.subarray(HEADER));
+  let readBytes = 0;
+  const parsed = await parseRemote(async (offset, length) => {
+    readBytes += length;
+    return after.slice(offset, offset + length);
+  }, after.length);
+  assert.equal(parsed.samples.length, 25);
+  assert.deepEqual(parsed.samples.map(s => s.name), [...entries.map((_, i) => `Own${i}`), "Added"]);
+  assert.ok(parsed.samples.every(s => s.problem === null && s.frames === 1024 * 1024));
+  assert.ok(readBytes < 16 * 1024, `metadata read ${readBytes} bytes`);
+});
 
 test("parses the slots, names and formats of a file", () => {
   const parsed = parseSampleFile(file({ 500: "Kick", 502: "Snare", 900: "Hat" }));
@@ -56,6 +83,18 @@ test("an occupied or a factory slot is refused", () => {
   const bytes = entryFromWav(wav(), 500, "X");
   assert.throws(() => planChange(old, parseSampleFile(old), { add: [{ slot: 500, bytes }] }), /Platz 501 ist belegt/);
   assert.throws(() => planChange(old, parseSampleFile(old), { add: [{ slot: 10, bytes }] }), /501 bis 999/);
+});
+
+test("new stereo records reserve both channels and end on the final complete DSP frame", () => {
+  for (const bits of [16, 24]) {
+    const entry = entryFromWav(wav({ frames: 100, channels: 2, bits }), 612, "Stereo");
+    const record = wavChunks(entry).korg.at + 8;
+    const view = new DataView(entry.buffer);
+    assert.equal(entry[record + 65], 1);
+    assert.equal(view.getUint32(record + 60, true), 400);
+    assert.equal(view.getUint32(record + 44, true), 396);
+    assert.equal(view.getUint32(record + 48, true), 396);
+  }
 });
 
 test("a WAV becomes an entry the loader takes: PCM 16 or 24 bit, 1 or 2 channels, the slot and the name in the record", () => {
@@ -117,4 +156,58 @@ test("an entry laid out in another order is listed with a problem and its length
 test("a remote file that is no sample file or shorter than a header is refused", async () => {
   await assert.rejects(parseRemote(async () => new Uint8Array(HEADER), HEADER), /e2s sample all/);
   await assert.rejects(parseRemote(async () => new Uint8Array(10), 10), /kürzer als ein Kopf/);
+});
+
+test("for the blue a WAV becomes 16-bit mono: 24 bit keeps its top 16 bits, stereo is averaged and rounded down like the loader", () => {
+  const stereo = Uint8Array.from([0x00, 0x80, 0xff, 0x7f, 0x03, 0x00, 0xfe, 0xff]);
+  assert.deepEqual([...toMono16(stereo, 2, 16, 2)], [0xff, 0xff, 0x00, 0x00], "(-32768 + 32767) >> 1 = -1, (3 - 2) >> 1 = 0");
+  const deep = Uint8Array.from([0x12, 0x34, 0x56, 0xff, 0xff, 0xff]);
+  assert.deepEqual([...toMono16(deep, 1, 24, 2)], [0x34, 0x56, 0xff, 0xff]);
+  for (const o of [{ bits: 24, channels: 2, frames: 30 }, { bits: 16, channels: 2, frames: 31 }, { bits: 24, channels: 1, frames: 7 }, { bits: 16, channels: 1, frames: 9 }]) {
+    const entry = entryFromWav(wav({ ...o, rate: 32000 }), 600, "Blau", { blue: true });
+    const one = parseSampleFile(file({})).samples;
+    assert.deepEqual(one, []);
+    const head = new Uint8Array(HEADER + entry.length);
+    head.set(file({}));
+    put32(head, 16 + 4 * 600, HEADER);
+    head.set(entry, HEADER);
+    const s = parseSampleFile(head).samples[0];
+    assert.deepEqual([s.channels, s.bits, s.rate, s.frames, s.layout, s.problem], [1, 16, 32000, o.frames, true, null], JSON.stringify(o));
+    assert.equal(s.dataSize, o.frames * 2);
+  }
+});
+
+test("a stereo esli the WAV brings loses its stereo flag when the sample becomes mono for the blue", () => {
+  const esli = new Uint8Array(ESLI);
+  esli[65] = 1;
+  const entry = entryFromWav(wav({ channels: 2, esli }), 640, "St", { blue: true });
+  const at = entry.length - ESLI;
+  assert.equal(entry[at + 65], 0);
+  const red = entryFromWav(wav({ channels: 2, esli }), 640, "St");
+  assert.equal(red[red.length - ESLI + 65], 1, "the red keeps it");
+});
+
+test("the settings SAMPLE EDIT of the blue keeps in the esli (REVERSE, PLAY LEVEL, TUNE) stay when the app moves the sample", () => {
+  const esli = new Uint8Array(ESLI);
+  esli[54] = 1; esli[66] = 1; esli[77] = 0xc1;                     // REVERSE on, PLAY LEVEL +12dB, TUNE -63
+  const entry = entryFromWav(wav({ esli }), 520, "Rev", { blue: true });
+  const at = entry.length - ESLI;
+  assert.deepEqual([entry[at + 54], entry[at + 66], entry[at + 77]], [1, 1, 0xc1]);
+});
+
+test("what the blue loads: slot order, 16 bit only, as many as fit, at most 64", () => {
+  const s = (slot, o = {}) => ({ slot, problem: null, tagNo: 1, layout: true, bits: 16, channels: 1, rate: 48000, frames: 1000, dataSize: 2000, ...o });
+  const r = blueLoad([s(502), s(500, { bits: 24, dataSize: 3000 }), s(501, { channels: 2, dataSize: 4000 }), s(503, { layout: false }), s(504, { problem: "kaputt" })]);
+  assert.equal(r.loaded, 2);
+  assert.equal(r.used, 2 * blueCost(2000));
+  assert.deepEqual([...r.skip], [[500, "format"], [503, "format"], [504, "format"]]);
+  const big = blueLoad([s(500, { dataSize: 6000 }), s(501, { dataSize: 9000 }), s(502, { dataSize: 2000 })], blueCost(6000) + blueCost(2000));
+  assert.deepEqual([...big.skip], [[501, "room"]], "one that does not fit is skipped, the next still loads");
+  const many = blueLoad(Array.from({ length: BLUE_MAX + 2 }, (_, i) => s(500 + i)));
+  assert.equal(many.loaded, BLUE_MAX);
+  assert.deepEqual([...many.skip.values()], ["max", "max"]);
+  assert.equal(blueCost(2), 96);
+  assert.equal(blueCost(32), 96);
+  assert.equal(blueCost(33), 128);
+  assert.equal(BLUE_ROOM, 5643392);
 });

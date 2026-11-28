@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PATCH_FORMAT, fromHex } from "../src/patch.mjs";
 
-// Keys close the value window (docs/messungen/2026-11-27-werte-fenster-tasten.md): the window's key handler closes on a press
+// Keys close the value window (docs/hintergrund/display.md): the window's key handler closes on a press
 // and posts the same press again; the filter keys keep the window.
 const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
 const RED = read("data/patches/value-popup.json");

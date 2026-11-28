@@ -1,14 +1,13 @@
 # Plugin API 25: Tasten, Pads, Encoder und Touchpad wie ein Finger
 
-Stand 8. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
-mit dem BLECH-Satz. Fälle: `tools/emu/plugin_api25_cases.py` (läuft als Gruppe von `remote_cases`), dazu
+**Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+mit dem [BLECH](../glossary.md#blech)-Satz. Fälle: `tools/emu/plugin_api25_cases.py` (läuft als Gruppe von `remote_cases`), dazu
 `tools/patch/test_script_hooks.py` für die Glue-Funktionen. **Am Gerät nicht geprüft.**
 
 ## Frage
 
-Bis API 23 konnte ein Plugin Tasten nur kurz drücken (`korg.pressKey`) und Regler setzen (`korg.knob`). Pads, Encoder, das
-Touchpad, lange Drücke und SHIFT-Kombinationen fehlten. Lässt sich alles, was am Gerät mit Taste, Pad, Encoder oder Touchpad
-geht, aus einem Plugin genauso auslösen? Und gleicht `korg.knob` dem echten Regler?
+Lässt sich alles, was am Gerät mit Taste, Pad, Encoder oder Touchpad (auch lang gehalten, mit SHIFT-Kombinationen) geht,
+aus einem [Plugin](../glossary.md#plugin) genauso auslösen? Und gleicht `korg.knob` dem echten Regler?
 
 ## Weg
 

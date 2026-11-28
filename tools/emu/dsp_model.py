@@ -87,6 +87,7 @@ reads each sample back with 0xA9 (shortcut_cases.case_sample_dsp). Every other r
 """
 
 from collections import Counter
+from machine import DSP_CTRL, DSP_DATA, DSP_SYNC
 
 MAILBOX = 0xFF900A34
 FIFO = (0xFF900018, 0xFF900098)
@@ -123,7 +124,8 @@ class DspModel:
     """What the CPU told the DSP over the host port, and the DSP's answer to the reads the model knows."""
 
     def __init__(self, machine):
-        from machine import DSP_CTRL, DSP_DATA, DSP_SYNC
+        if getattr(machine, 'dsp_backend', None) is not None:
+            raise ValueError('a DSP model cannot replace Blackfin backend responses')
         self.m = machine
         self.synth = machine.profile.build == "synth"
         self.part_base = PART_ON["synth" if self.synth else "sampler"]

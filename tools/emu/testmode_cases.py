@@ -28,6 +28,7 @@ import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
+import lifetime  # noqa: E402
 
 SIGN, SIGN2 = 0x544D4552, 0x32544D52      # "REMT", "RMT2" (remote_sign in script_remote.s)
 MARK, KEY, MESSAGE, TEST = 0xA5000000, 1, 3, 4
@@ -204,7 +205,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

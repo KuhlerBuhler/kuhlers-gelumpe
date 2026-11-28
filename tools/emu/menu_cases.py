@@ -24,8 +24,21 @@ from sdcard import MemoryMedium, SDCard  # noqa: E402
 import fat32  # noqa: E402
 import synthaddr  # noqa: E402
 import firmware  # noqa: E402
-from splash_cases import Dev, SWITCH_SCREEN  # noqa: E402
+from splash_cases import Dev, SWITCH_SCREEN, TICK, has_start_hook  # noqa: E402
 from unicorn import arm_const  # noqa: E402
+import cardstore  # noqa: E402
+import highram_watch as hw  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+import sampleset  # noqa: E402
+import splash_editor  # noqa: E402
+from machine import UART0  # noqa: E402
+from splash_cases import DESC13, bmp, display_of, image_of  # noqa: E402
+from tools.patch import arm  # noqa: E402
+import unicorn  # noqa: E402
+from mfx_cases import Box, S_BOOT, S_MODE  # noqa: E402
+from unicorn import UC_HOOK_CODE  # noqa: E402
+# The case modules that import this one are imported inside the functions that use them: at the top they would be an import cycle.
 
 HEADER = 0x100
 IMAGE = 0xC0000000
@@ -36,8 +49,8 @@ S_ON, S_PAGE, S_ENTER, S_COUNT, S_RUN, S_MFX = 0, 4, 8, 12, 16, 20
 S_SET_RUN, S_SET_MFX = S_RUN, S_MFX
 S_TITLE, S_VALUE, S_LINE3 = 0x40, 0x60, 0x80
 COUNTER_VTABLE = 0xC00E5218
-UI_MANAGER = 0xC06C2220
-UI_REDRAW = 0xC06C226C
+SCREEN_MANAGER = 0xC03404C0   # -> the screen manager (heap, moves with the flash content); the tick gets it plus 0x10
+UI_REDRAW_AT = 0x10 + 0x4C     # the tick's redraw byte in the manager (script_app.s:UI_REDRAW_AT)
 KILL = 0x2000
 KEYS = {"menu": 0x09, "edit_prev": 0x08, "edit_next": 0x0C, "exit": 0x0D, "write": 0x0E}
 
@@ -49,9 +62,13 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT
+    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, US_PAGE, LIST_DEV, LIST_VERSION, LIST_COUNT
     synth = synthaddr.is_synth(payload)
-    FX_EXPORT = not synth              # EXPORT ALL EFFECTS: only the Sampler builds have the collection on the card
+    US_PAGE = synth and payload[US_MAGIC_AT - IMAGE:US_MAGIC_AT - IMAGE + 4] == b"BLUS"   # IMPORT SAMPLE comes with the user samples (user_samples.py)
+    LIST_DEV = None if synth else len(LIST_PAGES)   # DEV MODE (BLECH's SysEx may write the image) is a Sampler row
+    LIST_VERSION = len(LIST_PAGES) + (0 if synth else 1)
+    LIST_COUNT = LIST_VERSION + 1
+    FX_EXPORT = b"SD:KORG/blechtribe/Presets/e2sFx.all" in payload   # EXPORT ALL EFFECTS comes with the loader of the collection (fx_card.s)
     DU_FUNCS = 11 if synth else 14     # the functions of DATA UTILITY's list (screen 15), the blue has no sample functions
     SYNC_GROUP = True                  # the page SYNC GROUP is in the ring on both (the synth since 24.10.)
     MENU = 37 if synth else 45
@@ -68,8 +85,33 @@ def card_image(files=None):
     return img
 
 
-def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2):
-    """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state)."""
+OS_TICKS = 0xC06A292C                   # the OS tick, 1 ms (script_hw.s:OS_TICKS)
+M_IDLE = 0x156                           # IDLE SAVE: 0 OFF, 1 ON, 2 BATTERY ONLY (script_menu.s:M_IDLE)
+IDLE_ON, IDLE_BATT = 1, 2
+
+
+def keep_awake(dev):
+    """IDLE POWER SAVE never dims in a case that does not test it: the last touch (script_idle.s:IS_LAST) is set to now once a
+    second of device time. RAM only, so the settings (byte 7, FLAGS2_IDLE_OFF) and their file version stay as they are and
+    idle_input still sees every message, it just never finds the device asleep. IDLE SAVE BATTERY ONLY (the default without
+    a settings file) is set to ON once: a WRITE then gives the file version of the case's own field, not version 6."""
+    if dev.read(STATE + M_IDLE, 1)[0] == IDLE_BATT:
+        dev.m.uc.mem_write(STATE + M_IDLE, bytes([IDLE_ON]))
+    m, ticks, last = dev.m, dev.a(OS_TICKS), [-1e18]
+    run_slice = m.run_slice
+
+    def awake(*args, **kwargs):
+        if m.time_ns - last[0] >= 1e9:
+            last[0] = m.time_ns
+            m.uc.mem_write(script_hooks.IDLE, bytes(m.uc.mem_read(ticks, 4)))
+        return run_slice(*args, **kwargs)
+
+    m.run_slice = awake
+
+
+def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2, idle=False):
+    """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state).
+    Without `idle` IDLE POWER SAVE is held awake (keep_awake)."""
     global INIT_PAGE, LAST_PAGE, STEREO_PAGE, TUBE_PAGE
     for_build(payload)
     INIT_PAGE = payload[INIT_CODE - 0xC0000000:INIT_CODE - 0xC0000000 + 4] != b"\xff" * 4
@@ -81,6 +123,8 @@ def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seco
     if card:
         dev.m.insert_card(SDCard(MemoryMedium(card_image(files))))
     dev.run(seconds)
+    if not idle:
+        keep_awake(dev)
     return dev
 
 
@@ -92,8 +136,13 @@ def text(dev, offset):
     return dev.read(STATE + offset, 32).split(b"\0")[0].decode("latin-1")
 
 
+def ui_redraw(dev):
+    """The redraw byte of the screen tick in this device's screen manager, as the runtime finds it."""
+    return dev.u32(SCREEN_MANAGER) + UI_REDRAW_AT
+
+
 def screen_object(dev):
-    return dev.m.u32(dev.a(UI_MANAGER) + 0x10)
+    return dev.m.u32(dev.u32(SCREEN_MANAGER) + 0x20)
 
 
 def counter(dev):
@@ -147,7 +196,8 @@ def has_tube(payload):
 
 
 VERSION_TEXT = 0xC014FCF0                                            # the patch blech-version (tools/patch/blech_version.mjs): the title of VERSION
-LIST_VERSION = len(LIST_PAGES)                                       # VERSION, the last row of the list (behind GAMES and TOOLS where an app is declared)
+LIST_DEV = len(LIST_PAGES)                                           # DEV MODE, in front of VERSION on the Sampler (for_build sets None on the synth)
+LIST_VERSION = LIST_DEV + 1                                          # VERSION, the last row of the list (behind GAMES and TOOLS where an app is declared)
 LIST_COUNT = LIST_VERSION + 1
 BASE_NAMES = {"hacktribe": "HACKTRIBE", "stock": "KORG RED", "synth": "KORG BLUE"}   # the value of VERSION: the firmware the runtime is built for
 
@@ -161,10 +211,13 @@ def version_texts(payload):
 
 
 def feature_pages():
-    """The pages of FEATURES: the switches, LAST PATTERN, STEREO 1 PAD, TUBE, TUBE DRIVE and TUBE ASYM where the set has their patches, KEY PADS,
-    FILTER TOGGLE and AUTO SAVE last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    """The pages of FEATURES: the switches, LAST PATTERN, STEREO 1 PAD, TUBE, TUBE DRIVE and TUBE ASYM where the set has their patches,
+    KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
     return (FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["TUBE", "TUBE DRIVE", "TUBE ASYM"] * TUBE_PAGE
-            + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"])
+            + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"] + GLIDE_PAGES)
+
+
+GLIDE_PAGES = ["GLIDE CHAIN", "GLIDE SWITCH"]                          # BPM GLIDE (bpm_glide_cases.py), OFF by default
 
 
 def feature_count():
@@ -172,12 +225,14 @@ def feature_count():
 
 
 FX_EXPORT = True
+US_PAGE = False                                                       # set by for_build(): the blue's IMPORT SAMPLE, where the user samples are in the image
+US_MAGIC_AT = 0xC013A00C                                              # user_samples.py: the vector at CODE2, its magic "BLUS" at +12
 
 
 def du_pages():
     """Our pages of DATA UTILITY, behind the firmware's functions: EXPORT ALL CUSTOMIZATIONS (its title is cut to fit), EXPORT ALL
-    PLUGINS, EXPORT ALL EFFECTS on the Sampler builds, and SET INIT PATTERN where the set has the patch."""
-    return ["EXPORT ALL CUSTOM", "EXPORT ALL PLUGINS"] + ["EXPORT ALL EFFECTS"] * FX_EXPORT + ["SET INIT PATTERN"] * INIT_PAGE
+    PLUGINS, EXPORT ALL EFFECTS where the runtime has the collection on the card, and SET INIT PATTERN where the set has the patch."""
+    return ["EXPORT ALL CUSTOM", "EXPORT ALL PLUGINS"] + ["EXPORT ALL EFFECTS"] * FX_EXPORT + ["SET INIT PATTERN"] * INIT_PAGE + ["IMPORT SAMPLE", "SAMPLE EDIT"] * US_PAGE
 TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads", "Power", "Splash", "Pattern", "Global"]
 FIRMWARE_TAB = "Data Util"                                            # the firmware's own label, already at the edge of its box: ours has to look the same, not have room to spare
 RING = 32                                                             # the total of the page counter with the page BLECH, the page of Blechy and SYNC GROUP in the ring
@@ -297,7 +352,7 @@ def draw_tab(dev, label, index=None, total=None):
     scratch = script_hooks.CARD + 0xE00
     dev.m.uc.mem_write(scratch, label.encode() + b"\0")
     dev.m.uc.mem_write(state(dev, S_TABW) + TAB_TEXT_POINTER, struct.pack("<I", scratch))
-    dev.m.uc.mem_write(dev.a(UI_REDRAW), b"\1")
+    dev.m.uc.mem_write(ui_redraw(dev), b"\1")
     if index is not None:
         counter_widget = dev.u32(screen_object(dev) + COUNTER_WIDGET)
         dev.m.uc.mem_write(STATE + S_RAW, struct.pack("<I", 1))
@@ -336,7 +391,7 @@ def page_overlap(dev):
     shown = frame(dev)
     wrong = []
     if dev.read(STATE + S_BRW_ON, 1)[0]:
-        problem = label_problem(dev, tab(dev))
+        problem = label_problem(dev, tab(dev)) if tab(dev) != FIRMWARE_TAB else None   # IMPORT SAMPLE's browser keeps Data Util's tab
         return [problem] if problem else None
     if line3 and (line3 != PRESS or value):
         wrong.append(f"third line {line3!r} beside value {value!r}")
@@ -363,7 +418,7 @@ def value_row_leftovers(dev):
     if dev.read(STATE + S_BRW_ON, 1)[0]:
         shown = lit(frame(dev), range(8, 64))
         dev.m.uc.mem_write(0xC031B310 + 128, b"\0" * (1024 - 128))
-        dev.m.uc.mem_write(dev.a(UI_REDRAW), b"\1")
+        dev.m.uc.mem_write(ui_redraw(dev), b"\1")
         dev.run(0.3)
         alone = lit(frame(dev), range(8, 64))
         return shown - alone, alone - shown
@@ -372,7 +427,7 @@ def value_row_leftovers(dev):
     return shown - alone, alone - shown
 
 
-APPS_STATE_SIZE = 168                                                # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
+APPS_STATE_SIZE = 216                                                # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
 
 
 def apps_open_address():
@@ -550,9 +605,23 @@ def blechy_ring_cases(dev):
     dev.turn(-9, wait=0.4)
     turned = here()
     add("blechy_dial_changes_nothing", turned == after, f"{turned}")
+    uc, arm = dev.m.uc, dev.m.A
+    redraw, ticks, sets = ui_redraw(dev), [], []
+    code = (script_hooks.MORE3_START, script_hooks.MORE3_END)
+    hooks = [uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s, d: ticks.append(u.reg_read(arm.UC_ARM_REG_R0)), begin=dev.a(TICK), end=dev.a(TICK)),
+             uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, lambda u, acc, a, size, value, d: sets.append((u.reg_read(arm.UC_ARM_REG_PC), value & 0xFF)), begin=redraw, end=redraw)]
+    uc.ctl_flush_tb()
     press(dev, "exit", wait=0.8)
+    for hook in hooks:
+        uc.hook_del(hook)
+    uc.ctl_flush_tb()
     main = (dev.screen()["number"], open_app_entry(dev))
     add("blechy_exit_goes_to_main", main == (1, 0) and not dev.m.asserts, f"{main}")
+    # The byte the runtime sets to have the main screen drawn whole is the one the tick reads: the tick's argument plus 0x4C. The
+    # runtime takes it from the screen manager's pointer, never a fixed address (the manager moves with the flash content).
+    ours = [value for pc, value in sets if code[0] <= pc < code[1]]
+    add("blechy_exit_redraws_through_the_screen_manager", ticks and all(r0 + 0x4C == redraw for r0 in ticks) and 1 in ours,
+        f"redraw byte {redraw:#x}, tick arguments {sorted({hex(r0) for r0 in ticks})}, runtime writes {ours}")
     bad = []
     for key in range(0x30):
         goto_blechy(dev)
@@ -679,6 +748,8 @@ def list_cases(payload, flash=None):
         press(dev, "edit_next")
     wrapped = (dev.screen()["number"], state(dev, S_PAGE))
     want = [(MENU, 1, page, (page, LIST_COUNT), (title, "", PRESS), "BLECH") for page, title in enumerate(LIST_PAGES)]
+    if LIST_DEV is not None:
+        want.append((MENU, 1, LIST_DEV, (LIST_DEV, LIST_COUNT), ("DEV MODE", "OFF", ""), "BLECH"))
     want.append((MENU, 1, LIST_VERSION, (LIST_VERSION, LIST_COUNT), (*version_texts(payload), ""), "BLECH"))
     add("enter_opens_the_list_of_groups", steps == want and wrapped == (MENU, 0), f"{steps}, then {wrapped}")
     # VERSION, the last row: the version of the set this copy was patched with and the firmware it is for; ENTER, WRITE and the dial change nothing
@@ -703,7 +774,7 @@ def list_cases(payload, flash=None):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, {"TUBE": "OFF", "TUBE DRIVE": "5", "TUBE ASYM": "4"}.get(title, "ON")) for title in feature_pages()]   # the tube curve starts off, at its default DRIVE 5 and ASYM 4
+    want = [(title, "OFF" if title in GLIDE_PAGES else {"TUBE": "OFF", "TUBE DRIVE": "5", "TUBE ASYM": "4"}.get(title, "ON")) for title in feature_pages()]   # the tube curve starts off, at its default DRIVE 5 and ASYM 4
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
@@ -769,7 +840,7 @@ def page_cases(payload, flash=None):
     dev = boot(payload, flash)
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0), ("global", 0)] + [("du", page) for page in range(len(du_pages()))] + [("list", page) for page in range(LIST_COUNT)] + [(GROUP_PLUGINS, 0)]
-    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8 + (custom_extra(dev) > 0))]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(7)] + [(GROUP_LED, page) for page in range(8 + (custom_extra(dev) > 0))]
     pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
@@ -864,7 +935,7 @@ def orig_shown(dev):
 def orig_pages():
     """(name, how to reach it) of every page of the BLECH menu that shows a setting."""
     pages = [("PLUGIN RUNTIME", lambda dev: goto_global(dev))]
-    for group, count in ((GROUP_DISPLAY, 5), (GROUP_LED, 9), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
+    for group, count in ((GROUP_DISPLAY, 7), (GROUP_LED, 9), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
         pages += [(f"{group}:{page}", lambda dev, group=group, page=page: goto_group(dev, group, page)) for page in range(count)]
     return pages
 
@@ -952,11 +1023,16 @@ def orig_cases(payload, flash=None):
     return out
 
 
+def egg_part(payload, flash=None):
+    """The egg on the page VERSION (egg_cases.py) on devices of its own."""
+    import egg_cases
+    return egg_cases.cases(payload, flash)
+
+
 def du_window_counter_part(payload, flash=None):
     """The page counter of a DATA UTILITY window shows the function's place in the list: Korg's firmware built SOFTWARE UPDATE (14) as
     13 and IMPORT SAMPLE (9) as 8, the blue's SOFTWARE UPDATE (11) as 8 (script_hooks.WORDS, docs/messungen/2026-11-23-data-utility-zaehler.md).
     The window's counter is read where it is made, at the counter constructor (r1 the index, r2 the total)."""
-    import unicorn
     synth = synthaddr.is_synth(payload)
     make = 0xC007A110 if synth else 0xC008A83C
     out = []
@@ -977,7 +1053,7 @@ def du_window_counter_part(payload, flash=None):
 
 
 # What cases_task(i) runs, in the order of cases(). Each boots its own device, so they run side by side.
-CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases, orig_cases, du_window_counter_part)
+CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases, orig_cases, egg_part, du_window_counter_part)
 
 
 def cases(payload, flash=None, settings=True):
@@ -1042,7 +1118,8 @@ def read_settings_full(image):
 def read_settings_look(image):
     """The valid settings files as {name: (generation, flags, trusted checksums, look)}, look None for version 1. Version 3 (BLECH
     1.3.8) is version 2 with up to 64 checksums instead of 16; version 4 is version 3 with byte 7 as the second flag byte; version 5 is
-    version 4 with TUBE ASYM in bits 5 to 7 of byte 4 (the version bits 0 to 4)."""
+    version 4 with TUBE ASYM in bits 5 to 7 of byte 4 (the version bits 0 to 4); version 6 is version 5 with IDLE SAVE BATTERY ONLY
+    in bit 7 of byte 6 (the count is bits 0 to 6)."""
     volume = fat32.Volume(bytes(image))
     out = {}
     for path in SETTINGS_PATHS:
@@ -1053,9 +1130,9 @@ def read_settings_look(image):
         if len(raw) < 20 or raw[:4] != b"GSET":
             continue
         version, extras = raw[4] & 0x1F, raw[5]
-        count = raw[6] if version >= 4 else struct.unpack_from("<H", raw, 6)[0]
-        head = {1: 16, 2: 20, 3: 20, 4: 20, 5: 20}.get(version)
-        if head is None or (raw[4] >> 5 and version != 5) or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (once HT OSC OFF), bit 7 AUTO SAVE OFF
+        count = (raw[6] & 0x7F if version == 6 else raw[6]) if version >= 4 else struct.unpack_from("<H", raw, 6)[0]
+        head = {1: 16, 2: 20, 3: 20, 4: 20, 5: 20, 6: 20}.get(version)
+        if head is None or (raw[4] >> 5 and version < 5) or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (once HT OSC OFF), bit 7 AUTO SAVE OFF
             continue
         size = head + 4 * count
         if count > (64 if version >= 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -1154,8 +1231,6 @@ def settings_cases(payload, flash=None):
         f"on={state(bare, S_ON)}, value {text(bare, S_VALUE)!r}, status {state(bare, S_STATUS):#x}")
 
     # a protected card: FatFs refuses the open for writing with 10, as the real one would (the emulator's card has no write protect)
-    import unicorn
-    from unicorn import arm_const
     prot = boot(payload, flash, files=CARD_FOLDER)
     before = bytes(prot.m.mmc.card.medium.data)
 
@@ -1166,6 +1241,8 @@ def settings_cases(payload, flash=None):
 
     prot.m.uc.hook_add(unicorn.UC_HOOK_CODE, refuse, begin=prot.a(FS_OPEN), end=prot.a(FS_OPEN))
     prot.m.uc.ctl_flush_tb()
+    # back to the default keep_awake changed: unchanged settings, so the refused card stays the last word (no flash save after it)
+    prot.m.uc.mem_write(STATE + M_IDLE, bytes([IDLE_BATT]))
     goto_group(prot, GROUP_FEATURES, FEAT_MFX)
     press(prot, "write", wait=0.6)
     add("settings_protected_card", text(prot, S_VALUE) == "card protected" and bytes(prot.m.mmc.card.medium.data) == before and not prot.m.asserts,
@@ -1186,14 +1263,13 @@ def settings_cases(payload, flash=None):
         f"value {text(nofolder, S_VALUE)!r}, files {made}, MFX 2 after the restart {state(later, S_SET_MFX)}")
 
     # MFX 2 off in the file: the touch pad starts as in the stock firmware and TOUCH SCALE stays the stock key
-    from mfx_cases import Box, S_MODE as MFX_MODE, S_BOOT as MFX_BOOT
     medium = MemoryMedium(card_image({**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file(1, 1)}))
     off = Box(payload, flash, card=SDCard(medium))
     on = Box(payload, flash, card=SDCard(MemoryMedium(card_image({**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file(1, 3)}))))
     off.key("touch_scale", 1.0)
     on.key("touch_scale", 1.2)
-    add("settings_mfx_off_is_stock", off.mode() == 1 and off.state(MFX_BOOT) != 1 and off.state(MFX_MODE) != 1 and on.state(MFX_MODE) == 1 and not off.m.asserts,
-        f"off: mode {off.mode()}, MFX 2 mode {off.state(MFX_MODE):#x}; on: MFX 2 mode {on.state(MFX_MODE)}")
+    add("settings_mfx_off_is_stock", off.mode() == 1 and off.state(S_BOOT) != 1 and off.state(S_MODE) != 1 and on.state(S_MODE) == 1 and not off.m.asserts,
+        f"off: mode {off.mode()}, MFX 2 mode {off.state(S_MODE):#x}; on: MFX 2 mode {on.state(S_MODE)}")
 
     # export with nothing loaded says so and writes nothing
     empty = boot(payload, flash, files=CARD_FOLDER)
@@ -1278,9 +1354,8 @@ def pins(dev):
 
 def custom_extra(dev):
     """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR and POWER SAVE where the set has the pad colours, SPLASH where it
-    also has the splash editor (the blue Electribe has the pad colours only)."""
+    also has the splash editor."""
     import pad_colors
-    import splash_editor
     if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return 0
     return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 3
@@ -1315,7 +1390,6 @@ def set_look(dev, mode=None, led=None, backlight=None):
 
 def meter_level(dev, level):
     """Feed the meter a level: the level smoothing the meter calls is handed the same number for both sides."""
-    import unicorn
     dev._level = level
     if getattr(dev, "_level_hook", None) is None:
         def poke(uc, address, size, user):
@@ -1429,7 +1503,7 @@ def look_cases(payload, flash=None, rest=True):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 5), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 9)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 7), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 9)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -1627,6 +1701,20 @@ def look_cases(payload, flash=None, rest=True):
     drawn = lambda got, want: got is not None and all(abs(g - w * 255) <= 3 for g, w in zip(got, want))
     add("backlight_colour_reaches_the_page", drawn(lights["green"], (0, 1, 0)) and drawn(lights["red5"], (5 / 16, 0, 0))
         and drawn(lights["mix"], (3 / 16, 8 / 16, 12 / 16)) and drawn(lights["one_of_16"], (1 / 16, 14 / 16, 0)), f"{lights}")
+    # the PWM table sits in front of the card init's tick (M_SD_T0, 0xD4), the flash save's next try (M_FL_RETRY, 0xD8) and the
+    # bytes of IMPORT SAMPLE and SAMPLE EDIT (0xDC to 0xDF): those may hold anything, the light stays as set, and setting the look keeps them
+    # (M_IS_STEP at 0xDC stays 0: menu_enter_page clears it on every page the look walks through)
+    kept = mix.read(STATE + 0xD4, 12)
+    noise = bytes([0xFF, 0x7F, 0x3F, 0x38, 0x12, 0x34, 0x56, 0x78, 0x00, 0x38, 0x18, 0x28])
+    set_look(mix, backlight=(3, 8, 12))
+    mix.m.uc.mem_write(STATE + 0xD4, noise)
+    mix.run(0.3)
+    beside = duty(mix, 1.0)
+    set_look(mix, backlight=(5, 0, 0))
+    after = mix.read(STATE + 0xD4, 12)
+    mix.m.uc.mem_write(STATE + 0xD4, kept)
+    add("backlight_pwm_leaves_its_neighbours", near(beside[0], {"R": 3 / 16, "G": 8 / 16, "B": 12 / 16}) and after == noise and not mix.m.asserts,
+        f"duty with the neighbours set {beside[0]}, the neighbours after a new look {after.hex()} (want {noise.hex()})")
     # power save: the firmware's own dimming, as without our patch (red and green for 2 of 18 ticks in turn, never blue)
     set_look(mix, backlight=(0, 0, 12))
     mix.call(POWER_CONNECT, 1)
@@ -1711,18 +1799,15 @@ def look_cases(payload, flash=None, rest=True):
 
 def cases_task(i):
     """Part `i` of the screen cases in a worker (parallel.py, CASES_PARTS)."""
-    import parallel
     return CASES_PARTS[i](parallel.shared["payload"], parallel.shared["flash"])
 
 
 def splash_menu_cases(payload, flash=None):
-    """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT lists the .bmp files in KORG/blechtribe, the dial picks one
+    """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT lists the .bmp files in KORG/blechtribe/Media (KORG/blechtribe without that folder), the dial picks one
     and ENTER reads it into the start image; the value row shows the name alone (a name of more than 11 characters without ".bmp", cut
     to 11), SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back; the
     three are a group of their own, the row SPLASH of CUSTOMIZATION opens it.
     Without the editor (the synth) the group keeps its 8 pages."""
-    from splash_cases import bmp, image_of
-    import splash_editor
     out = []
 
     def add(name, ok, detail):
@@ -1758,6 +1843,14 @@ def splash_menu_cases(payload, flash=None):
     differ = [i for i, (a, b) in enumerate(zip(dev.fb(), want)) if a != b and i not in battery]
     add("draw_opens_the_editor", page == ("SPLASH DRAW", "", PRESS) and dev.screen()["number"] == 9 and dev.screen()["page"] == splash_editor.PAGE and st == 1
         and len(differ) <= 1 and not dev.m.asserts, f"{page}, screen {dev.screen()}, editor mode {st}, display bytes not the image (battery aside): {differ}")
+    pic2 = [[1 if (x * 3 + y) % 5 == 0 else 0 for x in range(128)] for y in range(64)]
+    media = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic), "/KORG/blechtribe/Media/mine.bmp": bmp(pic2)})
+    goto_group(media, GROUP_SPLASH, 0)
+    listed = texts_of(media)
+    press(media, "menu", 0.6)
+    stored = media.read(splash_editor.RECBUF + 8, 1024) == image_of(pic2)
+    add("import_lists_media", listed[:2] == ("SPLASH IMPORT", "mine.bmp") and texts_of(media)[1] == "loaded" and stored and not media.m.asserts,
+        f"{listed}, image {'stored' if stored else 'not stored'}")
     bare = boot(payload, flash, files=CARD_FOLDER)
     # the value row shows the value alone: no "press  [ Enter ]" on its row, nothing left of SPLASH DRAW's line from before the key
     goto_group(bare, GROUP_SPLASH, 1)
@@ -1772,8 +1865,9 @@ def splash_menu_cases(payload, flash=None):
     lit_rows = {y for y in range(10, 62) for x in range(3, 120) if (bare.fb()[(y // 8) * 128 + x] >> (y % 8)) & 1}
     add("browser_empty", bare.read(STATE + S_BRW_ON, 1)[0] == 2 and lit_rows and max(lit_rows) - min(lit_rows) < 10,
         f"browser {bare.read(STATE + S_BRW_ON, 1)[0]}, rows lit between the edges {sorted(lit_rows)}")
-    differ = browser_against_import_sample(payload, flash)
-    add("browser_like_import_sample", differ == 0, f"{differ} pixels differ from the firmware's IMPORT SAMPLE (rows 10 to 63)")
+    if not synthaddr.is_synth(payload):      # the blue Electribe's DATA UTILITY has no IMPORT SAMPLE to hold it against
+        differ = browser_against_import_sample(payload, flash)
+        add("browser_like_import_sample", differ == 0, f"{differ} pixels differ from the firmware's IMPORT SAMPLE (rows 10 to 63)")
 
     # the list: only .bmp files, no names starting with a dot (macOS ._ files), the dial walks them and stops at the ends, ENTER takes
     # the one shown; a name like Windows gives a second download
@@ -1818,7 +1912,6 @@ def splash_menu_cases(payload, flash=None):
     stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(other)
     add("long_name_cut", long_texts == ("SPLASH IMPORT", "a-very-long", "") and long_crowded is None and texts_of(dev)[1] == "loaded" and stored
         and not dev.m.asserts, f"{long_texts}, {long_crowded}, ENTER -> {texts_of(dev)[1]!r}, image {'stored' if stored else 'not stored'}")
-    from splash_cases import DESC13
     desc = lambda d: d.u32(DESC13)
     record_id = lambda d: struct.unpack_from("<I", d.m.flash.mem, splash_editor.FLASH_RECORD)[0]
     dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic)})
@@ -1863,8 +1956,6 @@ def wheel_cases(payload, flash=None):
     """The value dial on the lists with a browser look: PLUGINS (MANAGE PLUGINS) moves through its plugins with the dial and stops at
     the ends, SPLASH IMPORT and PLUGINS keep up with a fast turn (20 steps 15 ms apart, display settled within WHEEL_LAG_MS of the last
     step), and SPLASH IMPORT still reads names past the 64 it keeps in its list."""
-    from splash_cases import bmp
-    import splash_editor
     out = []
 
     def add(name, ok, detail):
@@ -1922,7 +2013,6 @@ def wheel_cases(payload, flash=None):
     dev.run(0.5)
     shown = texts_of(dev)[1]
     press(dev, "menu", 0.8)
-    from splash_cases import image_of
     stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(other)
     add("splash_import_past_64", shown == "f66.bmp" and texts_of(dev)[1] == "loaded" and stored and not dev.m.asserts,
         f"66 steps -> {shown!r}, ENTER -> {texts_of(dev)[1]!r}, image {'stored' if stored else 'not stored'}")
@@ -1934,9 +2024,6 @@ def browser_against_import_sample(payload, flash=None, turns=4):
     .wav files and the folder KORG there, KORG.bmp and the five names as .bmp here. After `turns` steps of the dial the folder row is
     out of sight (its icon is the folder's), so rows 10 to 63 (below the header with its tab) are compared -> the pixels that differ,
     or None when IMPORT SAMPLE was not reached."""
-    import highram_watch as hw
-    import fat32
-    from splash_cases import bmp
     names =["Clap Melodic Long", "Claps Synthwave", "Deep House Tom", "Kick", "Snare 909 roomy"]
     rows = lambda fb: {(x, y) for y in range(10, 64) for x in range(128) if (fb[(y // 8) * 128 + x] >> (y % 8)) & 1}
     img = fat32.format_image(64 * 1024 * 1024)
@@ -1975,14 +2062,13 @@ def browser_against_import_sample(payload, flash=None, turns=4):
 
 
 def splash_cases_display(image):
-    from splash_cases import display_of
     return display_of(image)
 
 
 def pad_colour_cases(payload, flash=None):
     """CUSTOMIZATION, PAD COLOR and SELECT COLOR (patch pad-colors): the pads take the chosen colours at once, both together take the
     colour that is left, the two pages never hold the same colour, WRITE keeps them for the next start, EXIT at power-on is stock."""
-    import pad_colors as PC
+    import pad_colors
     out = []
 
     def add(name, ok, detail):
@@ -1991,7 +2077,7 @@ def pad_colour_cases(payload, flash=None):
     pad = lambda d, n: (d.m.leds.get(0x2C + 2 * n, 0), d.m.leds.get(0x2D + 2 * n, 0))
     wait = 10.0 if synthaddr.is_synth(payload) else 1.2       # the synth reaches its main screen after about 8 s (docs/messungen/2026-10-16-blech-synth.md)
     dev = boot(payload, flash, files=CARD_FOLDER, adapter=True, seconds=wait)
-    if dev.u32(PC.CODE_AT) == 0xFFFFFFFF:
+    if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return out
     stock = pad(dev, 0)
     goto_group(dev, GROUP_PADS, 0)
@@ -2038,13 +2124,13 @@ def pad_colour_cases(payload, flash=None):
     goto_group(dev, GROUP_PADS, 0)
     press(dev, "write", wait=0.6)
     word = read_settings_look(dev.m.mmc.card.medium.data).get("b", (0, 0, 0, None))[3]
-    add("file_holds_them", word is not None and (word >> 2) & 3 == PC.PINK and (word >> 29) & 3 == 1, f"look word {word:#x}" if word is not None else "no file")
+    add("file_holds_them", word is not None and (word >> 2) & 3 == pad_colors.PINK and (word >> 29) & 3 == 1, f"look word {word:#x}" if word is not None else "no file")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
     again.run(wait + 0.8)
-    add("start_reads_them", again.u32(PC.PC_SETTING) == PC.PINK | PC.RED << 4 | 1 << 8 and pad(again, 0) == (255, 0) and not again.m.asserts,
-        f"setting {again.u32(PC.PC_SETTING):#x}, pad 1 {pad(again, 0)}")
+    add("start_reads_them", again.u32(pad_colors.PC_SETTING) == pad_colors.PINK | pad_colors.RED << 4 | 1 << 8 and pad(again, 0) == (255, 0) and not again.m.asserts,
+        f"setting {again.u32(pad_colors.PC_SETTING):#x}, pad 1 {pad(again, 0)}")
     held = Dev(payload, flash, KILL)
     held.m.adapter = True
     held.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
@@ -2054,10 +2140,10 @@ def pad_colour_cases(payload, flash=None):
     # power save: while the firmware dims (its switch 0xC0028AB4 with 1), every LED goes out at a quarter, at once; back with 0
     def dimmed(d):
         before = dict(d.m.leds)
-        d.call(PC.DIM_SWITCH, 1)
+        d.call(pad_colors.DIM_SWITCH, 1)
         d.run(0.3)
         during = dict(d.m.leds)
-        d.call(PC.DIM_SWITCH, 0)
+        d.call(pad_colors.DIM_SWITCH, 0)
         d.run(0.3)
         return before, during, dict(d.m.leds)
     plain = boot(payload, flash, files=CARD_FOLDER, adapter=True, seconds=wait)
@@ -2072,7 +2158,7 @@ def pad_colour_cases(payload, flash=None):
     add("power_save_with_colours", pad(again, 0) == (255, 0) and (during.get(0x2C, 0), during.get(0x2D, 0)) == (64, 0) and not again.m.asserts,
         f"pad 1 in RED while dimmed {(during.get(0x2C, 0), during.get(0x2D, 0))}, after {pad(again, 0)}")
     battery = boot(payload, flash, files=CARD_FOLDER, seconds=wait)
-    dims = battery.read(PC.DIM_FLAG, 1)[0] != 0      # whether the firmware dims on battery depends on POWER SAVE in the flash (Auto in the dump)
+    dims = battery.read(pad_colors.DIM_FLAG, 1)[0] != 0      # whether the firmware dims on battery depends on POWER SAVE in the flash (Auto in the dump)
     want = (0, 64) if dims else (0, 255)
     add("power_save_on_battery_from_the_start", pad(battery, 0) == want and not battery.m.asserts,
         f"on battery the firmware {'dims' if dims else 'does not dim (POWER SAVE of this flash)'} from power-on: pad 1 {pad(battery, 0)}, TAP LED {battery.m.leds.get(0x14, 0)}")
@@ -2085,11 +2171,11 @@ def pad_colour_cases(payload, flash=None):
     mgr = synthaddr.tr(0xC0345A1C) if synthaddr.is_synth(payload) else 0xC0345A1C
     def at(turn):
         plain.turn(turn, wait=0.4)
-        plain.call(PC.DIM_SWITCH, 1)
+        plain.call(pad_colors.DIM_SWITCH, 1)
         plain.run(0.3)
         d = dict(plain.m.leds)
         want = {led: plain.read(plain.u32(mgr) + 0x4E + 8 * led, 1)[0] for led in range(0x4C)}
-        plain.call(PC.DIM_SWITCH, 0)
+        plain.call(pad_colors.DIM_SWITCH, 0)
         plain.run(0.3)
         shown = {led: v for led, v in want.items() if v}
         return texts_of(plain)[1], shown, {led: d.get(led, 0) for led in shown}
@@ -2101,16 +2187,16 @@ def pad_colour_cases(payload, flash=None):
         f"page {first}; at {none[0]} {none[1]} -> {none[2]}; at {full[0]} -> {full[2]}; at {part[0]} {part[1]} -> {part[2]}")
     # live (device test 15.11.: the LEDs took a new step only after the menu was left): while dimmed, each turn of the page sends
     # every LED at once in the new step, without a change of the power save switch
-    plain.call(PC.DIM_SWITCH, 0)                # the page stands at 70 percent; first what the firmware wants
+    plain.call(pad_colors.DIM_SWITCH, 0)                # the page stands at 70 percent; first what the firmware wants
     plain.run(0.3)
     full_now = {led: v for led, v in plain.m.leds.items() if v and not 0x4C <= led <= 0x57}
-    plain.call(PC.DIM_SWITCH, 1)
+    plain.call(pad_colors.DIM_SWITCH, 1)
     plain.run(0.3)
     live = []
     for turn, dims in ((-4, 30), (-3, 0), (11, 100), (-4, 70)):    # ends at 70 percent again for WRITE below
         plain.turn(turn, wait=0.4)
         live.append((texts_of(plain)[1], dims, {led: plain.m.leds.get(led, 0) for led in full_now}))
-    plain.call(PC.DIM_SWITCH, 0)
+    plain.call(pad_colors.DIM_SWITCH, 0)
     plain.run(0.3)
     add("power_save_led_dimming_live", full_now and all(shown == f"{dims}%" and all(leds[led] == (v * (100 - dims) + 99) // 100 for led, v in full_now.items())
         for shown, dims, leds in live) and not plain.m.asserts, f"lit {full_now}; while dimmed, at once after each turn: {live}")
@@ -2191,9 +2277,6 @@ def tie_cases(payload, flash, add, pad, wait):
         f"EXIT held at power-on: {lit}")
     if synthaddr.is_synth(payload):
         return      # the race below drives the Sampler's UART queue directly; the colour code it checks is the same on the synth
-    from unicorn import UC_HOOK_CODE
-    from machine import UART0
-    from tools.patch import arm
     changing, live, _ = steps(0, 0, {i: (127, [61]) for i in range(64)})
     manager = changing.u32(0xC0345A1C)
     sent, full = [], []
@@ -2286,7 +2369,7 @@ def invert_cases(payload, flash=None):
     go(dev, 1)
     dev.run(0.5)
     main_off = dev.screen()["number"], status(dev), plain(dev)
-    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 5), "Display"), f"{page}")
+    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 7), "Display"), f"{page}")
     add("off_swaps_the_display", off == (("DISPLAY INVERT", "OFF", ""), (0, False, 2), True) and still == (0, False, 2),
         f"{off}, dial again {still}")
     add("main_screen_plain", main_off == (1, (0, False, 2), True) and not dev.m.asserts, f"{main_off}")
@@ -2650,7 +2733,7 @@ def switch_menu_cases(payload, flash, name, title, slot, bit, from_end):
     off = texts_of(dev), state(dev, slot)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), state(dev, slot)
-    add("page", page == ((title, "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - from_end, f"{page}")
+    add("page", page == ((title, "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - len(GLIDE_PAGES) - from_end, f"{page}")
     add("dial_acts_at_once", off == ((title, "OFF", ""), 0) and back == ((title, "ON", ""), 1) and not dev.m.asserts,
         f"{off}, back {back}")
 
@@ -2690,12 +2773,68 @@ def filter_toggle_menu_cases(payload, flash=None):
     return switch_menu_cases(payload, flash, "filter_toggle", "FILTER TOGGLE", S_FT, FT_OFF, 2)
 
 
+def media_menu_cases(payload, flash=None):
+    """CUSTOMIZATION, SPLASH, LOADING ANIM and ANIM LOOP (the loading animation from the card, Pascal 14.11.): the two last pages of the
+    group where the set has the loading animation; they show byte 14 of KORG/blechtribe/Media/loading.blla as the start read it and
+    write it at once on the dial: LOADING ANIM CARD, BLECHY, OFF (bits 2 and 1), ANIM LOOP ON, OFF (bit 0); nothing else of the file
+    changes. Without the file both say "no file" and the dial writes nothing. Without the loading animation the group keeps 3 pages."""
+    import loadbar_cases
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:media_{name}", "ok": bool(ok), "detail": detail})
+
+    path = "/KORG/blechtribe/Media/loading.blla"
+    anim = loadbar_cases.blla(loadbar_cases.small_lists(), 21)
+    files = {**CARD_FOLDER, "/KORG/blechtribe/Sample/e2sSample.all": sampleset.build(sampleset.sized(4, 24000))}
+
+    def on_card(dev):
+        volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
+        try:
+            return volume.read(path)
+        except fat32.FatError:
+            return None
+        finally:
+            volume.close()
+
+    dev = boot(payload, flash, files={**files, path: anim}, seconds=3.0)
+    if dev.u32(load_bar.MEDIA_CODE) == 0xFFFFFFFF:
+        goto_group(dev, GROUP_SPLASH, 0)
+        add("no_pages_without_the_animation", counter(dev) is not None and counter(dev)[1] == 3, f"counter {counter(dev)}")
+        return out
+    goto_group(dev, GROUP_SPLASH, 3)
+    seen = [(texts_of(dev)[:2], counter(dev), on_card(dev)[14])]
+    for turn in (1, 1, 1, -1, -1):
+        dev.turn(turn, wait=0.4)
+        seen.append((texts_of(dev)[:2], counter(dev), on_card(dev)[14]))
+    want = [(("LOADING ANIM", "CARD"), (3, 5), 0), (("LOADING ANIM", "BLECHY"), (3, 5), 4), (("LOADING ANIM", "OFF"), (3, 5), 2),
+            (("LOADING ANIM", "OFF"), (3, 5), 2), (("LOADING ANIM", "BLECHY"), (3, 5), 4), (("LOADING ANIM", "CARD"), (3, 5), 0)]
+    add("loading_anim", seen == want and not dev.m.asserts, f"page, counter and byte 14 on the card, start and after the turns +1 +1 +1 -1 -1 (one step each, stops at the ends): {seen}")
+    press(dev, "edit_next", 0.4)
+    loop = [(texts_of(dev)[:2], on_card(dev)[14])]
+    for turn in (-1, -1, 1):
+        dev.turn(turn, wait=0.4)
+        loop.append((texts_of(dev)[:2], on_card(dev)[14]))
+    rest = on_card(dev)
+    add("anim_loop", loop == [(("ANIM LOOP", "ON"), 0), (("ANIM LOOP", "OFF"), 1), (("ANIM LOOP", "OFF"), 1), (("ANIM LOOP", "ON"), 0)]
+        and rest[:14] == anim[:14] and rest[15:] == anim[15:] and not dev.m.asserts,
+        f"page and byte 14, start and after the turns -1 -1 +1: {loop}; the rest of the file {'unchanged' if rest[:14] + rest[15:] == anim[:14] + anim[15:] else 'changed'}")
+    bare = boot(payload, flash, files=files, seconds=3.0)
+    goto_group(bare, GROUP_SPLASH, 3)
+    before = texts_of(bare)[:2]
+    bare.turn(1, wait=0.4)
+    after = texts_of(bare)[:2]
+    add("no_file", before == after == ("LOADING ANIM", "no file") and on_card(bare) is None and not bare.m.asserts,
+        f"without Media/loading.blla: {before} -> {after}, the file {'is there' if on_card(bare) is not None else 'still missing'}")
+    return out
+
+
 def knob_leds_cases(payload, flash=None):
     """CUSTOMIZATION, LED, KNOB LEDS (patch pad-colors, wish 12.11.): ON is stock (no file, a file without the bit), OFF sends the five
     knob LEDs 0 to 4 dark at once while the firmware keeps its own values, a knob turned on the main screen lights none of them, ON
     sends them again; WRITE keeps OFF as bit 6 of byte 5 next to the meter's bit 0, the next start has them dark, EXIT held at
     power-on lights them as stock. In power save ON shows them dimmed like every other LED and OFF dark, also from power-on."""
-    import pad_colors as PC
+    import pad_colors
     out = []
 
     def add(case, ok, detail):
@@ -2708,7 +2847,7 @@ def knob_leds_cases(payload, flash=None):
     wanted = lambda d: [d.read(d.u32(manager) + 0x4E + 8 * led, 1)[0] for led in range(5)]
     meter_file = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(2, 3, look_word(), extras=1)}
     dev = boot(payload, flash, files=meter_file, adapter=True, seconds=wait)
-    if dev.u32(PC.CODE_AT) == 0xFFFFFFFF:
+    if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return out
     stock = knobs(dev)
     add("default_on", any(stock[1:]) and stock[1:] == wanted(dev)[1:], f"knob LEDs {stock}, the firmware wants {wanted(dev)}")
@@ -2761,14 +2900,14 @@ def knob_leds_cases(payload, flash=None):
     quarter = lambda d: [(v * 25 + 99) // 100 for v in wanted(d)]
     lit = boot(payload, flash, files=meter_file, adapter=True, seconds=wait)
     goto_group(lit, GROUP_LED, 8)
-    lit.call(PC.DIM_SWITCH, 1)
+    lit.call(pad_colors.DIM_SWITCH, 1)
     lit.run(0.3)
     dim_on = knobs(lit), quarter(lit)
     lit.turn(-1, wait=0.4)
     dim_off = texts_of(lit)[1], knobs(lit)
     lit.turn(1, wait=0.4)
     dim_on_again = texts_of(lit)[1], knobs(lit), quarter(lit)
-    lit.call(PC.DIM_SWITCH, 0)
+    lit.call(pad_colors.DIM_SWITCH, 0)
     lit.run(0.3)
     add("power_save_on_dimmed", any(dim_on[0][1:]) and dim_on[0][1:] == dim_on[1][1:] and not lit.m.asserts,
         f"dimmed with ON {dim_on[0]}, a quarter of the firmware's {dim_on[1]}")
@@ -2781,11 +2920,11 @@ def knob_leds_cases(payload, flash=None):
         dev = Dev(payload, flash, 0)
         dev.m.insert_card(SDCard(MemoryMedium(bytearray(file_image))))
         dev.run(wait + 0.8)
-        dev.call(PC.DIM_SWITCH, 1)              # whether the firmware dims on battery depends on POWER SAVE in the flash
+        dev.call(pad_colors.DIM_SWITCH, 1)              # whether the firmware dims on battery depends on POWER SAVE in the flash
         dev.run(0.3)
         seen, want = knobs(dev), quarter(dev)
         add(f"power_save_{name}", (seen == [0] * 5 if want_dark else any(seen[1:]) and seen[1:] == want[1:]) and not dev.m.asserts,
-            f"knob LEDs {seen}, a quarter of the firmware's {want}, dims from power-on {dev.read(PC.DIM_FLAG, 1)[0] != 0}")
+            f"knob LEDs {seen}, a quarter of the firmware's {want}, dims from power-on {dev.read(pad_colors.DIM_FLAG, 1)[0] != 0}")
     return out
 
 
@@ -2913,8 +3052,6 @@ SAMPLE_LOADER = 0xC00364F0            # the sample loader itself, called from th
 
 def early_card(payload, files):
     """A card with a sample file (so the loader runs for a good second) and the given files."""
-    import cardstore
-    import sampleset
     image = fat32.format_image(64 * 1024 * 1024)
     volume = fat32.Volume(image)
     if not synthaddr.is_synth(payload):
@@ -2928,7 +3065,6 @@ def early_card(payload, files):
 def early_run(payload, flash, files, held=0):
     """Boots with a sample file on the card and notes, at the moment the sample loader starts, the look words of the menu, the backlight
     pins and the screen, and the device time of the loader's start and of the main screen. Returns a dict."""
-    import unicorn
     dev = Dev(payload, flash, held)
     m = dev.m
     m.adapter = True
@@ -2940,6 +3076,12 @@ def early_run(payload, flash, files, held=0):
             seen.update(loader_ms=m.time_ns / 1e6, on=state(dev, S_ON), led_eff=state(dev, S_LED_EFF), bl_on=state(dev, S_BL_ON), bl_pwm=state(dev, S_BL_PWM),
                         led_v=dev.read(STATE + S_LED_V, 3), pins=pins(dev), screen=dev.screen()["number"])
     m.uc.hook_add(unicorn.UC_HOOK_CODE, at_loader, begin=SAMPLE_LOADER, end=SAMPLE_LOADER)
+
+    def at_site(uc, address, size, user):              # the early hook: its branch at EARLY_SITE, back at the instruction after it
+        key = "hook_in_ms" if address == EARLY_SITE else "hook_out_ms"
+        if key not in seen and (key == "hook_in_ms" or "hook_in_ms" in seen):
+            seen[key] = m.time_ns / 1e6
+    m.uc.hook_add(unicorn.UC_HOOK_CODE, at_site, begin=EARLY_SITE, end=EARLY_SITE + 4)
     m.uc.ctl_flush_tb()
     while m.time_ns / 1e9 < 3.0 and not m.asserts:
         m.run_until(m.time_ns / 1e9 + 0.002)
@@ -2988,8 +3130,8 @@ def card_later_cases(payload, flash=None):
     whole settings file is read as at the start, CUSTOMIZATION included (backlight, bottom LEDs, display polarity, pad colours),
     and every switch with it. Each step is compared with a device that started with that card. What the power-on runs with
     stays (the plugin runtime and MFX 2), a card without a settings file changes nothing, nothing is written to the card. After a start
-    without a card no card is read until the next start."""
-    import pad_colors as PC
+    without a card the first card put in is read the same way."""
+    import pad_colors
     out = []
 
     def add(name, ok, detail):
@@ -3000,14 +3142,14 @@ def card_later_cases(payload, flash=None):
 
     def look(d):
         return {"led": (state(d, S_LED_EFF), state(d, S_LED_V)), "light": (state(d, S_BL_ON), state(d, S_BL_PWM), pins(d)),
-                "leds": steady_leds(d), "invert": (state(d, S_INVERT), d.m.lcd_reverse), "pads": (d.u32(PC.PC_SETTING), pad(d)),
+                "leds": steady_leds(d), "invert": (state(d, S_INVERT), d.m.lcd_reverse), "pads": (d.u32(pad_colors.PC_SETTING), pad(d)),
                 "switches": (state(d, S_SET_RUN), state(d, S_SET_MFX), state(d, S_PC), state(d, S_TM), state(d, S_NA), state(d, S_KP),
                              state(d, S_FT), state(d, S_AS))}
 
     # scripts off, MFX 2 on, TAP MOTION and NOTE ASSIST off; LED COLOR orange, a blue backlight, DISPLAY INVERT OFF, pads PINK
-    first = settings_file_v2(4, 0x2 | 0x8 | 0x10, look_word(1, (15, 7, 0), (0, 0, 15), 0) | PC.PINK << 2 | 1 << 29)
+    first = settings_file_v2(4, 0x2 | 0x8 | 0x10, look_word(1, (15, 7, 0), (0, 0, 15), 0) | pad_colors.PINK << 2 | 1 << 29)
     # scripts on, PATTERN CONFIRM off; bottom LEDs OFF, a red backlight, DISPLAY INVERT ON, pads BLUE
-    second = settings_file_v2(9, 0x1 | 0x4, look_word(2, (0, 0, 0), (15, 0, 0), 1) | PC.BLUE << 2)
+    second = settings_file_v2(9, 0x1 | 0x4, look_word(2, (0, 0, 0), (15, 0, 0), 1) | pad_colors.BLUE << 2)
     files_a = {**CARD_FOLDER, SETTINGS_PATHS[0]: first}
     files_b = {**CARD_FOLDER, SETTINGS_PATHS[0]: second}
     ref_a = look(boot(payload, flash, files=files_a, adapter=True, seconds=wait))
@@ -3068,17 +3210,19 @@ def card_later_cases(payload, flash=None):
         and not moving.m.asserts, f"other card {look(moving)}, lock {moving.u32(SD_INIT_LOCK)}, card state {state(moving, S_CARD):#x}; "
         f"started with it {ref_b}")
 
-    # started without a card: the first card after such a start can hang the Korg SD init on the device, so none is read until the next start
+    # started without a card: the first card put in is read as a swapped one
     bare_dev = boot(payload, flash, adapter=True, card=False, seconds=wait)
     bare = look(bare_dev)
     bare_dev.m.insert_card(SDCard(MemoryMedium(card_image(files_a))))
-    bare_dev.run(1.0)
+    bare_dev.run(1.5)
     after_bare = look(bare_dev)
-    add("start_without_card_reads_none", bare != ref_a and after_bare == bare and not bare_dev.m.asserts, f"without card {bare}; card put in {after_bare}; started with it {ref_a}")
+    add("start_without_card_reads_the_first", bare != ref_a and after_bare == ref_a and bare_dev.u32(SD_INIT_LOCK) == 0
+        and not bare_dev.m.asserts, f"without card {bare}; card put in {after_bare}; started with it {ref_a}")
     # the service took that device for hung (PR #690): it sends the panel nothing then, so it must still reach its idle wait
     waits = bare_dev.m.idle_waits
     bare_dev.run(2.0)
     waits = bare_dev.m.idle_waits - waits
+    bare_dev.press("exit", 0.5)         # the card's settings ask SAVE TO FLASH?; EXIT keeps them in RAM
     bare_dev.press("menu", 0.5)
     screen = bare_dev.screen()["number"]
     add("card_put_in_keeps_running", waits > 1000 and screen not in (None, 1) and not bare_dev.m.asserts,
@@ -3095,6 +3239,11 @@ def card_later_cases(payload, flash=None):
 
     # a card still powering up when it is read: Korg's SD init runs out of ACMD41 rounds and locks every later init ("No Card.")
     # until a card interrupt (docs/messungen/2026-11-14-karte-init-sperre.md). The menu clears the lock and reads it once more.
+    def card_struck(d, x=109):
+        """(card symbol on the main screen at x, stroke through it): right edge full, the inner columns' rows 3 to 6 as card_stroke draws."""
+        cols = bytes(d.m.fb[0])[x:x + 6]
+        return cols[5] & 0xFE == 0xFE, [c & 0x78 for c in cols[1:5]] == [0x40, 0x20, 0x10, 0x08]
+
     def busy_card(d):
         d.m.eject_card()
         d.run(0.5)
@@ -3148,6 +3297,7 @@ def card_later_cases(payload, flash=None):
     stuck.run(5.0)
     add("busy_card_read_once_more_only", first == 0xFC and state(stuck, S_CARD) == 0xFC and stuck.u32(SD_INIT_LOCK) == 1
         and look(stuck) == ref_a and not stuck.m.asserts, f"card state {first:#x}, 5 s later {state(stuck, S_CARD):#x}, lock {stuck.u32(SD_INIT_LOCK)}")
+    struck = card_struck(stuck)
     stuck.m.eject_card()
     stuck.run(0.5)
     stuck.m.insert_card(SDCard(MemoryMedium(card_image(files_b))))
@@ -3167,6 +3317,75 @@ def card_later_cases(payload, flash=None):
     add("card_busy_at_start_read_after", at_start[0] == 1 and at_start[1] >= 0x100 and look(late) == ref_a and late.u32(SD_INIT_LOCK) == 0
         and not late.m.asserts, f"at the main screen lock {at_start[0]}, card state {at_start[1]:#x}; read after {look(late)}; started with it {ref_a}")
     add("stuck_card_swapped_reads",look(stuck) == ref_b and stuck.u32(SD_INIT_LOCK) == 0 and not stuck.m.asserts, f"other card {look(stuck)}; started with it {ref_b}")
+    press(stuck, "exit", wait=0.6)     # SAVE TO FLASH? covers the top row
+    add("stuck_card_symbol_struck", struck == (True, True) and card_struck(stuck) == (True, False) and not stuck.m.asserts,
+        f"(symbol, stroke) locked out {struck}, the other card read {card_struck(stuck)}")
+
+    # CMD8 lost while the card goes in: Korg drops CMD8's answer, and an SDHC card that missed it stays busy on ACMD41 for good
+    # (SD spec 4.2.3.1; docs/messungen/2026-11-22-karte-cmd8-verloren.md). acmd41_round_hook starts over with CMD0 and CMD8, so the
+    # card mounts in the same init: SD_INIT_LOCK is never set, at the start nor on a card put in later.
+    lost_cmd8 = lambda files: SDCard(MemoryMedium(card_image(files)), faults=[{"kind": "no_response", "cmds": [8], "count": 1}])
+    cold = Dev(payload, flash, 0)
+    cold.m.adapter = True
+    cold_card = lost_cmd8(files_a)
+    cold.m.insert_card(cold_card)
+    cold_lock = 0
+    for _ in range(300):
+        cold.run(0.1)
+        cold_lock |= cold.u32(SD_INIT_LOCK)
+        if cold.screen()["number"] == 1 and state(cold, S_CARD) == 0xFF:
+            break
+    cold.run(1.0)
+    add("cmd8_lost_at_start_mounts", cold_card.faults[0].hits == 1 and not cold_lock and state(cold, S_CARD) == 0xFF
+        and look(cold) == ref_a and not cold.m.asserts,
+        f"CMD8 dropped {cold_card.faults[0].hits}x, lock seen {cold_lock}, card state {state(cold, S_CARD):#x}; {look(cold)}, started with it {ref_a}")
+
+    hot = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    hot.m.eject_card()
+    hot.run(0.5)
+    hot_card = lost_cmd8(files_b)
+    hot.m.insert_card(hot_card)
+    hot_lock = 0
+    for _ in range(30):
+        hot.run(0.1)
+        hot_lock |= hot.u32(SD_INIT_LOCK)
+    add("cmd8_lost_on_insert_mounts", hot_card.faults[0].hits == 1 and not hot_lock and state(hot, S_CARD) == 0xFF
+        and look(hot) == ref_b and not hot.m.asserts,
+        f"CMD8 dropped {hot_card.faults[0].hits}x, lock seen {hot_lock}, card state {state(hot, S_CARD):#x} after 3 s; {look(hot)}, the card's {ref_b}")
+
+    # One ACMD41 lost: Korg keeps the answer registers as the OCR anyway, so the next ACMD41 sends CMD55's R1 as its voltage window, and
+    # a card that gets a window without its voltages goes inactive until it loses power (SD spec 4.2.3; the slot stays powered while the
+    # device is off). acmd41_round_hook sets the OCR back to 0 after a failed round: the card mounts in the same init.
+    lost_acmd41 = lambda files: SDCard(MemoryMedium(card_image(files)), faults=[{"kind": "no_response", "cmds": [41], "count": 1}])
+    cold = Dev(payload, flash, 0)
+    cold.m.adapter = True
+    cold_card = lost_acmd41(files_a)
+    cold.m.insert_card(cold_card)
+    cold_lock = 0
+    for _ in range(300):
+        cold.run(0.1)
+        cold_lock |= cold.u32(SD_INIT_LOCK)
+        if cold.screen()["number"] == 1 and state(cold, S_CARD) == 0xFF:
+            break
+    cold.run(1.0)
+    add("acmd41_lost_at_start_mounts", cold_card.faults[0].hits == 1 and not cold_card.inactive and not cold_lock
+        and state(cold, S_CARD) == 0xFF and look(cold) == ref_a and not cold.m.asserts,
+        f"ACMD41 dropped {cold_card.faults[0].hits}x, card inactive {cold_card.inactive}, lock seen {cold_lock}, card state {state(cold, S_CARD):#x}; "
+        f"{look(cold)}, started with it {ref_a}")
+
+    hot = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    hot.m.eject_card()
+    hot.run(0.5)
+    hot_card = lost_acmd41(files_b)
+    hot.m.insert_card(hot_card)
+    hot_lock = 0
+    for _ in range(30):
+        hot.run(0.1)
+        hot_lock |= hot.u32(SD_INIT_LOCK)
+    add("acmd41_lost_on_insert_mounts", hot_card.faults[0].hits == 1 and not hot_card.inactive and not hot_lock
+        and state(hot, S_CARD) == 0xFF and look(hot) == ref_b and not hot.m.asserts,
+        f"ACMD41 dropped {hot_card.faults[0].hits}x, card inactive {hot_card.inactive}, lock seen {hot_lock}, card state {state(hot, S_CARD):#x} "
+        f"after 3 s; {look(hot)}, the card's {ref_b}")
 
     started = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     gen = state(started, S_GEN)
@@ -3195,11 +3414,17 @@ def early_look_cases(payload, flash=None):
     add("armed_before_the_loader", early.get("on") == 1 and early.get("screen") != 1 and late.get("on") != 1, f"at the loader's start: early copy armed {early.get('on')}, copy without the hook {late.get('on')}")
     add("look_applied_before_the_loader", early.get("led_eff") == 2 and tuple(early.get("led_v", b"")) == (255, 119, 0) and early.get("bl_pwm") == 1 and early.get("bl_on") == 0x08
         and early.get("pins", 0) & 0x38 in (0, 0x08) and late.get("led_eff") != 2, f"LED kind {early.get('led_eff')}, colour {tuple(early.get('led_v', b''))}, light pins {early.get('bl_on')}, PWM {early.get('bl_pwm')}; without the hook {late.get('led_eff')}")
-    # The loader waits for the early hook (menu_arm_load and migrate_start read the card): 10.2 ms at GELUMPE_PACE=flat, 17.2 ms at the
-    # device pace (measured 2026-11-10 from the hook's entry to its return; the loader then starts 4 to 5 ms later in both copies). 25 ms holds that with room for the emulator's noise. The main screen below gets the same 25 ms: the hook's 17.2 ms can reach it in full (a copy
-    # without the hook was 17.2 ms earlier on the main screen after the dead card change, 5.6 ms before it, the hooked copy the same both times).
-    add("loader_starts_at_the_same_time", abs(early["loader_ms"] - late["loader_ms"]) < 25, f"loader {early['loader_ms']:.1f} ms with the hook, {late['loader_ms']:.1f} ms without (the settings are read first now, not afterwards)")
-    add("main_screen_not_later", early["main_ms"] <= late["main_ms"] + 25 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without")
+    # The loader waits for the early hook (menu_arm_load and migrate_start read the card): 17.2 ms at the device pace on 2026-11-10, more
+    # since then (the Patterns backup and the update guard read at power-on too). Both copies may differ by the hook's own time, measured
+    # here from its entry to its return, plus 8 ms for the emulator's noise (the loader starts 4 to 5 ms after the hook in both copies; a
+    # copy without the hook was 17.2 ms earlier on the main screen after the dead card change, 5.6 ms before it). The fixed 25 ms broke
+    # once the hook took 22.8 ms (develop 15e90ad6, red: the main screen 27.4 ms later).
+    # The main screen also comes in whole steps: #756 added well under 1 us to the start (the same 578 blocks of its code ran, only
+    # moved) and the main screen with the hook came 10.0 ms later on red (1576.5 -> 1586.5 ms, without the hook 1557.5 both times).
+    # So the main screen gets one such step of 10 ms on top.
+    hook = early.get("hook_out_ms", 0) - early.get("hook_in_ms", 0)
+    add("loader_starts_at_the_same_time", abs(early["loader_ms"] - late["loader_ms"]) < hook + 8, f"loader {early['loader_ms']:.1f} ms with the hook, {late['loader_ms']:.1f} ms without (the settings are read first now, not afterwards), the hook {hook:.1f} ms")
+    add("main_screen_not_later", 0 < hook < 60 and early["main_ms"] <= late["main_ms"] + hook + 8 + 10 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without, the hook {hook:.1f} ms")
     held = early_run(payload, flash, files, held=KILL)
     add("exit_held_stays_stock", held.get("on") != 1 and held.get("pins") == GPIO_PINS and not held["asserts"], f"armed {held.get('on'):#x}, light pins {held.get('pins'):#x}")
     return out + boot_light_cases(payload, flash)
@@ -3216,7 +3441,6 @@ def boot_light_run(payload, flash, files, held=0):
     """Boots on mains power and notes every change of the backlight pins and the time of the first picture (the start image).
     Returns (dev, pin changes [(ms, pins)], ms of the start image, pins at that moment). dev.image_shown is (first, last ms) the
     display shows a full picture (more than 2000 pixels lit) in the first 0.5 s, in 2 ms steps: the start image."""
-    import unicorn
     draw = synthaddr.tr(DRAW_IMAGE) if synthaddr.is_synth(payload) else DRAW_IMAGE
     dev = Dev(payload, flash, held)
     dev.m.adapter = True
@@ -3274,7 +3498,9 @@ def boot_light_cases(payload, flash=None):
     dev, changes, image_ms, image_pins = boot_light_run(payload, kept, red)
     white = after_white(changes)                # the firmware lights red, green, blue one after the other at about 52 ms
     first_red = next((t for t, v in white if v == 0x08), None)
-    if synth:                                   # the blue draws its start image before the flash answers: the colour comes while it is shown
+    # Korg's blue draws its start image before the flash answers, so the colour comes while it is shown; with the splash editor
+    # the image comes from the editor's start hook behind the flash read, as on the red, so the colour comes first there too
+    if synth and not has_start_hook(payload):
         shown = dev.image_shown
         add("colour_while_the_start_image", shown is not None and first_red is not None and shown[0] <= first_red < shown[1],
             f"red from {first_red} ms, start image drawn at {image_ms} ms, on the display from {shown and shown[0]} to {shown and shown[1]} ms, changes {changes[:6]}")
@@ -3346,7 +3572,6 @@ def boot_light_cases(payload, flash=None):
 
 def synth_start_cases(payload, flash=None):
     """Settings and startup ordering at the native Synth user-data continuation."""
-    import unicorn
     files = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(1, (15, 7, 0), (5, 0, 0)))}
     observed = []
     for held in (0, KILL):
@@ -3387,9 +3612,9 @@ FLASH_SET_A, FLASH_SET_B = 0x7FD000, 0x7FE000   # the two sectors of the setting
 def flash_record(image, at):
     """The settings copy in a flash image at `at` -> (generation, record) when it is whole (tag and CRC as menu_flash_check), else None."""
     raw = bytes(image[at:at + 0x120])
-    if raw[:4] != b"GSET" or raw[4] & 0x1F not in (3, 4, 5):
+    if raw[:4] != b"GSET" or raw[4] & 0x1F not in (3, 4, 5, 6):
         return None
-    size = 24 + 4 * (raw[6] | (raw[7] << 8 if raw[4] == 3 else 0))
+    size = 24 + 4 * ((raw[6] & 0x7F if raw[4] & 0x1F == 6 else raw[6]) | (raw[7] << 8 if raw[4] == 3 else 0))
     if size > 24 + 4 * 64:
         return None
     word, crc = struct.unpack_from("<II", raw, size)
@@ -3407,9 +3632,9 @@ def flash_settings_cases(payload, flash=None):
     """The BLECH settings in the flash, their main store (menu_flash_read, menu_flash_save, autosave_leave in
     tools/patch/script_menu.s): a change goes to the flash when the BLECH screen is left (AUTO SAVE, the default) or by
     WRITE, with a card in after the card's file (1.4.7), and the next start without a card reads it;
-    a card with a settings file wins at the start; after a start with a card, a card put in for the pulled one applies its
+    a card with a settings file wins at the start; after a start with a card, a card put in for the pulled one (or the first after a start without one) applies its
     settings at once and asks "SAVE TO FLASH?" (MENU writes them, EXIT keeps them in RAM only), pulled without saving the flash
-    copy runs again; after a start without a card no card is read (#518);
+    copy runs again;
     CUSTOMIZATION has no row SAVE TO FLASH; a torn copy falls back to the other one. The flash is only ever erased and written in the
     two sectors FLASH_SET_A and FLASH_SET_B."""
     out = []
@@ -3592,28 +3817,25 @@ def flash_settings_cases(payload, flash=None):
     add("same_settings_no_question", switches(same) == (0, 0) and asked(same) == 0 and held_bit(same) == 0 and not erased and not same.m.asserts,
         f"switches {switches(same)}, ask {asked(same)}, hold {held_bit(same)}, erases {erased}")
 
-    # 9. started without a card: a card put in is not read until the next start (#518), no question; a change still goes to the flash
+    # 9. started without a card: a change goes to the flash; the first card put in is read as a swapped one (#725) and asks
+    # "SAVE TO FLASH?", the flash already holds what ran without the card so nothing more is written, and the card stays untouched
     bare = start(second)
     erased = watch(bare)
-    ignored_card = SDCard(MemoryMedium(card_image(files)))
-    untouched = bytes(ignored_card.medium.data)
-    bare.m.insert_card(ignored_card)
-    bare.run(1.0)
-    ignored = switches(bare), asked(bare), held_bit(bare)
     goto_group(bare, GROUP_FEATURES, FEAT_TM)
     bare.turn(1, wait=0.3)
     leave_to_main(bare)
     bare_rec = flags(bytes(bare.m.flash.mem), FLASH_SET_A)
-    goto_group(bare, GROUP_FEATURES, FEAT_TM)
-    bare.turn(-1, wait=0.3)
-    press(bare, "write", wait=0.6)
-    wrote = texts_of(bare)
-    bare_b = flags(bytes(bare.m.flash.mem), FLASH_SET_B)
+    first_card = SDCard(MemoryMedium(card_image(files)))
+    untouched = bytes(first_card.medium.data)
+    bare.m.insert_card(first_card)
+    bare.run(1.0)
+    read = switches(bare), asked(bare), held_bit(bare)
+    press(bare, "exit", wait=0.6)
+    kept = asked(bare), held_bit(bare)
     card_same = bytes(bare.m.mmc.card.medium.data) == untouched
-    add("cardless_start_ignores_card", ignored == ((0, 0), 0, 0) and bare_rec is not None and bare_rec[0] == 3 and not bare_rec[1] & TM_OFF_BIT
-        and bare_b is not None and bare_b[0] == 4 and bare_b[1] & TM_OFF_BIT and "saved in flash" in wrote and card_same
-        and [e[:2] for e in erased] == [ours[0], ours[1]] and not bare.m.asserts,
-        f"card put in: switches/ask/hold {ignored}; a change: copy A {bare_rec}; WRITE {wrote}, copy B {bare_b}; card "
+    add("cardless_start_reads_first_card", bare_rec is not None and bare_rec[0] == 3 and not bare_rec[1] & TM_OFF_BIT
+        and read == ((1, 1), 1, 1) and kept == (0, 1) and card_same and [e[:2] for e in erased] == [ours[0]] and not bare.m.asserts,
+        f"a change: copy A {bare_rec}; card put in: switches/ask/hold {read}; after EXIT ask/hold {kept}; card "
         f"{'untouched' if card_same else 'written'}; erases {erased}")
 
     # 12. MENU on the question while the flash write does not land (programs lost, or the write reports a failure): the card pulled
@@ -3635,7 +3857,6 @@ def flash_settings_cases(payload, flash=None):
 
     def fail_writes(dev):
         """The firmware's flash write returns 0 for the settings sectors while the returned switch is on."""
-        from unicorn import UC_HOOK_CODE
         on = [True]
         entry = 0xC0026E24 if synthaddr.is_synth(payload) else 0xC0029AB8
         A = arm_const
@@ -3735,9 +3956,9 @@ def flash_settings_cases(payload, flash=None):
             f"pulled {pulled}; card in: switches/ask/hold {q}; after {answer.upper()} {after}; copies A/B {recs}, erases {erased}; "
             f"next start without a card {switches(restart)}")
 
-    # 15. the card only stale (device 18.11.): a start with the card and a change (card and flash in step), a start without a card,
-    # the card put in later stays untouched (#518) while PAD COLOR changes into the flash; the next start with that card takes the
-    # flash's colour, as the card holds the card generation the flash's copy was written with; the next save brings the card up to date
+    # 15. the card only stale (device 18.11.): a start with the card and a change (card and flash in step), a start without a card
+    # where PAD COLOR changes into the flash; the next start with that card takes the flash's colour, as the card holds the card
+    # generation the flash's copy was written with; the next save brings the card up to date
     def boot_with(image, card_bytes):
         dev = Dev(payload, bytes(image), 0)
         dev.m.adapter = True
@@ -3753,14 +3974,11 @@ def flash_settings_cases(payload, flash=None):
     card_change(synced)
     synced_card = bytes(synced.m.mmc.card.medium.data)
     later = start(bytes(synced.m.flash.mem))
-    later.m.insert_card(SDCard(MemoryMedium(bytearray(synced_card))))
-    later.run(1.0)
     was = pad_colour(later)
     later.turn(1, wait=0.4)
     chosen = texts_of(later)[1]
     leave_to_main(later)
     later.run(1.0)
-    untouched = bytes(later.m.mmc.card.medium.data) == synced_card
     back = boot_with(bytes(later.m.flash.mem), synced_card)
     shown = pad_colour(back), switches(back), held_bit(back)
     back.turn(1, wait=0.4)
@@ -3770,15 +3988,15 @@ def flash_settings_cases(payload, flash=None):
     caught_up = read_settings_look(back.m.mmc.card.medium.data)
     newest = max(caught_up.values(), key=lambda v: v[0]) if caught_up else None
     again = boot_with(bytes(back.m.flash.mem), bytes(back.m.mmc.card.medium.data))
-    add("stale_card_takes_the_flash", chosen != was and untouched and shown == (chosen, (0, 1), 0) and newest is not None and newest[0] == 9
+    add("stale_card_takes_the_flash", chosen != was and shown == (chosen, (0, 1), 0) and newest is not None and newest[0] == 9
         and pad_colour(again) == next_colour and not later.m.asserts and not back.m.asserts and not again.m.asserts,
-        f"card in after a start without one: PAD COLOR {was} -> {chosen}, card {'untouched' if untouched else 'written'}; start with "
+        f"a start without the card: PAD COLOR {was} -> {chosen}; start with "
         f"the card: colour/switches/hold {shown}; a change to {next_colour}: card files {caught_up}; next start {pad_colour(again)}")
     return out
 
 
 MX_FLAGS2 = STATE - 0x15               # byte 7 of a version 4 settings file in RAM (script_menu.s:MX_FLAGS2), 0 without one
-FLAGS2_KNOWN = 0xE0                     # bits 5 to 7 TUBE (0 OFF, 1 to 7 TUBE DRIVE); bits 0 to 4 belong to 1.5
+FLAGS2_KNOWN = 0xFF                     # bit 0 LOAD METER, bit 1 IDLE POWER SAVE off, bits 2 and 3 GLIDE CHAIN and GLIDE SWITCH, bit 4 BATTERY % off, bits 5 to 7 TUBE (0 OFF, 1 to 7 TUBE DRIVE)
 FLAGS2_TUBE_1 = 0x20                    # TUBE ON at TUBE DRIVE 1
 M_TUBE_ASYM = 0x1C7                     # TUBE ASYM 0 to 7 xor 4 (its default) in RAM (script_menu.s), as bits 5 to 7 of byte 4 of a version 5 settings file
 
@@ -3877,10 +4095,11 @@ def settings_v4_cases(payload, flash=None):
 
     trusted = tuple(0x1000 + i for i in range(40))
     v4 = start(settings_file_v4(9, TM_OFF_BIT, look, 0xFF, trusted=trusted))
-    got4 = flags2(v4), state(v4, S_TM), state(v4, S_GEN), state(v4, 44)
+    # bit 1 (IDLE SAVE OFF) lives in M_IDLE in RAM, byte 7 keeps it clear there and WRITE puts it back
+    got4 = flags2(v4), v4.m.uc.mem_read(STATE + M_IDLE, 1)[0], state(v4, S_TM), state(v4, S_GEN), state(v4, 44)
     w4 = write(v4)
-    add("v4_bits_and_count", got4 == (FLAGS2_KNOWN, 0, 9, 40) and w4 == (4, FLAGS2_KNOWN, 10, 40, True) and not v4.m.asserts,
-        f"byte 7 0xFF with 40 checksums: after the start (byte 7, TAP MOTION, generation, count) {got4}, WRITE wrote {w4}")
+    add("v4_bits_and_count", got4 == (FLAGS2_KNOWN & ~2, 0, 0, 9, 40) and w4 == (4, FLAGS2_KNOWN, 10, 40, True) and not v4.m.asserts,
+        f"byte 7 0xFF with 40 checksums: after the start (byte 7, IDLE SAVE, TAP MOTION, generation, count) {got4}, WRITE wrote {w4}")
 
     cleared = start(settings_file_v4(3, 0, look, FLAGS2_TUBE_1))
     got_c = flags2(cleared)
@@ -3939,29 +4158,31 @@ def look_rest():
 
 def look_parts():
     """What look_cases_task(i) runs: the look cases themselves, the suites after them, then the splash, pad colour and
-    calibration cases. Each boots devices of its own, so they run side by side."""
+    calibration cases, the load meter, idle power save, BPM glide and BATTERY % last. Each boots devices of its own, so they run side by side."""
     from calibrate_cases import cases as calibration_cases
+    from load_meter_cases import cases as load_meter_cases
+    from idle_save_cases import cases as idle_save_cases
+    from bpm_glide_cases import cases as bpm_glide_cases
+    from battery_percent_cases import cases as battery_percent_cases
     return ((lambda payload, flash: look_cases(payload, flash, rest=False)), *look_rest(), splash_menu_cases, wheel_cases,
-            pad_colour_cases, calibration_cases, flash_settings_cases, settings_v4_cases)
+            pad_colour_cases, calibration_cases, flash_settings_cases, settings_v4_cases, media_menu_cases, load_meter_cases,
+            idle_save_cases, bpm_glide_cases, battery_percent_cases)
 
 
-LOOK_PARTS = 1 + len(look_rest()) + 6      # look_parts() without importing calibrate_cases
+LOOK_PARTS = 1 + len(look_rest()) + 11     # look_parts() without importing calibrate_cases, load_meter_cases, idle_save_cases, bpm_glide_cases and battery_percent_cases
 
 
 def look_cases_task(i):
     """Part `i` of the look cases in a worker (parallel.py, look_parts)."""
-    import parallel
     return look_parts()[i](parallel.shared["payload"], parallel.shared["flash"])
 
 
 def settings_cases_task():
     """The settings cases in a worker (parallel.py)."""
-    import parallel
     return settings_cases(parallel.shared["payload"], parallel.shared["flash"])
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=["cases"])
@@ -3972,7 +4193,6 @@ def main():
     payload = Path(args.patched).read_bytes()[HEADER:]
     flash = load_flash(args.flash) if args.flash else None
     # The same tasks as in check.py (without the calibration), side by side and kept as there (taskcache.py)
-    import parallel
     tasks = [("menu_cases", "cases_task", (i,)) for i in range(len(CASES_PARTS))] + [("menu_cases", "settings_cases_task", ())]
     tasks += [("menu_cases", "look_cases_task", (i,)) for i in range(LOOK_PARTS - 1)]
     data = {"payload": payload, "flash": flash, "base": Path(args.base).read_bytes()[HEADER:]}

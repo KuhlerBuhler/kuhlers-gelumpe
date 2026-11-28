@@ -6,7 +6,7 @@
 - **Gemessen:** Sample 653, Index 652, heißt `No!!`; Record-Adresse
   `0xC0480200`, Name bei `0xC048020C`. Nach dem alleinigen Schreibheader
   war der gesamte 32-Byte-Record beim erneuten Lesen unverändert.
-- **Gemessen:** Der `0x53`-Schreibheader für Adresse `0xC048020C`,
+- **Gemessen:** Der [SysEx](../glossary.md#sysex)-Schreibheader `0x53` für Adresse `0xC048020C`,
   Länge 16, Kanal 9, und das folgende `0x54`-Datenpaket werden beide mit
   `F0 42 39 00 01 24 21 F7` beantwortet. Beide Bestätigungen haben
   Funktion `0x21` und den vollständigen gerätespezifischen Kopf.

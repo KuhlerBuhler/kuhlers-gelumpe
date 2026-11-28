@@ -13,6 +13,7 @@
   "data/patches/pad-colors.json",
   "data/patches/load-bar.json",
   "data/patches/sample-errors.json",
+  "data/patches/sample-swap.json",
   "data/patches/script-runtime.json",
   "data/patches/script-runtime-stock.json",
   "data/patches/blechtribe.json",
@@ -32,9 +33,12 @@
   "data/patches/beat-eighth.json",
   "data/patches/touch-scale-zero.json",
   "data/patches/value-popup.json",
+  "data/patches/stage2-memory.json",
   "data/patches/update-guard.json",
   "data/patches/blech-version.json",
   "data/patches/doom-loader.json",
+  "data/patches/import-slots.json",
+  "data/patches/import-slots-stock.json",
   "data/patches/blech-sysex.json",
   "data/patches/blech-sysex-stock.json"
  ]

@@ -1,6 +1,6 @@
 # BLECH-Einstellungen ohne Karte im Flash (13.11.)
 
-Stand 13.11.2026 auf `release/1.4.6` (mit #518), nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Stands), am Gerät
+Stand 13.11.2026 auf `release/1.4.6` (mit #518), nur [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Stands), am Gerät
 nichts geprüft. Ziel: eine Electribe ohne SD-Karte (vor allem die blaue) behält ihre BLECH-Einstellungen über den Neustart.
 Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergeleitet**, **offen**.
 
@@ -64,11 +64,11 @@ der Flash blieb leer oder alt, ein Start ohne Karte hatte dann die alten Werte.
 | MENU auf der Frage schreibt die Werte der Karte (Generation 3 in `0x7FD000`, kein anderer Sektor), Ziehen ändert nichts, der nächste Start ohne Karte hat sie | `hot_swap_menu_saves` | gemessen |
 | Karte beim Start: keine Frage; gezogen gelten die Werte des Flash, der Flash wird nicht angefasst | `start_card_pulled_reverts` | gemessen |
 | Getauschte Karte mit denselben Werten wie der Flash: keine Frage, keine Sperre, nichts geschrieben | `same_settings_no_question` | gemessen |
-| Start ohne Karte: eine gesteckte Karte wird nicht gelesen, keine Frage, eine Änderung geht beim Verlassen weiter in den Flash (Generation 3), WRITE zeigt `saved in flash` und schreibt Generation 4, die Karte bleibt Byte für Byte | `cardless_start_ignores_card` | gemessen |
+| Start ohne Karte: eine Änderung geht beim Verlassen in den Flash (Generation 3); die erste gesteckte Karte wird gelesen wie eine getauschte (#725) und fragt `SAVE TO FLASH?`, der Flash wird dabei nicht weiter geschrieben, EXIT behält ihre Werte im RAM, die Karte bleibt Byte für Byte | `cardless_start_reads_first_card` | gemessen |
 | Karte ziehen und eine andere stecken (#505, [Messung](2026-11-12-karte-spaeter-einstellungen.md)) mit leerem Flash: beim Ziehen bleiben die Werte der ersten Karte (keine Kopie im Flash), die zweite wird ganz gelesen | `card_later_cases`, `swap_reads_the_other_card` (unverändert) | gemessen |
 | CUSTOMIZATION hat keine Zeile SAVE TO FLASH, nach einem Start mit Karte schreibt das Durchblättern nichts in den Flash | `no_save_to_flash_row` | gemessen |
 | WRITE ohne Karte zeigt `saved in flash` und legt einen gültigen Satz in `0x7FD000` | `settings_cases`, `menu:settings_without_card` | gemessen |
-| Rot und Hacktribe: `[0x7F0000, 0x7FF000)` hat keinen Schreiber in der Firmware und liegt in keinem Bereich, den ein Update schreibt | [Flash-Karte](2026-10-24-flash-karte.md) | offline gelesen |
+| Rot und Hacktribe: `[0x7F0000, 0x7FF000)` hat keinen Schreiber in der Firmware und liegt in keinem Bereich, den ein Update schreibt | [Speicherbereiche](../speicherbereiche.md) | offline gelesen |
 | Blau (Korg 2.02, sha256 `41fc5f1c...`): alle Aufrufer der Schreibfunktion `0xC0026E24` schreiben `0x230000` (Globals), `0x240000 + n * 0x4000` (Pattern), `0x7EF000`, `0x7FF000` und über `0xC0027000` die Update-Bereiche 0 (bis `0x20000`), 2 (bis `0x200000`), `0x22` (bis Bereich `0x7E`, also unter `0x7E0000`) und `0x80` (genau `0x800000`); der Sektorschreiber `0xC0019EA4` wird nur aus `0xC0026E24` gerufen. `0x7FD000` und `0x7FE000` schreibt nichts davon | Disassembly mit capstone, jeder `bl`/`b` auf beide Adressen mit den Befehlen davor | offline gelesen |
 | Die Schreibfunktion der blauen hat dieselbe Belegung wie die rote (`r0` Objekt, `r1` Adresse, `r2` Länge, `r3` Quelle) | dieselbe Disassembly (Aufrufer bei `0xC0027304`, `0xC0027384`), danach alle Fälle auf blau grün | offline gelesen, gemessen |
 
@@ -94,7 +94,7 @@ der Flash.
 zeichnet `menu_ask_frame` im Frame-Hook wie die Frage der Migration (eigener Puffer, in den Bildspeicher der Firmware kopiert,
 neu markiert); `menu_ask_input` vor der Eingabe der Firmware merkt EXIT oder MENU im Byte `0x157` und verwirft alle Eingaben bis
 Typ 5. Ist die Karte 8 Frames weg (`M_CARD` `0x80 + n`), löst das die Frage, und mit Sperre liest `menu_settings_load` nur den
-Flash (`M_CARD` = `0xFE`), ohne Karte. `menu_flash_save` ruft die Schreibfunktion der Firmware (rot und HT `0xC0029AB8`, blau `0xC0026E24`), die unter
+Flash (`M_CARD` = `0xFD`, `CARD_PULL`; `0xFE` ist seit #518 `CARD_NEVER`), ohne Karte. `menu_flash_save` ruft die Schreibfunktion der Firmware (rot und HT `0xC0029AB8`, blau `0xC0026E24`), die unter
 ihrer Sperre den Sektor liest, löscht und neu schreibt, wie der Startbild-Editor bei WRITE.
 
 ## Messwerte
@@ -107,6 +107,9 @@ Der Flash hängt an SPI1 und ist nicht in den Adressraum gelegt. Am Gerät (14.1
 
 ## Offen
 
+- Nicht geprüft: ob andere Kartenzugriffe (EXPORT ALL CUSTOMIZATIONS, Plugin-Seiten) nach einem Start ohne Karte eine
+  später gesteckte Karte anfassen. Umgestellt ist nur WRITE der Einstellungen; ein Kartenzugriff nach so einem Start kann
+  Korgs Karten-Init hängen lassen (#518).
 - Die Schreibfunktion `0xC0029AB8` aus einem EXEC-Stub aufzurufen, um ein Löschen zu timen, hat das rote Gerät abstürzen lassen
   (Display rot und stehend, kein Assert-Text), im Emulator lief derselbe Stub durch; `0x7F0000` bis `0x800000` war danach
   unverändert (gemessen 14.11.). Die Löschzeit wird darum nur über den eigenen Speicherweg der Firmware gemessen.

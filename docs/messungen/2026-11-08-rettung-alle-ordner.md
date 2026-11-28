@@ -1,11 +1,11 @@
 # Rettung: dieselbe SYSTEM.VSB in allen drei Ordnern
 
-Stand 2026-11-08. Probe im Emulator, **am Gerät nichts**. Frage: Die Seite [Rettung](../rettung.md) sagt bei "Weiß ich nicht"
+Probe im [Emulator](../glossary.md#emulator), **am Gerät nichts**. Frage: Die Seite [Rettung](../rettung.md) sagt bei "Weiß ich nicht"
 (was läuft), man soll die `SYSTEM.VSB` in alle drei Ordner legen, das schade nicht, die Electribe lese nur den Ordner der Firmware,
 die läuft (`rescue.say.cardAll`, Knoten `folder:all:*` in `data/rescue.mjs`). Stimmt das für jede Firmware, die laufen kann?
 
-Eingaben, alle außerhalb des Repositorys: Korgs rote 2.02 (`1d0f0689`), Korgs blaue 2.02 (`41fc5f1c`), Hacktribe 2.02 (`7cb4825c`),
-daraus BLECH aus `data/patches/blech.json` auf Hacktribe und auf Korgs roter, und BLECH aus `data/patches/blech-synth.json` auf
+Eingaben, alle außerhalb des Repositorys: Korgs rote 2.02 (`1d0f0689`), Korgs blaue 2.02 (`41fc5f1c`), [Hacktribe](../glossary.md#hacktribe) 2.02 (`7cb4825c`),
+daraus [BLECH](../glossary.md#blech) aus `data/patches/blech.json` auf Hacktribe und auf Korgs roter, und BLECH aus `data/patches/blech-synth.json` auf
 Korgs blauer. Jede Firmware startet von einem leeren Flash ihrer Farbe (`machine.hardware_flash`), auf Netzteil.
 
 Marker: **gemessen** (im Emulator ausgeführt, Befehl unten), **hergeleitet** (aus Code oder Messung geschlossen, nicht laufen
@@ -25,7 +25,7 @@ gesehen), **offen** (geht nur am Gerät oder ist nicht geprüft).
    Korgs Ordner nötig, die anderen beiden stören nicht. (hergeleitet aus der zweiten Tabelle in [Rettung](../rettung.md), hier nicht
    neu gemessen)
 
-**Urteil:** Der Text kann so bleiben. Genauer wäre "beim Update liest sie nur den Ordner der Firmware, die läuft", weil BLECH beim
+**Urteil:** Der Text stimmt. Genauer wäre "beim Update liest sie nur den Ordner der Firmware, die läuft", weil BLECH beim
 Start auch Einstellungen und Plugins aus `KORG/blechtribe/` liest, nur keine `.VSB`.
 
 ## Ergebnis je Firmware

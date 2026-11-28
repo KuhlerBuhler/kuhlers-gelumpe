@@ -2,8 +2,7 @@
 
 Stand 2026-10-19. Gemessen im Referenzmodell der Plugin-Laufzeit, zusätzlich
 mit der nativen ARM-VM und den nativen Zeichenfunktionen geprüft. Kein Gerätetest.
-Die bisherige Fassung ist der Innenflächen-Port aus
-[der ersten Messung](2026-10-19-mandelbrot-schneller.md).
+Die bisherige Fassung überspringt nachgewiesene Innenflächen (Hauptkardioide und Periode-2-Kreis) rechteckweise.
 
 ## Verfahren
 

@@ -1,4 +1,4 @@
-"""Bare ARM script runtime tests; inputs contain no firmware bytes."""
+"""Bare ARM script runtime tests."""
 import json
 import re
 import pathlib
@@ -18,6 +18,7 @@ except ModuleNotFoundError:
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
+from tools.patch.script_vm import build
 
 @lru_cache(None)
 def contract_data():
@@ -38,7 +39,6 @@ def blob(code, vars=0, stack=0, constants=(), handlers=(), strings=(), lines=(),
 @unittest.skipUnless(UNICORN_AVAILABLE,'Unicorn is required for native ARM tests')
 class NativeRuntimeTests(unittest.TestCase):
     def test_load_and_start_native_store(self):
-        from tools.patch.script_vm import build
         machine = BareMachine(build(contract_data()['include']))
         code = [1, 7, 5, 0, 0, 0]
         error, entry = machine.load(blob(code, vars=1, stack=1))
@@ -48,7 +48,6 @@ class NativeRuntimeTests(unittest.TestCase):
         self.assertEqual(machine.read(entry+12), 2)
 
     def test_builder_links_api_glue_from_generated_contract(self):
-        from tools.patch.script_vm import build
         code = build(contract_data()['include'],origin=0x120000,
             glue={'API_KORG_MILLIS':0xABCDEF00})
         table = code.symbols['script_api_table']-code.origin
@@ -58,7 +57,6 @@ class NativeRuntimeTests(unittest.TestCase):
         with self.assertRaises(ValueError): build(contract_data()['include'],glue={0:123})
 
     def test_header_failure_is_atomic(self):
-        from tools.patch.script_vm import build
         machine = BareMachine(build(contract_data()['include']))
         for data, error in [(b'bad',16), (b'not GSCR',17), (blob([0])[:-1],16)]:
             self.assertEqual(machine.load(data)[0], error)
@@ -186,7 +184,6 @@ class NativeRuntimeTests(unittest.TestCase):
         self.assertEqual(machine.read(entry+40),250)
 
     def test_native_api_versions_use_both_bytes(self):
-        from tools.patch.script_vm import build
         include = re.sub(r'\.equ SCRIPT_API_VERSION, \w+\n','.equ SCRIPT_API_VERSION, 0x100\n',contract_data()['include'])
         native = build(include)
         data = bytearray(blob([33,2,0,9,0],stack=1))
@@ -207,7 +204,6 @@ class NativeRuntimeTests(unittest.TestCase):
                     self.assertEqual(code,0 if since==256 else contract_data()['error']['API_VERSION'])
 
     def test_native_runtime_api_version_accepts_full_u16_range(self):
-        from tools.patch.script_vm import build
         for version in [257,65535]:
             with self.subTest(version=version):
                 include = re.sub(r'\.equ SCRIPT_API_VERSION, \S+\n',f'.equ SCRIPT_API_VERSION, {version}\n',contract_data()['include'])
@@ -382,7 +378,6 @@ class BareMachine:
 
 @lru_cache(None)
 def runtime_code():
-    from tools.patch.script_vm import build
     return build(contract_data()['include'])
 
 def run_case(case):

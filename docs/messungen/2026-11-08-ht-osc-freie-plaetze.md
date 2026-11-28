@@ -1,8 +1,8 @@
-# Hacktribe-Oszillatoren auf den freien Plätzen (08.11.)
+# Hacktribe-Oszillatoren auf den freien Plätzen
 
-Stand 08.11.2026, Emulator mit Korgs Original 2.02 (rot), Hacktribe 2.02 und Korgs blauer 2.02. Wunsch: auf der roten
-Firmware die leeren Plätze zwischen den Werks-Samples und den eigenen Samples mit Hacktribes Oszillatoren füllen, in
-Hacktribes Reihenfolge und Schreibweise. Patch `data/patches/ht-osc.json`, gebaut von `tools/patch/ht_osc.py`. Am Gerät
+[Emulator](../glossary.md#emulator) mit Korgs Original 2.02 (rot), [Hacktribe](../glossary.md#hacktribe) 2.02 und Korgs blauer 2.02. Auf der roten
+Firmware stehen die Oszillatoren von Hacktribe auf den leeren Plätzen zwischen den Werks-Samples und den eigenen Samples, in
+Hacktribes Reihenfolge und Schreibweise. [Patch](../glossary.md#patch) `data/patches/ht-osc.json`, gebaut von `tools/patch/ht_osc.py`. Am Gerät
 nicht geprüft.
 
 Zählweise: "Platz" ist nullbasiert wie in der Firmware, "Anzeige" ist Platz plus 1. Platz 421 bis 499 ist Anzeige 422 bis 500.
@@ -72,13 +72,6 @@ War EXIT beim Einschalten gehalten, tut jede Stelle, was die Firmware tut. Nur f
 | `case_export` | EXPORT ALL SAMPLE ohne 421 bis 499 |
 | `case_exit` | EXIT beim Einschalten wie Firmware |
 | `case_old_setting` | Einstellungsdatei mit Bit 6 von Byte 5: Oszillatoren da, Datei gelesen |
-
-## Nachtrag 09.11.: kein Schalter mehr
-
-Die Seite HT OSC unter BLECH > FEATURES, das Einstellungswort `0xC014FBFC` und `ho_apply` sind entfernt. Die Plätze
-waren immer leer, die Oszillatoren stören nichts, ein Schalter ist nicht nötig. Bit 6 von Byte 5 der Einstellungsdatei
-ist frei: eine Datei, in der es gesetzt ist, lädt wie jede andere, das Bit wirkt nicht. Notschalter bleibt EXIT beim
-Einschalten.
 
 ## Offen am Gerät
 

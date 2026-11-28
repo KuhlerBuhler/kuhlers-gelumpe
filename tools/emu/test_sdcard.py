@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """The card and the MMC controller, driven through the registers the way the firmware does it."""
 
+import pickle
 import struct
 import sys
+import types
 import unittest
 from pathlib import Path
 
@@ -10,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sdcard  # noqa: E402
 from sdcard import ARG, BLEN, CMD, DRR, DXR, IM, NBLK, RSP01, RSP67, ST0  # noqa: E402
 from sdcard import ST0_CRCRD, ST0_CRCRS, ST0_CRCWR, ST0_DATDNE, ST0_RSPDNE, ST0_TOUTRD, ST0_TOUTRS  # noqa: E402
+import machine  # noqa: E402
 
 MIB = 1024 * 1024
 
@@ -94,6 +97,24 @@ class CardTest(unittest.TestCase):
         c_size = (csd[7] & 0x3F) << 16 | csd[8] << 8 | csd[9]
         self.assertEqual((c_size + 1) * 512 * 1024, 128 * MIB)
         self.assertEqual(csd, self.card.csd(), "the register image is the CSD, byte for byte, CRC included")
+
+    def test_a_voltage_window_without_the_cards_voltages_sends_it_inactive_until_power_returns(self):
+        card = self.card
+        card.command(0, 0)
+        card.command(8, 0x1AA)
+        card.command(55, 0)
+        self.assertEqual(card.command(41, 0x40000120), ("timeout",), "CMD55's R1 as the window: the card leaves the bus")
+        self.assertTrue(card.inactive)
+        self.assertEqual(card.command(0, 0), ("timeout",), "CMD0 does not bring it back")
+        self.assertEqual(card.command(55, 0), ("timeout",))
+        card.power_on()
+        self.assertFalse(card.inactive)
+        card.command(8, 0x1AA)
+        card.command(55, 0)
+        self.assertEqual(card.command(41, 0x40000000)[0], "r3", "an empty window only asks")
+        card.command(55, 0)
+        self.assertEqual(card.command(41, 0x40800120)[0], "r3", "a window with one of its voltages is accepted")
+        self.assertFalse(card.inactive)
 
     def test_unknown_commands_are_not_answered(self):
         self.d.init()
@@ -468,7 +489,6 @@ class Faults(unittest.TestCase):
             sdcard.SDCard.options({"kind": "sdsc"}, live=True)
 
     def test_a_card_with_faults_can_be_pickled_for_a_snapshot(self):
-        import pickle
         card = sdcard.SDCard(sdcard.MemoryMedium(bytearray(MIB)), kind="sdsc", faults=[{"kind": "read_crc", "lbas": range(3)}])
         again = pickle.loads(pickle.dumps(card))
         self.assertEqual(again.describe(), card.describe())
@@ -478,8 +498,6 @@ class WriteProtect(unittest.TestCase):
     """The lock switch: the socket reports it on GPIO 4.0 and the firmware's disk status reads it (0xC0016DB8)."""
 
     def pin(self, card):
-        import types
-        import machine
         m = types.SimpleNamespace(regs={}, gpio={}, inputs={machine.pin(4, 1): 0}, mmc=sdcard.MMCController(card), handshake=0)
         return machine.Machine.gpio_read(m, 0x10 + 2 * 0x28 + 0x10) & 1
 

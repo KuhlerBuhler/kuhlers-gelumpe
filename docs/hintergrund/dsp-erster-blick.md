@@ -1,85 +1,46 @@
-# DSP, erster Blick: Werkzeug, Effektwechsel, Filter, erster Patch
+# DSP: Programm, Effektwechsel und Filter
 
-Stand 2026-10-12, Korrektur zu den Filtern vom 2026-10-14.
+Hintergrund zum DSP des Korg electribe sampler: wie sich sein Programm lesen und ausführen lässt, was beim Effektwechsel
+passiert und wie die Filter aufgebaut sind. Alle Adressen gelten für Firmware 2.02 (Korgs Original und
+[Hacktribe](../glossary.md#hacktribe)). Der DSP ist ein Blackfin-Chip, der neben dem ARM-Prozessor das Audio rechnet. Sein
+Programm steckt als Strom in der [`SYSTEM.VSB`](../glossary.md#vsb).
 
-Hintergrund zum DSP des Korg electribe sampler: wie sich sein Programm lesen und ausführen lässt, was beim
-Effektwechsel passiert, wie die Filter aufgebaut sind und was ein erster DSP-Patch riskiert. Alle Adressen
-gelten für Firmware 2.02 (Stock und mit Hacktribe).
+Grundlage: alles offline, dazu der Emulator (`tools/emu`) für die ARM-Seite und der GNU-Blackfin-Simulator für einzelne reine
+DSP-Funktionen. Kein Gerätezugriff. Im Repository liegen `tools/emu`, `tools/dsp` (Extraktion, Blackfin-Worker) und
+`tools/fx-tables.py`. Die Arbeitsnamen für DSP-Adressen stammen nicht von Korg. Wie der DSP im Emulator ausgeführt wird,
+steht in [emulator.md](../emulator.md) ("Blackfin-Worker: QEMU oder GNU").
 
-Grundlage: alles offline, dazu der Emulator (`tools/emu`) für die ARM-Seite und der GNU-Blackfin-Simulator
-für einzelne reine DSP-Funktionen. Kein Gerätezugriff. Die Arbeitsskripte (`dsp_extract.py`, `hs.py`,
-`ftmap.py` und weitere) liegen nicht im Repository, im Repository sind nur `tools/emu` und
-`tools/fx-tables.py`. Die Arbeitsnamen für DSP-Adressen stammen nicht von Korg.
-
-Markierungen: **gemessen** (ausgeführt und beobachtet, Befehl genannt), **offline** (Code oder Daten
-gelesen), **hergeleitet** (aus beidem geschlossen), **offen** (braucht das Gerät oder mehr Arbeit).
+Markierungen: **gemessen** (ausgeführt und beobachtet), **offline** (Code oder Daten gelesen), **hergeleitet** (aus beidem
+geschlossen), **offen** (braucht das Gerät oder mehr Arbeit).
 
 Verwandt: [patternwechsel.md](patternwechsel.md) (die Lücke beim Patternwechsel),
-[../messungen/2026-10-14-fx-tabellen.md](../messungen/2026-10-14-fx-tabellen.md) (Effekt-Parameter aus dem
-DSP-Strom), [../patcher.md](../patcher.md).
+[2026-10-14-fx-tabellen.md](../messungen/2026-10-14-fx-tabellen.md) (Effekt-Parameter aus dem DSP-Strom),
+[patcher.md](../patcher.md).
 
-## Kurzfassung
+## Überblick
 
-1. **Werkzeug steht.** DSP-Strom aus der VSB extrahieren, Blackfin disassemblieren (binutils 2.42, lokal
-   gebaut) und einzelne DSP-Funktionen ausführen (Simulator aus gdb 14.2). Der Simulator läuft nur für reine
-   Rechenfunktionen, die Schreibwarteschlange des DSP lässt ihn hängen (1.4).
-2. **Der DSP-Strom ist in allen 23 geprüften VSBs byte-gleich**, auch zwischen Korgs 2.02 und Hacktribe.
-   Hacktribe hat den DSP nie angefasst, ein DSP-Patch wäre der erste überhaupt. Alle geprüften Hacktribe-
-   Abbilder stammen aus eigenen Sicherungen, ein Stock-Abbild kam aus Korgs offiziellem Paket.
-3. **Zwei getrennte Befehlsräume zum DSP.** "Befehl 0x30" heißt etwas anderes im A34-Postfach (Objekt
-   setzen, Filter) und im Frame-Postfach (Effektplatz stumm schalten). Der Bericht zum Patternwechsel meint
-   die Frame-Befehle.
-4. **Effektwechsel** je Platz: Frame-Befehl 0x30 (Platz-Pegel auf 0), 10 ms Wartezeit auf der ARM-Seite,
-   0x31 (Platz auf Durchreichen), Parameter und Typ, dann löscht der DSP-Lader 192 000 Byte Platzspeicher
-   in 64-Byte-Schritten, ruft die Init-Funktion des neuen Effekts und setzt den Pegel wieder auf voll.
-   Der alte Effekt kann nicht weiterlaufen, weil Lader und Effekt denselben Speicher benutzen und es
-   keinen freien Platz gibt (16 Inserts plus Master, fest). Ein Überblenden braucht eine DSP-Änderung.
-5. **Filter:** Typ -> Art -> DSP-Objekttyp -> eigener Kern, alles Tabellen. Die Koeffizienten rechnet der
-   ARM, der DSP rechnet nur die Schleife. Alle Filtertabellen sind in Stock und Hacktribe identisch, aber
-   die Oberfläche bietet nicht dieselben Typen an (siehe Korrektur am Ende). Ein neuer Typ ist ARM-seitig
-   (Daten plus wenige Befehle) möglich, ohne den DSP zu ändern.
-6. **Erster DSP-Patch:** machbar, aber der Emulator-Check sieht ihn nicht (gemessen), und der ARM wartet
-   beim Hochladen ohne Zeitgrenze auf den DSP-Bootloader. Ein DSP-Patch braucht eigene Prüfungen, bevor er
-   geflasht wird. Eine Laufzeit-Variante über den Host-Port (ohne Flash) ist denkbar, aber ungeprüft.
-
-## Belegtabelle
-
-| Behauptung | Status | Beleg |
-|---|---|---|
-| DSP-Strom bei `0xC00F9E10`, `0x422A0` Byte, 157 Blöcke, Prüfsummen stimmen | gemessen | `dsp_extract.py VSB out/x` (bricht bei falschem Kopf-XOR ab); 268 496 Datenbyte + 157 * 16 Kopf = 271 008 |
-| Strom in 23 VSBs identisch (md5 `5c3923ba...`) | gemessen | md5 über Datei-Offset `0xF9F10 + 0x422A0` aller geprüften `*.VSB` (eigene Dateien und Korgs Paket) |
-| Korgs 2.02 hat denselben DSP wie Hacktribe | gemessen | `dsp_extract.py` auf beide, md5 der fünf Regionsdateien gleich |
-| Stock und Hacktribe unterscheiden sich in 65 397 Byte, alle im ARM-Teil | gemessen | `cmp -l`, `vsbdiff.py STOCK HACK 16` (944 Bereiche) |
-| Filtertabellen, Rechner, Vorlagen, Namenslisten gleich in Stock und Hacktribe | gemessen | `vsb.py`-Vergleich der Bereiche `0xC0093400-0xC0097800`, `0xC00E5A00-0xC00E6B00`, `0xC00E8F88`, Namenscode `0xC00785C0` |
-| Alle Startwege laden den DSP genau einmal, bei 68,66 ms, vor Tastenabfrage und Update-Prüfung | gemessen | `bootmap.py` mit Flash-Dump, `dsp_uploads_ms` in allen 16 Läufen |
-| Start-Phase-Bereiche (`bootmap.json`) überlappen den DSP-Strom nicht | gemessen | Schnitt der Bereiche mit `0xC00F9E10-0xC013C0B0`: leer |
-| Erster Host-Port-Zugriff erst bei 93,1 ms (nur normaler Start); Update-Abfrage und Taste-Start 8 ("Data Util") greifen in 1,5 s nie auf den Host-Port zu | gemessen (Emulator) | `first_dsp_access.py` |
-| Hochladen wartet pro Byte und am Ende ohne Zeitgrenze auf "DSP bereit" | offline | Schleifen bei `0xC0011B78` und `0xC0011C30`, nur der Anfang `0xC0011AE4` hat 1000 Versuche |
-| Frame-Befehle 0x30, 0x31, 0x32: Wirkung auf Platzwörter | offline | Handler `0x17FF8` (SDRAM), Zeilen `0x18152` ff.; im Simulator nicht nachgespielt (hängt) |
-| Lader: 7 Zustände, 64-Byte-Schritte, entstummt am Ende | offline | `0x1859C`, Sprungtabelle `0x1F02B68` |
-| 10 ms Wartezeit ist ARM-Konstante, kein DSP-Wert | offline | Konstante 10 bei `0xC003E244`, Zeitprüfung im Zeitplaner `0xC003E65C` |
-| Frames brauchen auf dem Gerät je einen Takt des DSP, Lücke ca. 10 ms + n * Frame | hergeleitet | Rechnung in 2.6, Frame-Zahl aus [patternwechsel.md](patternwechsel.md) |
-| Pegelwort 37 (+0x94) sperrt den ganzen Platz oder nur den Effekt | offen | Leser des Worts nur an 5 Stellen gefunden |
-| 4 von 21 Filter-Vorlagen sind von keinem Filtertyp erreichbar | gemessen | `ftmap.py` |
-| Stock bietet am Gerät nur electribe LPF, HPF, BPF und OFF, Hacktribe alle sechs LPF-Familien | gemessen (Emulator) | Korrektur am Ende |
-
----
+1. **Der DSP-Strom ist in allen 23 geprüften VSBs byte-gleich**, auch zwischen Korgs 2.02 und Hacktribe. Hacktribe hat den
+   DSP nie angefasst.
+2. **Zwei getrennte Befehlsräume zum DSP.** "Befehl 0x30" heißt etwas anderes im A34-Postfach (Objekt setzen, Filter) und im
+   Frame-Postfach (Effektplatz stumm schalten). Der Bericht zum Patternwechsel meint die Frame-Befehle.
+3. **Effektwechsel** je Platz: Frame-Befehl 0x30 (Platz-Pegel auf 0), 10 ms Wartezeit auf der ARM-Seite, 0x31 (Platz auf
+   Durchreichen), Parameter und Typ, dann löscht der DSP-Lader 192 000 Byte Platzspeicher in 64-Byte-Schritten, ruft die
+   Init-Funktion des neuen Effekts und setzt den Pegel wieder auf voll. Der alte Effekt kann nicht weiterlaufen, weil Lader
+   und Effekt denselben Speicher benutzen und es keinen freien Platz gibt (16 Inserts plus Master, fest).
+4. **Filter:** Typ, Art, DSP-Objekttyp und eigener Kern sind Tabellen. Die Koeffizienten rechnet der ARM, der DSP rechnet nur die
+   Schleife. Alle Filtertabellen sind in Korgs Original und Hacktribe identisch, aber die Oberfläche bietet nicht dieselben
+   Typen an (Abschnitt 4). Ein neuer Typ ist ARM-seitig (Daten plus wenige Befehle) möglich, ohne den DSP zu ändern.
+5. **Hochladen ohne Zeitgrenze:** der ARM wartet beim Hochladen des DSP-Programms ohne Zeitgrenze auf den DSP-Bootloader
+   (Schleifen bei `0xC0011B78` und `0xC0011C30`, nur der Anfang `0xC0011AE4` hat 1000 Versuche), vor Panel-Austausch,
+   Tastenabfrage und Update-Abfrage. Ein DSP-Strom, den der Boot-ROM ablehnt, hängt den Start, dann hilft EXIT nicht und der
+   Rückweg wäre JTAG ([Messung](../messungen/2026-10-08-firmware-rueckweg.md)). Der Emulator ersetzt den Upload
+   (`0xC0011AB8`) durch einen Stummel, die Start-Prüfung in `check.py` sieht Änderungen im Strom also nicht.
 
 ## 1. Werkzeug
 
-### 1.1 Was verwendet wurde
-
-| Teil | Quelle | Zweck |
-|---|---|---|
-| binutils 2.42 (Quelltext, 27 567 160 Byte) | GNU | Blackfin-Disassembler (`bfin-objdump`, `bfin-nm`, Ziel `bfin-elf`) |
-| gdb 14.2 (Quelltext, 24 111 936 Byte, sha256 `2d4dd806...e7772`) | GNU | Blackfin-Simulator (`sim/bfin/run`, Modell bf527, Umgebung user) |
-| Python `capstone` | PyPI | ARM-Disassembler für die VSB |
-
-Gebaut mit `configure --target=bfin-elf --disable-gas --disable-ld ...` (binutils) und
-`--enable-sim --disable-sim-igen` (gdb), beide fertig (configure und make ohne Fehler). Die Quelltexte sind
-nur Werkzeugquellen, sie enthalten keine Korg-Daten. Entpackt und gebaut belegt das rund 1 GB (Quellen
-605 MB, Extraktionen 935 MB). Offen: die Download-URL ist nicht protokolliert (GNU-Spiegel angenommen), die
-mitgelieferte Signatur von binutils wurde nicht gegen einen Schlüssel geprüft.
+Der Strom wird mit `tools/dsp/dsp_extract.py` aus der VSB gelesen, Blackfin-Code mit `bfin-objdump` (GNU binutils,
+Ziel `bfin-elf`) disassembliert, einzelne reine DSP-Funktionen führt der Simulator aus gdb aus (Modell bf527), die ARM-Seite
+liest Python `capstone`. Die Werkzeugquellen enthalten keine Korg-Daten.
 
 ### 1.2 Extraktion des DSP-Abbilds (gemessen)
 
@@ -119,8 +80,40 @@ B=`0x40000000` die abgeleiteten Wörter `0x001A5A95` und `0xC008C8DD`.
 
 Grenze: Funktionen, die das geschützte Schreiben `0x1F0E54C` benutzen (Frame-Handler, Lader), hängen im
 Simulator, weil Warteschlange und Gate-Wörter nach dem Boot-Code anders stehen als im rohen Abbild. Die
-Aussagen zu 0x30/0x31/0x32 sind deshalb **offline**, nicht gemessen. Peripherie (SPORT, DMA, HOSTDP) fehlt
-ganz, es gibt keine Zeitmessung.
+Aussagen zu 0x30/0x31/0x32 sind deshalb **offline**, nicht gemessen. Im GNU-Simulator aus gdb allein fehlt die Peripherie
+(SPORT, DMA, HOSTDP) und es gibt keine Zeitmessung; der Blackfin-Worker des Emulators ergänzt sie
+([Blackfin](blackfin.md)). Das Hängen geht auf einen Fehler im Makro `SIGNEXTEND` zurück: `sim/bfin/bfin-sim.c` schiebt einen
+32-Bit-Wert um `64 - n` Bit, clang auf arm64 faltet das weg, `R1 = 7 (X)` setzte R1 nicht auf 7 (gemessen mit `R1 = 7 (X); [P1] = R1;`,
+Rückgabe 0 statt 7, nach der Korrektur 7). Nach der Korrektur läuft `0x1F0E54C` 63-mal durch (152 Takte) und bricht erst ab, wenn die
+Warteschlange voll ist und der Code fehlende Peripherie anfasst. Der QEMU-Port hat dasselbe Makro, beide sind korrigiert.
+
+### 1.5 Audioschleife, Takt und Rechenbudget
+
+- **Eine Effekt-Schleife rechnet pro Sample (offline gelesen, Disassembly `0xFFA001B0` bis `0xFFA00236`).** Die Audioschleife
+  `0xFFA0010C` wartet auf ein Semaphor, liest 4 Frames zu je 16 Byte aus dem DMA-Puffer und ruft für jeden Frame einmal `0xFFA0141A`
+  (alle Stimmen, alle Parts, Master). Insert- und Master-Effekte rechnen je Aufruf ein Sample. Ein DSP-Block hat damit 4 Samples,
+  83 µs bei 48 kHz (rund 43 700 DSP-Takte), nicht 64 oder 128. Die Rechnung in 2.6 nimmt Blöcke von 64 bis 128 Samples an; bei 4
+  Samples stimmt die Herleitung der 100 ms über "ein Frame je Audioblock" nicht mehr, wie oft der Frame-Task Rechenzeit bekommt, ist offen.
+- **Takt (hergeleitet).** Der Stufe-1-Code ruft `bfrom_SysControl` mit PLL_CTL `0x2A00` (MSEL 21) und PLL_DIV 5, danach 4: 525 MHz Kern
+  und 131 MHz Bus bei 25 MHz Quarz, 516 MHz bei 24,576 MHz. Budget rund 10 900 Takte je Sample (Quarz offen).
+- **Kosten je Sample (gemessen im Simulator, synthetischer Kontext, ohne Cache- und SDRAM-Wartezeit).** Insert-Effekte 129 bis 206
+  Takte (Filter 129, Limiter 158, Short Delay 190, Chorus 182, Phaser 200, Distortion 201, Flanger 206), Filterkern electribe-Familie 149,
+  Master-Effekte 374 bis 444 (Chorus 374, Mod.Delay 391, Room Reverb 431, Hall Reverb 444). Geprüft ist nur, dass die Funktionen
+  sauber zurückkehren und von Aufruf zu Aufruf gleich viele Takte brauchen; für den echten Kontext **offen**.
+- **Ganzer Patch (hergeleitet aus gezählten Befehlen).** `0xFFA0141A` kostet 66 + 393 Takte fest, 313 je Part, 58 je Stimme. Mit den
+  gemessenen Kernen sind das 10 000 bis 15 000 Takte je Sample bei 16 Parts plus Master, also ungefähr das ganze Budget. Die Kosten der
+  Stimmen sind offen.
+- **Tempo der Simulatoren (gemessen mit `tools/dsp/bfsim_bench.py`).** GNU-Simulator 4 bis 9 Mio. DSP-Takte je Sekunde, 56- bis
+  122-mal langsamer als der DSP; QEMU-Port ohne Korrekturen 320 bis 460 Mio., mit den Korrekturen für richtiges Rechnen 55 bis 230 Mio.
+  Eine Sekunde Klang eines vollen Patches braucht im GNU-Simulator 1 bis 2 Minuten, ein leichter Patch (ein Part, ein Insert, Hall, rund
+  1800 Takte je Sample) 10 bis 20 Sekunden (geschätzt). Der Worker im Emulator ist 6,7-mal langsamer als Echtzeit
+  ([QEMU als DSP-Kern](../messungen/2026-11-16-qemu-dsp-kern.md)).
+- **QEMU-Port bauen (gemessen).** `vapier/qemu`, Zweig `bfin`, Stand Januar 2024, auf QEMU 8.2: rund 10 Minuten auf dem Mac (ohne Audio,
+  vmnet und Cocoa, Objective-C-Compiler ausdrücklich angeben). Nur das Board BF537 ist vorhanden, für den reinen Prozessor reicht es.
+  Es fehlte `ASHIFT ... BY Rx.L (S)`, das 5 von 13 Effekten brauchen (Abbruch "unhandled exception type=33" bei `0x12BD2`, `0xFFA0923A`,
+  `0xFFA07936`, `0xFFA08780`, `0x1C79C0E`). `CYCLES` zählt im QEMU-Port Nanosekunden, keine Takte.
+
+Quelle: Idee 52 (Versuch vom 24.10.), Messung 2026-11-16/dsp-sim-tempo, Messung 2026-11-16/qemu-bfin-vergleich.
 
 ---
 
@@ -182,9 +175,9 @@ mitten im Block.
 
 Deskriptor je Effekttyp (66 Zeiger bei SDRAM `0x4C30`, je `0x34` Byte): Name, Parameterzahl (Byte `+4`),
 Speicherflags (Bytes `+5`, `+6`, nicht null: der Effekt braucht Platzspeicher), Parametertabelle (`+0x14`),
-Prozess-Funktion (`+0x18`), zweite Funktion (`+0x1C`), Init-Funktion (`+0x20`). Master-Typen tragen `0x10000`
+Codeanfang (`+0x18`), weiteres Codefeld (`+0x1C`), Init-Funktion (`+0x20`). Bei Flagbyte `+0x0A == 1` ist `+0x1C` die exklusive Code-Endadresse, kein zweiter Funktionsanfang. Master-Typen tragen `0x10000`
 in `+8`. Code liegt an drei Orten: L1-Instruktionen (`0xFFA0xxxx`), SDRAM unten (`0x0000xxxx`) und SDRAM
-`0x01C7xxxx`. Es gibt keinen parametrisierten Einheitseffekt, jeder Typ hat eigenen Code.
+`0x01C7xxxx`. Es gibt keinen parametrisierten Einheitseffekt, jeder Typ hat eigenen Code. Die [Nachprüfung vom 20. November](../messungen/2026-11-20-dsp-sdram-freiraum.md) verfolgt die Endadresse und die genaue Kopierlänge am Baustein `0x2E` in beiden Originalen.
 
 ### 2.3 Lader (Task 1, SDRAM `0x1859C`) (offline)
 
@@ -266,10 +259,9 @@ Korgs offizielles Paket `electribe_sampler_system_v202` (815 KB, mit Release Not
 `Acid LPF`, `electribe HPF` ... `Acid BPF` sowie OFF enthält. Verglichen mit Hacktribe: gleicher Namenscode,
 gleiche 17-Byte-Typkarte, gleiche 21 Vorlagen, gleiche 7 Koeffizientenrechner, gleicher DSP. Hacktribe ändert
 in der Nähe nur Zählgrenzen der Effektlisten (`0x26` -> `0x3B` Einträge bei `0xC0098084` ff., 38 auf 59
-Master-Einheiten). Die ursprüngliche Schlussfolgerung aus diesem Befund war falsch, siehe die Korrektur am
-Ende des Dokuments.
+Master-Einheiten). Daraus folgt nicht, dass die Oberfläche dieselben Typen anbietet (Abschnitt 4).
 
-### 3.2 Auswahlkette (gemessen, `ftmap.py`)
+### 3.2 Auswahlkette (gemessen)
 
 Pattern-Part-Byte 12 (Typ 0 = OFF, 1 bis 16) -> `0xC0097744` (Karte `0xC00E8F88`, 17 Byte) -> "Art" (0 bis 20)
 -> Vorlage (`0xC00E632C`, 21 Zeiger, erstes Wort = DSP-Objekttyp) -> DSP-Kern (Tabelle `0xFF803B84`, 21
@@ -323,7 +315,7 @@ Die anderen Familien haben je eine monotone 128-Eintrags-Tabelle mit 16-Bit-Wert
 `0xC00E5D78`, MS20 `0xC00E5F28` und `0xC00E5C78`, MG `0xC00E6128` (plus Q31 `0xC00E6A40`), P5 `0xC00E64C8`,
 P5 HPF `0xC00E622C`. Die Hz-Bedeutung dieser Werte ist **offen**.
 
-### 3.4 Neuer Typ, und der Wunsch "fest 18 Hz Low Cut, 20 kHz High Cut"
+### 3.4 Neuer Filtertyp
 
 Ein neuer Typ braucht ARM-seitig: Namenseintrag, Typbereich im Part-Parameter (derzeit 0 bis 16), Kartenbyte,
 Vorlage (Zeiger plus Länge), Rechner (bestehend oder neu). Der DSP bleibt unberührt, solange ein vorhandener
@@ -348,98 +340,11 @@ nach groß:
 
 ---
 
-## 4. Erster DSP-Patch und sein Risiko
+## 4. Filtertypen in Korgs Original und Hacktribe
 
-### 4.1 Wie er aussähe
-
-- In-place, größenneutral, nur Nutzlastbytes eines bestehenden Blocks ändern, **keine** Kopfänderung (Kopf-XOR
-  und Block-Struktur bleiben), Stufe 1 (Blöcke 0 bis 4) nie anfassen.
-- Datei-Offset: `dsp_extract.vsb_offset(vsb, dspadresse)`. Beispiel (nichts angewendet): die Lader-
-  Schrittgröße 64 Byte bei DSP `0x18792` ist VSB-Datei `0x1127F6` (RAM `0xC01126F6`), die 128 bei `0x189D0`
-  ist Datei `0x112A34`. Ob größere Schritte die Lücke verkürzen, ist offen (hängt an der Aufrufrate in 2.3).
-- Für die Wartezeit-Änderung und einen neuen Filtertyp braucht der erste Schritt keinen DSP-Patch: die
-  ARM-Wartezeit (`0xC003E244`) und ein Typ 17 sind reine ARM-Änderungen.
-
-### 4.2 Was der Emulator-Check abdeckt (gemessen: nichts am DSP-Strom)
-
-Der Emulator ersetzt `0xC0011AB8` (DSP-Upload) durch einen Stummel (`machine.py`, `_dsp_upload`): R0 = 1,
-zurück. Damit liest der Emulator die Strombytes nie, und `bootmap.json` hat keinen Bereich im Strom
-(`0xC00F9E10` bis `0xC013C0B0`). Folge: ein geändertes DSP-Byte besteht die Start-Phase-Prüfung (`check.py`)
-ohne Befund, obwohl der Upload auf jedem Startweg läuft, vor der Tastenabfrage (68,66 ms gegen 69,5 ms).
-Geprüft wird nur `dsp_boot_once` (der Upload zählt einmal). Die Regeln in [../patcher.md](../patcher.md)
-("gesperrte Bereiche = was bootmap misst") sperren den Strom damit nicht. Wer DSP-Patches erlaubt, muss ihn
-dort ausdrücklich behandeln.
-
-Fehlende Prüfungen (billig, der Parser steht in `dsp_extract.parse`): Kopf-XOR und `0xAD` je Block, Länge
-`0x422A0`, FINAL-Block vorhanden, Stufe-1-Blöcke gleich dem Original, geänderte Spannen disassemblieren und
-zeigen, nur erlaubte Adressbereiche.
-
-### 4.3 Risiko
-
-- **Hochladen ohne Zeitgrenze (offline).** Beim Hochladen wartet der ARM zuerst bis zu 1000 mal auf "bereit"
-  (`0xC0011AE4`), dann pro Byte (`0xC0011B78`) und nach dem letzten Byte (`0xC0011C30`) ohne Zeitgrenze, den
-  Eingang liest `0xC00171A8` (GPIO, Bit 12). Ein Block, den der Boot-Rom des DSP ablehnt (Kopf-XOR falsch,
-  Stufe 1 kaputt), kann den ARM in einer dieser Schleifen festhalten, **vor** Panel-Austausch, Tastenabfrage
-  und Update-Abfrage. Dann hilft EXIT nicht, der Rückweg wäre JTAG
-  ([../messungen/2026-10-08-firmware-rueckweg.md](../messungen/2026-10-08-firmware-rueckweg.md)). Ein DSP,
-  der erst nach dem Laden stirbt (Anwendungscode falsch), hängt den Upload nicht, ist aber schwerer zu
-  beurteilen: der Emulator-DSP antwortet immer sofort.
-- **Mailbox-Hänger (offline):** wartet der DSP-Frame-Task nicht mehr, blockiert der ARM beim nächsten Frame
-  (Bit 31 wird nie gelöscht). Im Emulator greifen Update-Abfrage und Start-Taste 8 ("Data Util") in den
-  ersten 1,5 s nicht auf den Host-Port zu (gemessen), der normale Start erst bei 93,1 ms nach den
-  Rettungsentscheidungen. Das stützt, dass die SD-Update-Wege einen toten DSP überleben könnten, ist aber
-  nur im Emulator gesehen (**offen** am Gerät).
-- **Rückweg:** alte VSB zurückflashen (Menüweg, setzt eine lebende Anwendung voraus), sonst JTAG. Der Menüweg
-  ist am Gerät geübt ([../messungen/2026-10-10-rueckweg-geuebt.md](../messungen/2026-10-10-rueckweg-geuebt.md)),
-  der JTAG-Weg ist dort nicht beschrieben als geübt.
-- **Kein Vorlauf:** kein Emulator-DSP, keine Zeitmessung, Simulator nur für reine Funktionen. Es gibt keine
-  Erfahrung Dritter (Hacktribe hat den DSP nie geändert, gemessen).
-- **Idee zur Entschärfung (offen):** der ARM spricht beliebige DSP-Adressen über den Host-Port an (Lese- und
-  Schreibkommandos `0xA9`/`0xAB` mit 32-Bit-Adresse, Wrapper `0xC0014284`, `0xC00141F8`). Ein DSP-Patch im
-  SDRAM oder in L1-Daten ließe sich damit zur Laufzeit aus einem RAM-Stub einspielen, ein Neustart stellt den
-  alten Stand her. Offen: ob SDRAM-Code im L1-Instruktionscache steht (veraltete Zeilen), ob
-  L1-Instruktionen erreichbar sind, und ob das Gerät den Stub-Weg zulässt (Hook `0xC0170540`).
-
----
-
-## Offen
-
-- Wer liest Wort 37 (`+0x94`) im Audiopfad, und was zeigt ein Gerätetest mit nur einem geänderten Insert-Typ
-  (schweigt der Part ganz, bleibt Dry)?
-- Aufrufrate des Laders und Blockzeit des DSP (bestimmt die 100 ms).
-- Wo ist SDRAM frei (für einen zweiten Effektplatz)?
-- A34-Befehle 0x34 bis 0x3B und der Standardhandler `FFA04F50` nicht dekodiert.
-- Frame- und Lader-Verhalten im Simulator (Schreibwarteschlange initialisieren, dann nachspielen).
-- Aufrufkonvention der Filterkerne und Impulsantwort der e-Familie (für ein Band von 18 Hz bis 20 kHz).
-- Was tun die unerreichbaren Arten 0, 8, 14, 19?
-- Welche Anweisungen im ARM-Code den Filtertyp setzen (siehe Korrektur).
-
-## Nächste Schritte
-
-1. Gegenprobe am Gerät ohne Code (billig): zwei Patterns, die sich nur in einem Insert-Typ unterscheiden,
-   Aufnahme: schweigt der betroffene Part, laufen die anderen weiter? Das entscheidet Wort 37 (Abschnitt 2.5).
-2. Ohne Gerät: den Emulator-Check um eine DSP-Strom-Prüfung erweitern (Parser aus `dsp_extract.py`) und den
-   Strom in [../patcher.md](../patcher.md) als gesperrten Bereich aufnehmen, bevor irgendein DSP-Patch
-   gebaut wird.
-3. Typ-17-Prototyp (nur ARM) mit festem Cutoff bauen und im Emulator prüfen, parallel die Impulsantwort der
-   e-Familie im Simulator messen.
-
----
-
-## Korrektur 2026-10-14: Filtertypen in Stock und Hacktribe
-
-Abschnitt 3.1 und Kurzfassung 5 sagten ursprünglich, Stock und Hacktribe seien in allen Filtertabellen
-identisch und "Hacktribe hat Filtertypen hinzugefügt" sei durch die Dateien nicht gedeckt. Der erste Teil
-stimmt, der Schluss daraus war falsch. Die offene Frage, ob Stock-Firmware und Hacktribe in der Oberfläche
-dieselben Filtertypen anbieten, ist damit beantwortet: **nein**. Die Feature-Liste von Hacktribe (Filter)
-stimmt.
-
-**Was falsch war.** Verglichen wurden Daten: Namenscode, Typkarte, Vorlagen, Rechner und der DSP. Die gibt es
-in Korgs Sampler-Firmware tatsächlich komplett, alle 16 Typen samt Namen. Ob die Oberfläche sie *anbietet*,
-hängt aber nicht an diesen Tabellen, sondern an der Tastenbehandlung im ARM-Code, und die lag außerhalb der
-verglichenen Bereiche. Eine Lücke in der Datenlage wurde als Beleg für "gleich" gelesen. Schon der Diff
-(`diff16.txt`) zeigte den Unterschied: Hacktribe leitet neun Aufrufe und Sprünge im Tastencode auf neuen Code
-um.
+Korgs Sampler-Firmware enthält die Daten aller 16 Filtertypen samt Namen (Abschnitt 3.1), die Oberfläche bietet aber nicht dieselben
+Typen an. Ob sie einen Typ *anbietet*, hängt nicht an den Tabellen, sondern an der Tastenbehandlung im ARM-Code.
+Hacktribe leitet dafür neun Aufrufe und Sprünge im Tastencode auf neuen Code um.
 
 **Gemessen** (Emulator, `tools/emu/machine.py`, leerer Flash, Part 01 nach dem Start, nach 3 s Gerätezeit die
 Filtertaste n-mal gedrückt und losgelassen, Display als Bild gelesen; Taste `0x12` LPF, `0x14` HPF, `0x16` BPF
@@ -471,7 +376,7 @@ Anweisungen den Filtertyp setzen, ist nicht gelesen. Die Datenbereiche, in denen
 (`0xC00D9CF0` ff.: Hacktribe überschreibt die Werks-Samplenamen mit Oszillatornamen, DUAL-SAW, OCT-SAW,
 CHIP-TRI ...; Effektzähler `0x26` auf `0x3B` bei `0xC0098084` ff.), haben mit den Filtern nichts zu tun.
 
-**Nachtrag 2026-10-15.** Die offene Frage ist beantwortet ([Messung](../messungen/2026-10-15-synth-filter.md)): die Auswahl der Typen sitzt in der Tastenfunktion `0xC006FC80` (drei Sprungtabellen, die nur 0, 1, 7 und 12 kennen), und der Teilsetter `0xC00495B8` faltet die Typen 2 bis 6, 8 bis 11 und 13 bis 16 beim Schreiben auf 1, 7 und 12 zurück. Der Schalter ist der eine bedingte Sprung `0xC00495DC`, den Hacktribe unbedingt macht, dazu die Tastenfunktion. Ein Patch mit beiden Stellen gibt Korgs Build die Synth-Filter ([Patcher](../patcher.md)).
+**Wo der Schalter sitzt:** die Frage ist beantwortet ([Messung](../messungen/2026-10-15-synth-filter.md)): die Auswahl der Typen sitzt in der Tastenfunktion `0xC006FC80` (drei Sprungtabellen, die nur 0, 1, 7 und 12 kennen), und der Teilsetter `0xC00495B8` faltet die Typen 2 bis 6, 8 bis 11 und 13 bis 16 beim Schreiben auf 1, 7 und 12 zurück. Der Schalter ist der eine bedingte Sprung `0xC00495DC`, den Hacktribe unbedingt macht, dazu die Tastenfunktion. Ein Patch mit beiden Stellen gibt Korgs Build die Synth-Filter ([Patcher](../patcher.md)).
 
 **Folgen.** Der DSP braucht für die Hacktribe-Filter keine Änderung (Kern und Tabellen sind schon da, siehe
 3.2), die Freischaltung ist reiner ARM-Code. Die Messung
@@ -479,3 +384,14 @@ CHIP-TRI ...; Effektzähler `0x26` auf `0x3B` bei `0xC0098084` ff.), haben mit d
 Filter in die Lücken gelegt") stimmt in der Sache, auch wenn "in die Lücken" aus der Werksbank geraten war:
 die Lücken sind die Typen 2 bis 6 und 8 bis 11, 13 bis 16 der 17er-Karte. Die Namen aller 16 Typen stehen in
 der Firmware (siehe [../messungen/2026-10-14-fx-tabellen.md](../messungen/2026-10-14-fx-tabellen.md)).
+
+## 5. Offen
+
+- Wer liest Wort 37 (`+0x94`) im Audiopfad, und was zeigt ein Gerätetest mit nur einem geänderten Insert-Typ
+  (schweigt der Part ganz, bleibt Dry)?
+- Aufrufrate des Laders und Blockzeit des DSP (bestimmt die 100 ms).
+- Wo ist SDRAM frei (für einen zweiten Effektplatz)?
+- A34-Befehle 0x34 bis 0x3B und der Standardhandler `FFA04F50` nicht dekodiert.
+- Frame- und Lader-Verhalten im Simulator (Schreibwarteschlange initialisieren, dann nachspielen).
+- Aufrufkonvention der Filterkerne und Impulsantwort der e-Familie (für ein Band von 18 Hz bis 20 kHz).
+- Was tun die unerreichbaren Arten 0, 8, 14, 19?

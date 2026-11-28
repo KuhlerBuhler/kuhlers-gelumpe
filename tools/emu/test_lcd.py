@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """LCD response: levels from the firmware's on/off display, no firmware needed."""
 
+import math
 import sys
 import unittest
 from pathlib import Path
@@ -106,7 +107,6 @@ class LcdResponseTest(unittest.TestCase):
 
     def test_the_constants_follow_from_the_extremes_of_the_280_ms_blink(self):
         """The formulas in docs/messungen/2026-10-12-lcd-helligkeit.md, checked against the model."""
-        import math
         for tau_on, tau_off in ((0.10, 0.20), (0.15, 0.35), (0.12, 0.30)):
             lcd = LcdResponse(tau_on, tau_off)
             lcd.update(display(), 0)

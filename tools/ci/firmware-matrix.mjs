@@ -14,7 +14,7 @@ export function firmwareMatrix(count, { full = true, cases = "all" } = {}) {
   const firmwares = FIRMWARES.map(f => ({ ...f, artifact: `firmware-shard-${f.name}--${count}` }));
   const editor = full || cases === "all" || cases.split(",").some(c => c.trim() === "fx_card_cases");
   const smokes = firmwares.filter(f => f.name !== "hacktribe-blue").map(f => ({ ...f, kind: "start" }));
-  if (editor) smokes.push(...firmwares.filter(f => f.name === "hacktribe" || f.name === "red").map(f => ({ ...f, kind: "editor" })));
+  if (editor) smokes.push(...firmwares.filter(f => f.name !== "hacktribe-blue").map(f => ({ ...f, kind: "editor" })));
   return { firmwares, parts: Array.from({ length: count }, (_, i) => i + 1), smokes };
 }
 

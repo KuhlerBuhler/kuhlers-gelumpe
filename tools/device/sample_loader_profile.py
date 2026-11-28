@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'patch'))
 import arm
 import sample_seek
+from flash_dump import dec, enc
 
 IMAGE, HEADER = 0xC0000000, 0x100
 STUB, COPY, RESULT = 0xC1000000, 0xC1004000, 0xC1003000
@@ -280,7 +281,6 @@ class Link:
         raise TimeoutError('no answer; no retry or further writes')
 
     def call(self, command, body, reply, timeout=6):
-        from flash_dump import enc, dec
         raw = self.ask([0xF0, *self.head, command, *enc(body), 0xF7], timeout)
         if raw[:7] != [0xF0, *self.head, reply] or raw[-1] != 0xF7:
             raise ValueError('unexpected BLECH reply')

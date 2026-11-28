@@ -1,4 +1,4 @@
-"""Native sequencer events from state comparison and the save hook, without firmware bytes."""
+"""Native sequencer events from state comparison and the save hook."""
 import pathlib
 import struct
 import sys

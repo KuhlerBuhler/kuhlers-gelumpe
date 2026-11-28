@@ -23,6 +23,7 @@ import menu_cases  # noqa: E402
 import parallel  # noqa: E402
 from machine import load_flash  # noqa: E402
 from splash_cases import SWITCH_SCREEN, TICK, TRAP, Dev  # noqa: E402
+import unicorn  # noqa: E402
 
 # name, card in the slot, steps. Screen numbers are the firmware's (docs/messungen/2026-10-14-display-schriften.md).
 SCENES = [
@@ -55,10 +56,10 @@ class Caller(Dev):
     """A device that can run a firmware function from inside the screen tick, with a cleared stack for stack arguments."""
 
     def call_clean(self, func, *args):
-        import unicorn
         m, uc, arm = self.m, self.m.uc, self.m.A
+        func, tick = self.a(func), self.a(TICK)
         hit = []
-        hook = uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s, d: (hit.append(1), u.emu_stop()), begin=TICK, end=TICK)
+        hook = uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s, d: (hit.append(1), u.emu_stop()), begin=tick, end=tick)
         uc.ctl_flush_tb()
         end = m.time_ns / 1e9 + 2.0
         while not hit and m.time_ns / 1e9 < end:

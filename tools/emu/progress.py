@@ -29,6 +29,7 @@ NAMES = {
     "migrate_cases": "Ordner übernehmen",
     "loadbar_cases": "Ladebalken",
     "sample_error_cases": "Sample-Fehler",
+    "sample_category_cases": "Sample-Kategorie",
     "synth_filter_cases": "Synth-Filter",
     "sysex_cases": "SysEx",
     "power_off_cases": "Ausschalten",
@@ -40,10 +41,12 @@ NAMES = {
     "beat_eighth_cases": "BEAT 8",
     "touch_scale_zero_cases": "Touch Scale 0",
     "value_popup_cases": "Value window keys",
+    "import_slots_cases": "Import auf Werks-Slots",
     "update_guard_cases": "Update-Schutz",
     "doom_loader_cases": "Doom-Lader",
     "card_error_cases": "Kartenfehler",
     "preset_cases": "Presets",
+    "dsp_cases": "DSP-Schnittstelle",
 }
 
 

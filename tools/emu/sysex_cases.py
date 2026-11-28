@@ -10,13 +10,17 @@ SysEx and the panel unaffected, and with EXIT held at power-on no answer at all.
 
     tools/emu/.venv/bin/python tools/emu/sysex_cases.py cases --patched NEW.VSB [--flash dump.bin] [--vectors vectors.json]
     tools/emu/.venv/bin/python tools/emu/sysex_cases.py speed --patched NEW.VSB [--flash dump.bin]
+    tools/emu/.venv/bin/python tools/emu/sysex_cases.py hotpatch --patched HT.VSB        # tools/device/hot_patch.py, DEV MODE
+    tools/emu/.venv/bin/python tools/emu/sysex_cases.py hotpatch-full --patched HT.VSB
 """
 
 import argparse
+import hashlib
 import json
 import random
 import struct
 import sys
+import tempfile
 import time
 import zlib
 from pathlib import Path
@@ -24,11 +28,27 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.append(str(ROOT / "tools" / "device"))   # hot_patch, remote_press; last, so tools/emu/backlight.py wins
 
 import blech_sysex as spec  # noqa: E402
 import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+from swap_cases import has_hooks as has_swap  # noqa: E402
+import sample_swap as swap  # noqa: E402
+import cardstore  # noqa: E402
+import fat32  # noqa: E402
+import hot_patch as hp  # noqa: E402
+import lifetime  # noqa: E402
+import machine  # noqa: E402
+import make_hot_fixtures  # noqa: E402
+import menu_cases as mc  # noqa: E402
+import parallel  # noqa: E402
+import sysex_trace  # noqa: E402
+import unicorn  # noqa: E402
+from remote_press import Blech  # noqa: E402
+from sdcard import MemoryMedium, SDCard  # noqa: E402
+from unicorn.arm_const import UC_ARM_REG_PC  # noqa: E402
 
 IMAGE = 0xC0000000
 KILL = spec.KILL_SWITCH
@@ -102,15 +122,47 @@ class Link:
         self.dev, self.m, self.step = dev, dev.m, step
         self.channel = 0
         self.log = []                # (what, device ms, wall seconds, bytes on the wire)
-        import unicorn
-        self.guard_start = spec.BUF_END
-        self.guard = b'\xd3' * (spec.FILE_AREA - self.guard_start)
-        self.m.uc.mem_write(self.guard_start, self.guard)
-        self.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ | unicorn.UC_HOOK_MEM_WRITE, self.guard_access,
-                           begin=self.guard_start, end=spec.FILE_AREA - 1)
+        self.read_permission = None
+        free = [(spec.BUF_END, spec.FILE_AREA)]
+        self.owned = []
+        if has_swap(bytes(self.m.uc.mem_read(IMAGE, 0x200000))):
+            for lo, hi, _ in swap.AREAS:
+                lo, hi = max(lo, spec.BUF_END), min(hi, spec.FILE_AREA)
+                if lo >= hi:
+                    continue
+                self.owned.append((lo, bytes(self.m.uc.mem_read(lo, hi - lo))))
+                self.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ, self.owned_read, begin=lo, end=hi - 1)
+                self.m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, self.owned_write, begin=lo, end=hi - 1)
+                free = [(start, end) for a, b in free for start, end in ((a, min(b, lo)), (max(a, hi), b)) if start < end]
+        self.guards = [(lo, b'\xd3' * (hi - lo)) for lo, hi in free]
+        for lo, guard in self.guards:
+            self.m.uc.mem_write(lo, guard)
+            self.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ | unicorn.UC_HOOK_MEM_WRITE, self.guard_access,
+                               begin=lo, end=lo + len(guard) - 1)
 
     def guard_access(self, _uc, _access, address, size, _value, _data):
         raise AssertionError(f'SysEx released RAM accessed at {address:#x}+{size}')
+
+    def owned_write(self, _uc, _access, address, size, _value, _data):
+        raise AssertionError(f'live swap code overwritten at {address:#x}+{size}')
+
+    def owned_read(self, uc, _access, address, size, _value, _data):
+        pc = uc.reg_read(UC_ARM_REG_PC)
+        if any(lo <= pc < hi for lo, hi, _ in swap.AREAS):
+            return
+        if self.read_permission is not None:
+            lo, hi = self.read_permission
+            if lo <= address and address + size <= hi:
+                return
+        raise AssertionError(f'undeclared read of live swap code at {address:#x}+{size} from {pc:#x}')
+
+    def check_guards(self):
+        for lo, guard in self.guards:
+            if bytes(self.m.uc.mem_read(lo, len(guard))) != guard:
+                raise AssertionError('SysEx changed released RAM')
+        for lo, code in self.owned:
+            if bytes(self.m.uc.mem_read(lo, len(code))) != code:
+                raise AssertionError('live swap code changed')
 
     def exchange(self, msg, wait=60.0, quiet=0.2, fragments=None):
         """Send one message, collect what comes back until the line is quiet for `quiet` s after the first reply (or `wait` s pass)."""
@@ -139,8 +191,7 @@ class Link:
                 first = m.time_ns
             if first is not None and not pending and not got and (m.time_ns - first) / 1e9 >= quiet:
                 break
-        if bytes(m.uc.mem_read(self.guard_start, len(self.guard))) != self.guard:
-            raise AssertionError('SysEx changed released RAM')
+        self.check_guards()
         done = first if first is not None else m.time_ns
         self.log.append((msg[6] if len(msg) > 6 else 0,(done - t0) / 1e6, time.time() - wall, len(msg) + sum(map(len, replies))))
         return replies, (done - t0) / 1e6
@@ -152,7 +203,16 @@ class Link:
 
     def ask(self, func, words=b"", reply=None, wait=60.0):
         """The payload words of the reply to a message of ours, None when none came; and the device time it took."""
-        replies, ms = self.exchange(frame(self.channel, func, words), wait=wait)
+        previous = self.read_permission
+        self.read_permission = None
+        if func == spec.FUNC_READ and len(words) == 8:
+            address, length = struct.unpack('<II', words)
+            if 0 < length <= spec.MAX_BLOCK and address + length <= 0x100000000:
+                self.read_permission = (address, address + length)
+        try:
+            replies, ms = self.exchange(frame(self.channel, func, words), wait=wait)
+        finally:
+            self.read_permission = previous
         ours = [r for r in replies if len(r) > 7 and r[6] == (reply or func + 8)]
         if not ours:
             return None, ms
@@ -401,6 +461,7 @@ def protected_cases(dev, lk, payload, vectors):
             reads.append(name)
     out.append(entry("reads_everywhere_in_the_window", not reads, "a read is refused only where the access itself is the risk; firmware, heap, stacks and the patch's code read back" if not reads else f"reads that failed: {reads}"))
 
+    vectors = [v for v in vectors or [] if not v.get("dev")]
     if vectors:
         bad = []
         for v in vectors:
@@ -567,9 +628,6 @@ def file_cases(payload, flash):
     """FILE READ and FILE BEGIN: exactly the update file KORG/<folder>/System/SYSTEM.VSB, written in blocks that are read back from
     the card, a first block that makes the file anew, the size limit of a VSB, a card error without card or folder, silence with EXIT
     held at power-on. The file on the card image is compared byte for byte."""
-    import cardstore
-    import fat32
-    from sdcard import MemoryMedium, SDCard
     folder = cardstore.card_folder(bytes(payload))
     path = f"KORG/{folder}/System/SYSTEM.VSB"
     out = []
@@ -642,19 +700,17 @@ def file_cases(payload, flash):
                      f"a card without KORG/blechtribe (the blue's has only KORG/electribe): PLUGIN BEGIN makes the folders and writes {made} ({on_card(bare, made) == blob[:300]})"))
     nocard, lk2 = device(card=False)
     r = lk2.file_read(0, 0)
-    out.append(entry("file_no_card", r and r["status"] == spec.STATUS_FILE and r["crc"] == spec.FR_CARD_NEVER and not nocard.m.asserts,
-                     f"without a card: status {r and r['status']}, code {r and r['crc']:#x} (a start without a card)"))
-    # a card put in after a start without one: Korg's SD init can hang on it (#518), so the FILE commands leave it alone until the next start
+    out.append(entry("file_no_card", r and r["status"] == spec.STATUS_FILE and 0 < r["crc"] < spec.FR_CARD_NEVER and not nocard.m.asserts,
+                     f"without a card: status {r and r['status']}, FatFs code {r and r['crc']:#x}"))
+    # a card put in after a start without one is read and written like any card
     late = SDCard(MemoryMedium(bytearray(fat32.format_image(64 * 1024 * 1024))))
     nocard.m.insert_card(late)
-    nocard.run(1.0)
-    r = lk2.file_read(0, 0)
+    nocard.run(1.5)
     b2, d2 = lk2.file_write(0, b"x" * 64)
-    out.append(entry("file_card_after_start_without_one", r and r["status"] == spec.STATUS_FILE and r["crc"] == spec.FR_CARD_NEVER
-                     and d2 and d2["status"] == spec.STATUS_FILE and d2["crc"] == spec.FR_CARD_NEVER
-                     and sum(late.commands.values()) == 0 and not nocard.m.asserts,
-                     f"FILE READ status {r and r['status']} code {r and r['crc']:#x}, DATA status {d2 and d2['status']} code {d2 and d2['crc']:#x}, "
-                     f"commands sent to the card {sum(late.commands.values())}"))
+    r = lk2.file_read(0, 0)
+    out.append(entry("file_card_after_start_without_one", d2 and d2["status"] == OK and r and r["status"] == OK
+                     and sum(late.commands.values()) > 0 and not nocard.m.asserts,
+                     f"DATA status {d2 and d2['status']}, FILE READ status {r and r['status']}, commands sent to the card {sum(late.commands.values())}"))
     held, lk3 = device(held=KILL)
     r = lk3.file_read(0, 0)
     out.append(entry("file_kill_switch_silent", r is None, "with EXIT held at power-on FILE READ gets no answer"))
@@ -666,9 +722,6 @@ def sample_cases(payload, flash, held_only=False):
     in place without cutting the file, FILE COPY between the two, FILE CRC, FILE DELETE, and the whole way the editor takes to compact the
     file: the temp file complete and checked, the old file deleted, the temp file copied back, deleted. The card image is read back with the
     FAT reader after every step. Nothing else of the card may change: SYSTEM.VSB stays."""
-    import cardstore
-    import fat32
-    from sdcard import MemoryMedium, SDCard
     folder = cardstore.card_folder(bytes(payload))
     sample = f"KORG/{folder}/Sample/e2sSample.all"
     temp = f"KORG/{folder}/Sample/e2sSample.tmp"
@@ -745,11 +798,19 @@ def sample_cases(payload, flash, held_only=False):
     out.append(entry("sample_crc", c1 and c2 and c1["status"] == OK and c1["length"] == len(want) and c1["crc"] == zlib.crc32(want) and c2["crc"] == zlib.crc32(new[4096:4096 + 12345]),
                      f"FILE CRC reads the card and answers the CRC-32 of {c1 and c1['length']} bytes without sending them: {bool(c1) and c1['crc'] == zlib.crc32(want)}"))
     if MODEL == 0x23:
-        # the blue Electribe 2's image has no f_unlink: DELETE says 6, the files stay, and INFO does not claim the sample file commands
+        # the blue Electribe 2's image has no f_unlink: DELETE leaves the file empty, and the swap runs the same way on top of that
         info = lk.info()
         d1 = lk.file_delete(ALL)
-        out.append(entry("sample_synth_no_delete", d1 and d1["status"] == spec.STATUS_FILE and on_card(dev, sample) == new and info and not info["flags"] & 0x80 and not dev.m.asserts,
-                         f"the synth's FatFs has no unlink: DELETE says {d1 and d1['status']}, the sample file stays ({on_card(dev, sample) == new}), the INFO flags {info and hex(info['flags'])} do not carry bit 7"))
+        emptied = on_card(dev, sample)
+        back = lk.file_copy(TMP | 0, ALL | 0, len(want))
+        done = lk.file_delete(TMP)
+        again = lk.file_delete(TMP)
+        out.append(entry("sample_synth_swap", info and info["flags"] & 0x80 and d1 and d1["status"] == OK and emptied == b"" and back and back["status"] == OK
+                         and back["crc"] == zlib.crc32(want) and done and done["status"] == OK and again and again["status"] == OK
+                         and on_card(dev, sample) == want and on_card(dev, temp) == b"" and not dev.m.asserts,
+                         f"the synth's FatFs has no unlink: INFO flags {info and hex(info['flags'])} carry bit 7, DELETE empties the sample file ({d1 and d1['status']}, "
+                         f"{None if emptied is None else len(emptied)} bytes), the temp file is copied back ({back and back['status']}) and emptied ({done and done['status']}, "
+                         f"once more {again and again['status']}): the sample file equals the compacted one ({on_card(dev, sample) == want}), an empty temp file stays"))
         return out
     # the way back: delete the old, copy the temp file back, delete the temp file
     d1 = lk.file_delete(ALL)
@@ -791,10 +852,8 @@ def doom_cases(payload, flash, part=None):
     """The Doom files (bit 29 of a FILE offset, bit 31 for doom.wad): SD:/KORG/blechtribe/Doom/doom.bin and doom.wad, the paths the Doom
     loader opens. The real doom.bin of third_party/doom is written in blocks onto a card that has no Doom folder yet, read back over SysEx
     and compared byte for byte on the card image; doom.wad is written past the size limit of a VSB (the whole 28 MB file would take hours
-    over the emulated DIN line, so the start of the real file and a block far behind it), read back, made anew by a block at 0. Bits 30
-    and 29 together are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
-    import fat32
-    from sdcard import MemoryMedium, SDCard
+    over the emulated DIN line, so the start of the real file and a block far behind it), read back, made anew by a block at 0. A write
+    and a read with bits 31, 30 and 29 (no file) are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
     BIN, WAD = spec.FILE_DOOM, spec.FILE_DOOM | spec.FILE_OTHER
     bin_path, wad_path = "KORG/blechtribe/Doom/doom.bin", "KORG/blechtribe/Doom/doom.wad"
     vsb = "KORG/blechtribe/System/SYSTEM.VSB"
@@ -874,12 +933,12 @@ def doom_cases(payload, flash, part=None):
         short = wad[:5000]
         b, d = lk.file_write(WAD | 0, short)
         out.append(entry("doom_wad_anew", b and d and d["status"] == OK and on_card(dev, wad_path) == short, f"a block at offset 0 makes doom.wad anew: {len(on_card(dev, wad_path) or b'')} bytes, written {len(short)}"))
-    both, _ = lk.file_write(spec.FILE_DOOM | spec.FILE_SAMPLE | 0, b"x" * 10)
-    both_read = lk.file_read(spec.FILE_DOOM | spec.FILE_SAMPLE | 0, 0)
+    both, _ = lk.file_write(spec.FILE_DOOM | spec.FILE_SAMPLE | spec.FILE_OTHER | 0, b"x" * 10)
+    both_read = lk.file_read(spec.FILE_DOOM | spec.FILE_SAMPLE | spec.FILE_OTHER | 0, 0)
     beyond, _ = lk.file_write(BIN | (spec.SAMPLE_LIMIT - 5), b"x" * 10)
     statuses = [r and r["status"] for r in (both, both_read, beyond)]
     out.append(entry("doom_refusals", statuses == [RANGE, RANGE, RANGE] and on_card(dev, vsb) == system and on_card(dev, "KORG/blechtribe/Sample/e2sSample.all") is None,
-                     f"bits 30 and 29 together (write, read) and past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
+                     f"bits 31, 30 and 29 written and read, past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
     if part in (None, "bin"):
         nocard, lk2 = device(card=False)
         r = lk2.file_read(BIN | 0, 0)
@@ -947,18 +1006,185 @@ def case_stream(payload, flash):
     return out
 
 
+def fx_read_cases(payload, flash):
+    """FILE READ with bits 30 and 29: the effect collection SD:KORG/blechtribe/Presets/e2sFx.all, read in blocks and compared byte
+    for byte with the card; a read past its end gives the rest. FILE BEGIN with bit 31 as well names no file and is refused, the
+    file stays as it was (the write itself: fx_card_cases.case_usb_write); without the file the read says STATUS_FILE."""
+    FX = spec.FILE_SAMPLE | spec.FILE_DOOM
+    fx_path = "KORG/blechtribe/Presets/e2sFx.all"
+    data = bytes((i * 131 ^ i >> 5) & 255 for i in range(spec.MAX_BLOCK * 2 + 777))
+    out = []
+
+    def device(files):
+        dev = Dev(payload, flash, 0)
+        img = fat32.format_image(64 * 1024 * 1024)
+        vol = fat32.Volume(img)
+        for name, body in files.items():
+            vol.write(name, body)
+        vol.close()
+        dev.m.insert_card(SDCard(MemoryMedium(bytearray(img))))
+        dev.run(1.0)
+        lk = Link(dev)
+        lk.find_channel()
+        return dev, lk
+
+    dev, lk = device({fx_path: data})
+    size = lk.file_read(FX | 0, 0)
+    parts = [lk.file_read(FX | at, min(spec.MAX_BLOCK, len(data) - at)) for at in range(0, len(data), spec.MAX_BLOCK)]
+    back = b"".join(r["data"] for r in parts if r and r["status"] == OK and r["crc_ok"])
+    out.append(entry("fx_read", size and size["status"] == OK and size["size"] == len(data) and back == data and not dev.m.asserts,
+                     f"e2sFx.all of {len(data)} bytes: size {size and size['size']}, read back in {len(parts)} blocks equal: {back == data}"))
+    tail = lk.file_read(FX | (len(data) - 100), 4096)
+    out.append(entry("fx_read_tail", tail and tail["status"] == OK and tail["length"] == 100 and tail["data"] == data[-100:] and tail["crc_ok"],
+                     f"a read past the end gives the last {tail and tail['length']} bytes"))
+    b, _ = lk.file_write(FX | spec.FILE_OTHER, b"x" * 10)
+    card = fat32.Volume(dev.m.mmc.card.medium.data).read(fx_path)
+    out.append(entry("fx_write_refused", b and b["status"] == RANGE and card == data,
+                     f"FILE BEGIN with bits 31, 30 and 29 (no file): status {b and b['status']}, e2sFx.all unchanged: {card == data}"))
+    dev2, lk2 = device({})
+    none = lk2.file_read(FX | 0, 0)
+    out.append(entry("fx_missing", none and none["status"] == spec.STATUS_FILE and none["size"] == 0 and not dev2.m.asserts,
+                     f"no e2sFx.all on the card: status {none and none['status']}"))
+    return out
+
+
 def sample_kill_switch_cases(payload, flash):
     """sample_cases with EXIT held at power-on, a group of its own: each of its four requests waits 120 s for no answer."""
     return sample_cases(payload, flash, held_only=True)
 
 
+def dev_closed(payload):
+    """The regions DEV MODE keeps closed, as the image's own table has them: flags 0 inside the image, after the listed ones."""
+    table = table_of(payload)
+    count = struct.unpack_from("<I", table, 0)[0]
+    regions = [struct.unpack_from("<3I", table, 8 + 12 * i) for i in range(count)]
+    tail = []
+    for a, b, f in reversed(regions):  # the closed ones come last; a listed region with class 0 (sysex-hook) stays out
+        if f != 0 or not (IMAGE <= a and b <= IMAGE + 0x200000):
+            break
+        tail.append((a, b))
+    return tail[::-1]
+
+
+def dev_on(dev, on=True):
+    dev.m.uc.mem_write(spec.DEV_FLAG, struct.pack("<I", spec.DEV_MAGIC) if on else b"\xff" * 4)
+
+
+def case_dev_mode(payload, flash, vectors=None):
+    """DEV MODE (the flag poked into RAM; the menu page has its own cases): off, a write into the image is refused; on, it
+    passes, is read back and INFO says so, while every closed region, a write across a closed edge, the image's mirror and
+    the rest of the table still refuse; a new start is off again."""
+    out = []
+    dev, lk = boot(payload, flash)
+    build = sysex_trace.build_name(payload)
+    fresh = mem(dev, spec.DEV_FLAG, 4)
+    info = lk.info()
+    target = 0xC0100000                                       # firmware code no idle task runs (it is far from the SysEx path)
+    original = mem(dev, target, 1024)
+    before = original[:64]
+    begin, _ = lk.write(target, bytes(64), send_data=False)
+    out.append(entry("dev_off_refuses_the_image", fresh == b"\xff" * 4 and info and info["flags"] == spec.FLAGS and begin and begin["status"] == REFUSED
+                     and mem(dev, target, 64) == before,
+                     f"after the start DEV_FLAG holds {fresh.hex()}, INFO flags {info and hex(info['flags'])} (FLAG_DEV without FLAG_DEV_ON), "
+                     f"a write into the image is refused at BEGIN ({begin and begin['status']})"))
+
+    dev_on(dev)
+    info = lk.info()
+    data = bytes((i * 13 + 5) & 0xFF for i in range(1024))
+    begin, done = lk.write(target, data)
+    landed = mem(dev, target, 1024) == data
+    r = lk.read(target, 1024)
+    restored = lk.write(target, original)[1]
+    dev.run(1.0)
+    alive = dev.m.screen() == 1 and not dev.m.asserts
+    out.append(entry("dev_on_writes_the_image", info and info["flags"] == spec.FLAGS | spec.FLAG_DEV_ON and begin and begin["status"] == OK
+                     and done and done["status"] == OK and done["crc"] == zlib.crc32(data) and landed and r and r["data"] == data and alive
+                     and restored and restored["status"] == OK and mem(dev, target, 1024) == original,
+                     f"INFO flags {info and hex(info['flags'])}; 1 KiB into the image at {target:#x}: BEGIN {begin and begin['status']}, "
+                     f"DATA {done and done['status']}, in RAM {landed}, READ back {bool(r) and r['data'] == data}; the firmware runs on: {alive}"))
+
+    closed = dev_closed(payload)
+    wanted = [(a, b) for a, b in ((r["start"], r["end"]) for r in sysex_trace.closed_regions(build))]
+    open_ = []
+    for a, b in closed:
+        for at, n in ((a, min(4, b - a)), (b - min(4, b - a), min(4, b - a)), (a - 8, 16) if a - 8 >= IMAGE else (a, 1)):
+            got = lk.write(at, bytes(n), send_data=False)[0]
+            if not got or got["status"] != REFUSED:
+                open_.append((hex(at), n, got and got["status"]))
+    out.append(entry("dev_on_keeps_closed_regions", closed == sorted(wanted) and not open_ and len(closed) > 10,
+                     f"{len(closed)} closed regions in the image's table, equal to data/traces and the constants: {closed == sorted(wanted)}; "
+                     f"first byte, last word and the lower edge of each refused" if not open_ else f"not refused (addr, length, status): {open_[:5]}"))
+
+    others = []
+    for name, addr, n in (("the mirror of the image", 0xC4100000, 16), ("the alias of the patch's code", 0xC4000000 + (spec.CODE_AT - IMAGE), 16),
+                          ("the patch's own code", spec.CODE_AT, 16), ("the table", spec.TABLE_AT, 8), ("DEV_FLAG itself", spec.DEV_FLAG, 4),
+                          ("task stacks", 0xC0210000, 16), ("heap", 0xC0700000, 16), ("across the image's end", IMAGE + 0x200000 - 8, 16)):
+        got = lk.write(addr, bytes(n), send_data=False)[0]
+        if not got or got["status"] != REFUSED:
+            others.append((name, got and got["status"]))
+    out.append(entry("dev_on_refuses_the_rest", not others,
+                     "with DEV MODE on the image's mirror, the alias of the patch's code, its code, table and DEV_FLAG, stacks, heap and a write across the image's end stay refused"
+                     if not others else f"not refused: {others}"))
+
+    # A read in the released RAM behind the buffer trips the Link's guard; the firmware would answer it, the case may not look.
+    dev_vectors = [v for v in vectors or [] if v.get("dev")
+                   and not (v["op"] == "read" and v["addr"] < spec.FILE_AREA and v["addr"] + v["length"] > spec.BUF_END)]
+    if dev_vectors:
+        bad = []
+        for v in dev_vectors:
+            r = lk.read(v["addr"], v["length"], wait=5.0) if v["op"] == "read" and v["length"] <= spec.MAX_BLOCK else None
+            begin = lk.write(v["addr"], bytes(v["length"]), send_data=False)[0] if v["op"] == "write" and v["length"] <= spec.MAX_BLOCK else None
+            got = (r or begin or {}).get("status")
+            if got != v["status"]:
+                bad.append((hex(v["addr"]), v["length"], v["op"], got, v["status"]))
+        out.append(entry("dev_same_rule_as_the_editor", not bad, f"{len(dev_vectors)} ranges answered as src/protect.mjs rules for them with devMode" if not bad
+                         else f"differ from the editor's rule (addr, length, op, device, editor): {bad[:5]}"))
+
+    dev_on(dev, False)
+    info = lk.info()
+    begin, _ = lk.write(target, bytes(16), send_data=False)
+    out.append(entry("dev_off_again", info and info["flags"] == spec.FLAGS and begin and begin["status"] == REFUSED,
+                     f"DEV_FLAG cleared: INFO flags {info and hex(info['flags'])}, a write into the image refused again"))
+    out.append(entry("dev_no_asserts", not dev.m.asserts, f"asserts: {dev.m.asserts[:3]}"))
+    return out
+
+
 GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, file_cases, sample_cases, sample_kill_switch_cases,
-          case_stream, doom_bin_cases, doom_wad_cases)   # each its own task in check.py
+          case_stream, doom_bin_cases, doom_wad_cases, fx_read_cases, case_dev_mode)   # each its own task in check.py
+VECTOR_GROUPS = (case_protocol, case_dev_mode)
+
+
+# The blue Electribe 2's effect records, three runs of 0x20C bytes (data/map/firmware.mjs, `records` of the synth's arrays).
+SYNTH_RECORDS = ((0xC0092958, 47), (0xC0098B1C, 9), (0xC0099F18, 144))
+
+
+def synth_record_cases(dev, lk):
+    """The only RAM the synth's table opens: its own effect records, whole, for the live editing of the presets page."""
+    out, refused = [], []
+    for name, addr in (("the first record", SYNTH_RECORDS[0][0]), ("a record of the second run", SYNTH_RECORDS[1][0] + 524),
+                       ("a record of the third run", SYNTH_RECORDS[2][0] + 3 * 524), ("the last record", SYNTH_RECORDS[2][0] + 143 * 524)):
+        data = bytes((i * 7 + 3) & 0xFF for i in range(524))
+        before = mem(dev, addr, 524)
+        begin, done = lk.write(addr, data)
+        if not (begin and begin["status"] == OK and done and done["status"] == OK and done["crc"] == zlib.crc32(data) and mem(dev, addr, 524) == data):
+            refused.append((name, begin and begin["status"], done and done["status"]))
+        lk.write(addr, before)
+    out.append(entry("synth_records_written", not refused, "a whole effect record of each of the synth's three runs is written and read back" if not refused else f"refused: {refused}"))
+    bad = []
+    for name, addr, n in (("across two records", SYNTH_RECORDS[0][0] + 524 - 8, 16), ("the insert pointer array", 0xC009898C, 16),
+                          ("a record of the red grid", 0xC00A7F60, 524), ("past the last record", SYNTH_RECORDS[2][0] + 144 * 524, 16),
+                          ("the mirror of a record", SYNTH_RECORDS[0][0] + spec.MIRROR, 16), ("firmware code", 0xC0100000, 16)):
+        before = mem(dev, addr, n)
+        begin, _ = lk.write(addr, bytes(n), send_data=False)
+        if not begin or begin["status"] != REFUSED or mem(dev, addr, n) != before:
+            bad.append((name, begin and begin["status"]))
+    out.append(entry("synth_records_only", not bad, "a write across two records, into the pointer array, on the red grid, past the last record, into a record's mirror or the code is refused" if not bad else f"not refused: {bad}"))
+    return out
 
 
 def synth_cases(payload, flash):
-    """A smoke check of the patch on the blue Electribe 2 (the synth): INFO, RAM read, writes refused (its RAM map is not
-    measured, so the table refuses every write), FLASH READ with its limits and no flash write, EXIT at power-on, Korg's own
+    """A smoke check of the patch on the blue Electribe 2 (the synth): INFO, RAM read, writes refused but into its own effect
+    records (its RAM map is not measured, so the table opens nothing else), FLASH READ with its limits and no flash write, EXIT at power-on, Korg's own
     SysEx and no assertion. `payload` is the patched synth's 0x200000 bytes behind the head."""
     global MODEL
     MODEL = 0x23
@@ -968,9 +1194,9 @@ def synth_cases(payload, flash):
         out.append(entry("synth_main_screen", dev.m.screen() == 1 and not dev.m.asserts, f"the patched synth firmware is on screen {dev.m.screen()} (1 is the main screen)"))
         info = lk.info()
         table = table_of(payload)
-        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS & ~0x80 & ~spec.FLAG_DOOM
+        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS & ~spec.FLAG_DOOM & ~spec.FLAG_DEV
                          and info["max_block"] == spec.MAX_BLOCK and info["max_flash"] == spec.FLASH_MAX and info["table_crc"] == zlib.crc32(table),
-                         f"INFO answered with model byte 0x23: flags {info and hex(info['flags'])} (no sample file, no Doom), flash block {info and info['max_flash']}, table {len(table)} bytes, CRC equal to the image's: {bool(info) and info['table_crc'] == zlib.crc32(table)}"))
+                         f"INFO answered with model byte 0x23: flags {info and hex(info['flags'])} (no Doom), flash block {info and info['max_flash']}, table {len(table)} bytes, CRC equal to the image's: {bool(info) and info['table_crc'] == zlib.crc32(table)}"))
         bad = []
         for size in (1, 7, 524, 4096):
             r = lk.read(IMAGE + 0x40, size)
@@ -981,9 +1207,16 @@ def synth_cases(payload, flash):
         begin, _ = lk.write(SCRATCH, bytes(range(64)), send_data=False)
         again = lk.info()
         out.append(entry("synth_writes_refused", begin and begin["status"] == REFUSED and mem(dev, SCRATCH, 64) == before and again and again["status"] == OK,
-                         "a write is refused already at BEGIN, because the synth's RAM map is not measured; the RAM stays"))
+                         "a write outside the effect records is refused already at BEGIN, because the synth's RAM map is not measured; the RAM stays"))
+        out.extend(synth_record_cases(dev, lk))
         r, _ = lk.ask(spec.FUNC_EXEC, struct.pack("<II", spec.EXEC_START, 0), reply=spec.REPLY_EXEC)
         words = struct.unpack_from("<3I", r["words"]) if r else None
+        dev_on(dev)
+        begin, _ = lk.write(IMAGE + 0x100000, bytes(16), send_data=False)
+        flagged = lk.info()
+        dev_on(dev, False)
+        out.append(entry("synth_no_dev_mode", begin and begin["status"] == REFUSED and flagged and not flagged["flags"] & (spec.FLAG_DEV | spec.FLAG_DEV_ON),
+                         f"DEV_FLAG poked on the synth: a write into the image is still refused ({begin and begin['status']}), INFO flags {flagged and hex(flagged['flags'])}"))
         out.append(entry("synth_exec_refused", words == (REFUSED, spec.EXEC_START, 0), f"EXEC is refused, because nothing may be written there ({words})"))
         out.extend(flash_cases(dev, lk))
         out.extend(case_kill_switch(payload, flash))
@@ -1000,12 +1233,11 @@ def group_entries(payload, flash, i, vectors=None):
     """check.py entries of case group i; each boots its own device, so they can run side by side."""
     if synthaddr.is_synth(payload):
         return synth_cases(payload, flash) if i == 0 else []
-    return GROUPS[i](payload, flash, vectors) if i == 0 else GROUPS[i](payload, flash)
+    return GROUPS[i](payload, flash, vectors) if GROUPS[i] in VECTOR_GROUPS else GROUPS[i](payload, flash)
 
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i, parallel.shared.get("sysex_vectors"))
 
 
@@ -1033,12 +1265,82 @@ def speed(payload, flash=None, sizes=(16, 256, 1024, 4096, 8192, 16384, 24576, 3
     return rows
 
 
+def hot_setup(payload, flash=None):
+    """A booted Sampler with DEV MODE switched on at its page, tools/device/hot_patch.py's Blech over the DIN link, the context
+    of the test images (cached under out/hot-patch) and the three images of make_hot_fixtures.py."""
+    raw = bytes(0x100) + bytes(payload)
+    images = make_hot_fixtures.fixtures(raw)
+    dev = mc.boot(payload, flash)
+    lk = Link(dev)
+    mc.goto_top(dev, mc.LIST_DEV)
+    dev.turn(1, wait=0.3)
+
+    def ask(message):
+        replies, _ = lk.exchange(bytes(message), wait=10.0)
+        if not replies:
+            raise SystemExit("emulator: no answer")
+        return list(replies[0])
+    return hp, mc, dev, Blech(ask), raw, images
+
+
+def hotpatch_report(raw):
+    """What check.py --report says of a test image; the cases build their images themselves and check only the hot patch."""
+    return {"vsb_sha256": hashlib.sha256(raw).hexdigest(), "ok": True, "quick": False, "partial": False}
+
+
+def hotpatch_cases(payload, flash=None):
+    """hot_patch.py against the emulator: the title of DEV MODE written hot shows on the LCD, --revert brings the base back."""
+    hp, mc, dev, blech, raw, images = hot_setup(payload, flash)
+    new = images["ht-text.VSB"]
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"hotpatch:{name}", "ok": bool(ok), "detail": str(detail)})
+    tmp = Path(tempfile.mkdtemp())
+    log = []
+    assert hp.accept_report(hotpatch_report(new), new) is None
+    ctx = hp.Context.measure(raw[0x100:], new[0x100:], "ht", say=log.append)
+    p, journal = hp.run(blech, raw, tmp / "base.VSB", new, tmp / "ht-text.VSB", ctx, proof="near", journals=tmp, say=log.append)
+    rows = [(r["start"], r["end"], r["cls"]) for r in p["rows"]]
+    mc.goto_top(dev, mc.LIST_VERSION)
+    mc.goto_top(dev, mc.LIST_DEV)
+    shown = mc.texts_of(dev)
+    add("text_written_hot", journal and [c for _, _, c in rows] == ["hot"] and shown[:2] == ("HOT MODE", "ON") and not dev.m.asserts,
+        f"rows {[(hex(a), hex(b), c) for a, b, c in rows]}, LCD {shown}")
+    hp.revert(blech, journal, say=log.append)
+    back = all(blech.read(a, b - a) == raw[0x100 + a - hp.IMAGE:0x100 + b - hp.IMAGE] for a, b, _ in rows)
+    mc.goto_top(dev, mc.LIST_VERSION)
+    mc.goto_top(dev, mc.LIST_DEV)
+    add("revert_reads_base", back and mc.texts_of(dev)[0] == "DEV MODE" and not dev.m.asserts, f"READ equals base: {back}, LCD {mc.texts_of(dev)}")
+    return out
+
+
+def hotpatch_full_cases(payload, flash=None):
+    """hot_patch.py against the emulator: a start-phase byte and a DSP byte are reported full update, nothing is written."""
+    hp, mc, dev, blech, raw, images = hot_setup(payload, flash)
+    out, writes = [], []
+    real_write = blech.write
+    blech.write = lambda a, data, verify=True: (writes.append(a), real_write(a, data, verify))
+    for name, reason in (("ht-start.VSB", "start phase"), ("ht-dsp.VSB", "DSP")):
+        new = images[name]
+        changed = hp.diff(raw[0x100:], new[0x100:])
+        before = [bytes(dev.m.uc.mem_read(a, b - a)) for a, b in changed]   # the firmware rewrites other image bytes itself while it runs
+        ctx = hp.Context.measure(raw[0x100:], new[0x100:], "ht", say=lambda *_: None)
+        tmp = Path(tempfile.mkdtemp())
+        p, journal = hp.run(blech, raw, tmp / "base.VSB", new, tmp / name, ctx, proof="near", journals=tmp, say=lambda *_: None)
+        after = [bytes(dev.m.uc.mem_read(a, b - a)) for a, b in changed]
+        reasons = [r["reason"] for r in p["full"]]
+        out.append({"id": f"hotpatch:{name.split('.')[0]}_is_full_update", "ok": bool(p["full"]) and all(reason in r for r in reasons)
+                    and journal is None and before == after and not writes and not p["groups"],
+                    "detail": f"full {reasons}, journal {journal}, WRITE calls {len(writes)}, changed range unchanged {before == after}"})
+    return out
+
+
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("what", choices=("cases", "speed", "synth"))
+    p.add_argument("what", choices=("cases", "speed", "synth", "hotpatch", "hotpatch-full"))
     p.add_argument("--patched", required=True, type=Path)
     p.add_argument("--flash", nargs="*", default=[], type=Path)
     p.add_argument("--vectors", type=Path, help="ranges and what src/protect.mjs says about them, JSON")
@@ -1050,8 +1352,11 @@ def main():
     if a.what == "speed":
         print(json.dumps(speed(payload, flash), indent=1))
         return 0
+    if a.what in ("hotpatch", "hotpatch-full"):
+        entries = (hotpatch_cases if a.what == "hotpatch" else hotpatch_full_cases)(payload, flash)
+        print(json.dumps(entries, indent=1))
+        return 0 if all(e["ok"] for e in entries) else 1
     if a.what == "synth":
-        import machine
         entries = synth_cases(payload, flash or bytes(machine.blank_flash(b"KORGelec2USR")))
         print(json.dumps(entries, indent=1))
         return 0 if all(e["ok"] for e in entries) else 1

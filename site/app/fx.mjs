@@ -110,8 +110,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     await units();
     const id = await identify(bytes);
     state.identity = id;
-    // Korg's own build is not "known" (its presets are not Hacktribe's), but its presets are read through the pointer arrays all the same
-    const stock = id.build === "stock" && !!locatePresets(bytes);
+    // Korg's own builds, red and blue, are not "known" (their presets are not Hacktribe's), but their presets are read through the pointer arrays all the same
+    const stock = (id.build === "stock" || id.build === "synth") && !!locatePresets(bytes);
     if (!id.known && !stock) {
       identity.replaceChildren(...(id.build === "stock" ? [] : [stateText("error", t("presets.unknown")), ` ${id.reasons.join(" ")}`]));
       if (!embedded) window.ui?.rejectFile(fileInput, t("presets.notMeasured"));
@@ -174,9 +174,9 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     return s;
   };
 
-  /** Korg's records are found through the pointer arrays, so live access needs BLECH on Korg's build, running the file's arrays. */
+  /** Korg's records are found through the pointer arrays, so live access needs BLECH on Korg's build (red or blue, as the file), running the file's arrays. */
   async function stockReady(s) {
-    if (s.device?.build !== "stock" || s.device.ram !== "blech") {
+    if (s.device?.build !== state.identity?.build || s.device.ram !== "blech") {
       state.why = t("presets.why.stock");
       return false;
     }

@@ -27,6 +27,8 @@ import sampleset  # noqa: E402
 import synthaddr  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 SAMPLES = sampleset.build(sampleset.sized(3, 48000))
 CARD_ERROR, WRITE_PROTECTED, RESTING = 4, 3, 0x26     # the firmware's error box codes (its text table at 0xC00E3280), 0x26: no box
@@ -91,12 +93,12 @@ class Rig:
     def screen(self):
         return self.dev.screen()["number"]
 
-    def tree(self):
-        """KORG/<folder>/ on the card as the firmware left it: {name: size or None for a folder}, None without the folder."""
+    def tree(self, sub=""):
+        """KORG/<folder>/<sub> on the card as the firmware left it: {name: size or None for a folder}, None without the folder."""
         volume = None
         try:
             volume = fat32.Volume(bytes(self.card.medium.data))
-            return {e.name: None if e.is_dir else e.size for e in volume.listdir(f"KORG/{self.folder}")}
+            return {e.name: None if e.is_dir else e.size for e in volume.listdir(f"KORG/{self.folder}{sub}")}
         except fat32.FatError:
             return None
         finally:
@@ -157,14 +159,14 @@ def case_write_protect(payload, flash):
     seen = rig.codes(3)
     writes = rig.card.commands[24] + rig.card.commands[25]
     name = "electribe_sampler_allpattern.e2sallpat"
-    out.append(entry("locked_export_says_so", seen and seen[0][1] == WRITE_PROTECTED and writes == 0 and name not in (rig.tree() or {})
+    out.append(entry("locked_export_says_so", seen and seen[0][1] == WRITE_PROTECTED and writes == 0 and name not in (rig.tree("/Patterns") or {})
                      and not rig.dev.m.asserts,
-                     f"box codes {seen}, write commands {writes}, export file on the card {name in (rig.tree() or {})}"))
+                     f"box codes {seen}, write commands {writes}, export file on the card {name in (rig.tree('/Patterns') or {})}"))
     rig.card.write_protect = False
     rig.dev.press("exit", 0.5)
     rig.dev.press("menu", 0.3)
     rig.run(12)
-    size = (rig.tree() or {}).get(name)
+    size = (rig.tree("/Patterns") or {}).get(name)    # EXPORT ALL PATTERN writes into Patterns/
     out.append(entry("unlocked_export_writes", size and rig.card.sectors_written > 100 and not rig.dev.m.asserts,
                      f"lock off: export file {size} bytes, sectors written {rig.card.sectors_written}"))
     return out
@@ -242,7 +244,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -251,7 +252,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

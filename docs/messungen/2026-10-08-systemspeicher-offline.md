@@ -1,6 +1,6 @@
 # Task-Stacks, Heap und Arbeitsbuffer, offline gemessen
 
-Stand 8. Oktober 2026. Neue Untersuchung der originalen ARM-Initialisierung
+Untersuchung der originalen [ARM](../glossary.md#arm)-Initialisierung
 und Speicherverwaltung aus dem vorhandenen CPU-Dump; keine Gerätebefehle.
 Der Dump ist zeitlich zusammengesetzt, SHA256
 `c114f10457b1dabc3ad6f8694aa3af9be63c5429da627c6358490ce781e0f26a`.
@@ -17,7 +17,7 @@ Die Runtime-Kontrollblöcke liegen ab 0xC06A24E4, ebenfalls 32 Byte je Task;
 **Gemessen offline:** Routine 0xC00003D8 lädt Größe und Basis, berechnet
 Stackende, legt Einstieg bei Ende-4 und Startargument bei Ende-8 ab und
 setzt den gespeicherten Zeiger auf Ende-8. Die Routine einschließlich
-Ready-Queue-Einreihung 0xC00018F0 wurde in Unicorn für alle zehn
+Ready-Queue-Einreihung 0xC00018F0 wurde in [Unicorn](../glossary.md#unicorn) für alle zehn
 Deskriptoren ausgeführt. Für den Initialisierungstest waren Queues und
 Kontrollblöcke bewusst neu initialisiert. Kein Task wurde gestartet.
 

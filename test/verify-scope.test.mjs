@@ -21,21 +21,40 @@ test("every module in the table is a case module", () => {
   }
 });
 
+// Every module in tools/emu by name, and what imports what at the top of a module. An edge can pass through a module
+// that is no case module (shortcut_cases <- plugin_api33_cases, a group of remote_cases); that module adds its own scope.
+const EMU = readdirSync(`${root}tools/emu`).filter(f => /^\w+\.py$/.test(f) && !f.startsWith("test_")).map(f => f.slice(0, -3));
+const importers = m => EMU.filter(o => o !== m && new RegExp(`^(from ${m} import|import ${m}\\b)`, "m").test(read(`tools/emu/${o}.py`)));
+const users = m => {
+  const seen = new Set([m]);
+  for (let todo = [m]; todo.length;) for (const o of importers(todo.pop())) if (!seen.has(o)) { seen.add(o); todo.push(o); }
+  const out = new Set();
+  for (const o of seen) {
+    if (CASE_MODULES.includes(o)) out.add(o);
+    else if (o !== m) { const s = scopeOf(`tools/emu/${o}.py`); if (s !== ALL) for (const c of s) out.add(c); }
+  }
+  return out;
+};
+
 test("a changed case module runs itself and every case module that imports from it", () => {
-  const importers = m => CASE_MODULES.filter(o => o !== m && new RegExp(`^(from ${m} import|import ${m}\\b)`, "m").test(read(`tools/emu/${o}.py`)));
-  const users = m => {
-    const seen = new Set([m]);
-    for (let todo = [m]; todo.length;) for (const o of importers(todo.pop())) if (!seen.has(o)) { seen.add(o); todo.push(o); }
-    return seen;
-  };
   for (const m of CASE_MODULES) {
     const s = scopeOf(`tools/emu/${m}.py`);
     if (s !== ALL) assert.deepEqual([...s].sort(), [...users(m)].sort(), m);
   }
 });
 
+test("a changed module of tools/emu with a row runs at least every case module that imports it", () => {
+  for (const m of EMU.filter(m => !CASE_MODULES.includes(m))) {
+    const s = scopeOf(`tools/emu/${m}.py`);
+    if (s === ALL) continue;
+    const missing = [...users(m)].filter(c => !s.includes(c));
+    assert.deepEqual(missing, [], m);
+  }
+});
+
 test("assembly and patch files map to the cases that test them", () => {
-  assert.deepEqual(scope(["tools/patch/script_menu.s"]), ["ht_osc_cases", "init_pattern_cases", "last_pattern_cases", "menu_cases", "migrate_cases", "shortcut_cases", "stereo_pad_cases", "tube_cases"]);
+  assert.deepEqual(scope(["tools/patch/script_menu.s"]), ["dev_mode_cases", "ht_osc_cases", "init_pattern_cases", "last_pattern_cases", "menu_cases", "migrate_cases", "sample_category_cases", "shortcut_cases", "stereo_pad_cases", "tube_cases"]);
+  assert.deepEqual(scope(["tools/patch/script_sample_edit.s", "tools/patch/script_sample_edit_none.s"]), ["sample_category_cases"]);
   assert.deepEqual(scope(["tools/patch/script_remote.s"]), ["remote_cases"]);
   assert.deepEqual(scope(["tools/patch/fx_card.s"]), ["fx_card_cases"]);
   assert.deepEqual(scope(["data/patches/dice.json", "data/patches/dice-synth.json"]), ["dice_cases"]);
@@ -60,7 +79,7 @@ test("files the workflow does not run for add nothing, tests of the tools add no
 
 test("every emulator case file has a runner", () => {
   // research callers, run by hand only (their docstrings say so)
-  const research = ["macro_cases", "project_cases"];
+  const research = ["macro_cases", "project_cases", "sample_mmu_cases", "sample_pcm_cases", "sample_ram_cache_cases", "fx_level_cases"];
   const files = readdirSync(`${root}tools/emu`).filter(f => /^\w+_cases\.py$/.test(f) && !f.startsWith("test_")).map(f => f.slice(0, -3));
   const emu = readdirSync(`${root}tools/emu`).filter(f => f.endsWith(".py")).map(f => [f.slice(0, -3), read(`tools/emu/${f}`)]);
   const tests = readdirSync(`${root}test`).filter(f => f.endsWith(".mjs")).map(f => read(`test/${f}`)).join("\n");

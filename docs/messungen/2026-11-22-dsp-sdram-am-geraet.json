@@ -1,0 +1,220 @@
+{
+  "format": "blech-dsp-live-read-evidence",
+  "version": 1,
+  "date": "2026-11-22",
+  "device": {
+    "model": "Electribe 2 Sampler",
+    "firmware": "Hacktribe 2.02",
+    "blechVersion": "BLECH 1.4.8",
+    "transport": "Linux USB MIDI via SSH",
+    "infoAfter": {
+      "status": 0,
+      "version": 1,
+      "flags": 3071,
+      "block": 32768,
+      "table_crc": "0xaa0c33f2",
+      "flash_block": 4096
+    }
+  },
+  "startedUtc": "2026-11-22T11:02:23.419427+00:00",
+  "finishedUtc": "2026-11-22T11:05:12.179074+00:00",
+  "status": "PASS",
+  "helperSha256": "f5f7b0e17333464018bba50b6d52ac8217950572674763a54c8a3d7297e9898b",
+  "hostProbeSha256": "9a49ddfaa93d19e08b7ac4ad449c187093593ecc936a3e587c39a2c2c2520aec",
+  "firmwareFingerprints": [
+    {
+      "address": "0xc0000040",
+      "bytes": 64,
+      "sha256": "0ecfbf472eb414c359f29af80817ad36cac542fe94b1f4e3cd4fe078a50e6de0",
+      "matches": true
+    },
+    {
+      "address": "0xc017059c",
+      "bytes": 512,
+      "sha256": "94975043805a3baa09d4916636d9ba93c9ab7c367efbf7b8d8d8e1b848219470",
+      "matches": true
+    },
+    {
+      "address": "0xc00141f8",
+      "bytes": 144,
+      "sha256": "ea27bae6c1d9732b707947d599cd29c2bc2ab2a5af3501f99f0842ec57375e2d",
+      "matches": true
+    },
+    {
+      "address": "0xc0014afc",
+      "bytes": 256,
+      "sha256": "db72fecc68aca1aa7e4a96a646c1ad53dcb15852e4b03c0f357413b79532b413",
+      "matches": true
+    },
+    {
+      "address": "0xc0000d80",
+      "bytes": 256,
+      "sha256": "350969b57264734f4b9f484e8e0d9aec7ef11a3a336781001abdea9647bc38c2",
+      "matches": true
+    },
+    {
+      "address": "0xc0000ca8",
+      "bytes": 128,
+      "sha256": "8464ae28c50f872b46978e5d78be309f78408f940ac8a24f281cb66a91f082ee",
+      "matches": true
+    }
+  ],
+  "currentEmbeddedStream": {
+    "source": "two matching current ARM-resident DSP boot-stream reads after live snapshots; not an additional DSP snapshot",
+    "sha256": "a4dc5b4f634a611d4eaf44e8cdde0d3dc5087e59ed3e6b77ead3781e4a2d481c",
+    "bytes": 271008,
+    "allBlockCrcsVerified": true,
+    "allHeaderChecksumsValid": true,
+    "blocks": 157,
+    "streamLengthFullyAccounted": true,
+    "heapsInBootStream": [
+      {
+        "base": "0x1d00000",
+        "length": "0xfffff",
+        "id": 0
+      },
+      {
+        "base": "0xff904600",
+        "length": "0x1d20",
+        "id": 1
+      },
+      {
+        "base": "0xffb00000",
+        "length": "0xf",
+        "id": 2
+      },
+      {
+        "base": "0x1e00000",
+        "length": "0xfffff",
+        "id": 3
+      }
+    ],
+    "windows": [
+      {
+        "start": "0x1c816ec",
+        "end": "0x1d00000",
+        "loaderOverlaps": [],
+        "heapOverlaps": []
+      },
+      {
+        "start": "0x1f11b40",
+        "end": "0x2000000",
+        "loaderOverlaps": [],
+        "heapOverlaps": []
+      }
+    ]
+  },
+  "liveHeaps": [
+    {
+      "base": "0x1d00000",
+      "length": "0xfffff",
+      "id": 0
+    },
+    {
+      "base": "0xff904600",
+      "length": "0x1d20",
+      "id": 1
+    },
+    {
+      "base": "0xffb00000",
+      "length": "0xf",
+      "id": 2
+    },
+    {
+      "base": "0x1e00000",
+      "length": "0xfffff",
+      "id": 3
+    }
+  ],
+  "heapControlUnchanged": true,
+  "snapshots": [
+    {
+      "pass": 1,
+      "window": 0,
+      "start": "0x1c816ec",
+      "end": "0x1d00000",
+      "bytes": 518420,
+      "chunks": 676,
+      "seconds": 29.17317827185616,
+      "sha256": "28c5f787ce8fc3a9a5c95be92dfd82ba3228f9c19873ace163c2120501849cd1",
+      "nonzeroBytes": 388758
+    },
+    {
+      "pass": 1,
+      "window": 1,
+      "start": "0x1f11b40",
+      "end": "0x2000000",
+      "bytes": 976064,
+      "chunks": 1271,
+      "seconds": 54.9317438500002,
+      "sha256": "0aadd72a4afca7d16b9d2f1cb1ae7dcbcc119ab1f4fb6ea710482da2ba9122c7",
+      "nonzeroBytes": 731854
+    },
+    {
+      "pass": 2,
+      "window": 0,
+      "start": "0x1c816ec",
+      "end": "0x1d00000",
+      "bytes": 518420,
+      "chunks": 676,
+      "seconds": 29.25444592302665,
+      "sha256": "28c5f787ce8fc3a9a5c95be92dfd82ba3228f9c19873ace163c2120501849cd1",
+      "nonzeroBytes": 388758,
+      "changedBytes": 0,
+      "unchanged": true
+    },
+    {
+      "pass": 2,
+      "window": 1,
+      "start": "0x1f11b40",
+      "end": "0x2000000",
+      "bytes": 976064,
+      "chunks": 1271,
+      "seconds": 55.04361034696922,
+      "sha256": "0aadd72a4afca7d16b9d2f1cb1ae7dcbcc119ab1f4fb6ea710482da2ba9122c7",
+      "nonzeroBytes": 731854,
+      "changedBytes": 0,
+      "unchanged": true
+    }
+  ],
+  "execReturnCounts": {
+    "0x0": 3896
+  },
+  "rawCandidateBytes": 1494484,
+  "alignedCandidateBytes": 1490944,
+  "alignedWindows": [
+    {
+      "start": "0x01C82000",
+      "end": "0x01D00000",
+      "bytes": 516096
+    },
+    {
+      "start": "0x01F12000",
+      "end": "0x02000000",
+      "bytes": 974848
+    }
+  ],
+  "scratch": {
+    "start": "0xC1000000",
+    "bytes": 896,
+    "beforeSha256": "b8fb9163ecc7c9567a1b3c1d12e5cfe825faf3784bc6d0b6637852df091144b4",
+    "afterSha256": "b8fb9163ecc7c9567a1b3c1d12e5cfe825faf3784bc6d0b6637852df091144b4",
+    "restored": true,
+    "independentNewConnectionMatches": true,
+    "independentSha256": "b8fb9163ecc7c9567a1b3c1d12e5cfe825faf3784bc6d0b6637852df091144b4"
+  },
+  "dspWrites": false,
+  "flashWriteCommands": false,
+  "sdWriteCommands": false,
+  "remoteKeysOrEffectChanges": false,
+  "deviceRespondsAfter": true,
+  "limits": [
+    "Existing device state not classified as maximum load or playback",
+    "Sequential snapshots, not continuous CPU/DMA/fetch observation",
+    "Reads and transient writes restored between samples cannot be excluded",
+    "No canary written into DSP",
+    "No additional code execution or timing/audio-quality qualification on DSP",
+    "No native Synth hardware tested",
+    "Current device differs from November 20 model source and historical device snapshot"
+  ]
+}

@@ -11,7 +11,7 @@
  * choose. The one exception is a field written to several places, which is
  * rolled back as a whole at once; half a menu length plays the wrong unit.
  */
-import { plan, sampleWrites } from "./plan.mjs";
+import { plan, sampleWrites, allowedRegions } from "./plan.mjs";
 import { admit, regionCheck } from "./gate.mjs";
 import { Sender, SendError, backupsOf, textOf } from "./sender.mjs";
 import { render, text } from "./text.mjs";
@@ -19,7 +19,7 @@ import { withChannel, describeMessage } from "./protocol.mjs";
 import { isPassed } from "./rehearsal.mjs";
 import { SimDevice } from "./device.mjs";
 import { VsbImage } from "./image.mjs";
-import { sha256 } from "./firmware.mjs";
+import { hasStage2Memory, sha256 } from "./firmware.mjs";
 import KNOWN_DEVICES from "../data/devices.mjs";
 import { tableEntry, RAM_BASE } from "./map/address.mjs";
 import { BLOCKS } from "./map/index.mjs";
@@ -33,6 +33,8 @@ import { protectTable } from "./sysex-table.mjs";
 export const BLECH_WRITE = 0x1000;
 
 const ELECTRIBE = /electribe/i;
+/** The model byte Korg's firmware of the blue Electribe 2 answers the search with. */
+const SYNTH_MODEL = 0x23;
 
 /** Windows names a device's second MIDI jack "MIDIOUT2 (name)" and "MIDIIN2 (name)"; both become "MIDI2 (name)". */
 const pairKey = name => name.replace(/^MIDI(?:IN|OUT)(\d+)/i, "MIDI$1");
@@ -186,7 +188,8 @@ export class DeviceSession {
   /**
    * Device search, then BLECH's own INFO. A device that answers it is read and written through BLECH's commands, which
    * work on Korg's original with BLECH as well; the build is then told by its code signatures. One that does not answer it
-   * gets a small RAM read with Hacktribe's command, as before; and a device that answers neither is read-only.
+   * gets a small RAM read with Hacktribe's command, as before; and a device that answers neither is read-only. Korg's
+   * firmware of the blue Electribe 2 answers the search as model 0x23 and takes BLECH's commands with that model byte.
    */
   connect() {
     return this.exclusive(async () => {
@@ -195,10 +198,11 @@ export class DeviceSession {
       const { channel, version, sampler, model } = found.results[0].value;
       this.sender.channel = channel;
       this.sender.blech = null;
-      const info = sampler ? await this.sender.blechInfo() : null;
+      const synth = model === SYNTH_MODEL;
+      const info = sampler || synth ? await this.sender.blechInfo(model) : null;
       const usable = info && info.version === BLECH.VERSION && (info.flags & 3) === 3 && info.maxBlock >= 256;
-      if (usable) this.sender.blech = { maxBlock: info.maxBlock, flash: !!(info.flags & BLECH.FLAG_FLASH), exec: !!(info.flags & BLECH.FLAG_EXEC) };
-      const candidates = sampler ? this.known.filter(k => k.version[0] === version[0] && k.version[1] === version[1]) : [];
+      if (usable) this.sender.blech = { maxBlock: info.maxBlock, flash: !!(info.flags & BLECH.FLAG_FLASH), exec: !!(info.flags & BLECH.FLAG_EXEC), model };
+      const candidates = sampler || synth ? this.known.filter(k => k.version[0] === version[0] && k.version[1] === version[1] && (k.build === "synth") === synth) : [];
       const profile = candidates.find(k => (k.build ?? "hacktribe") === "hacktribe");
       let hacktribe = false;
       let fingerprintVerified = false;
@@ -226,7 +230,7 @@ export class DeviceSession {
       }
       this.sender.build = build;
       const blech = usable ? { ...info, tableMatches: info.tableCrc === protectTable({ build: build ?? undefined }).crc } : null;
-      this.device = { channel, version, versionKnown: sampler && fingerprintVerified, fingerprintVerified, sampler, model, hacktribe, blech, build, ram: usable ? "blech" : hacktribe ? "hacktribe" : null };
+      this.device = { channel, version, versionKnown: (sampler || synth) && fingerprintVerified, fingerprintVerified, sampler, model, hacktribe, blech, build, ram: usable ? "blech" : hacktribe ? "hacktribe" : null };
       if (!this.twin) this.twin = new SimDevice({ channel });
       // A pattern is read back with Korg's own request, which needs no Hacktribe.
       if (this.pending && (this.device.ram || this.pending.pattern)) this.pending.now = await this.readBack(this.pending);
@@ -252,7 +256,8 @@ export class DeviceSession {
     if (this.twin && this.device) this.twin.channel = this.device.channel;
     // Code runs only in an emulator, or in a session that tries every edit in one first (plan 5.1).
     const rehearsed = this.port.emulator === true || !!this.rehearsal;
-    return { device: this.device, firmware: this.firmware, session: this.twin, units: this.units, profile: this.profile, blocked: this.blocked, rehearsed };
+    const stage2Memory = !this.firmwareBytes || hasStage2Memory(this.firmwareBytes);
+    return { device: this.device, firmware: this.firmware, session: this.twin, units: this.units, profile: this.profile, blocked: this.blocked, rehearsed, stage2Memory };
   }
 
   /** Plan and check without sending. */
@@ -615,7 +620,8 @@ export class DeviceSession {
   async restore({ backups, pattern }, { onStep } = {}) {
     const ch = this.device.channel;
     const steps = pattern ? plan({ kind: "patternRestore", block: pattern }, { channel: ch }) : plan({ kind: "restore", backups }, this.planState(ch));
-    const regions = regionCheck(steps);
+    // The blue's effect records lie where the Sampler has firmware, so its backups are checked against its own regions.
+    const regions = regionCheck(steps, this.device.build === "synth" ? allowedRegions({ build: "synth" }) : undefined);
     if (regions.length) return { ok: false, error: new SendError("region", regions[0].message), steps };
     const run = await this.sender.run(steps, { onStep });
     if (!run.ok) return { ok: false, error: run.error, steps };

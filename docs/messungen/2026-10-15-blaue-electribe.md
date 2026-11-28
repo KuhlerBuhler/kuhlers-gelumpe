@@ -1,8 +1,8 @@
 # Die blaue Electribe 2 (Synth) im Emulator
 
-Stand 2026-10-15. Im Emulator und offline, kein Gerät. Eingabe: die `SYSTEM.VSB` 2.02 der blauen Electribe 2 aus dem
+Im [Emulator](../glossary.md#emulator) und offline, kein Gerät. Eingabe: die [`SYSTEM.VSB`](../glossary.md#vsb) 2.02 der blauen Electribe 2 aus dem
 Systemupdate von Korg (sha256 `41fc5f1c...`), zum Vergleich Korgs Sampler-Original 2.02 (`1d0f0689...`) und die
-eigene Hacktribe-Datei. Die Dateien liegen nicht im Repository, nur Ergebnisse, Adressen und Hashes. Markierungen:
+eigene [Hacktribe](../glossary.md#hacktribe)-Datei. Die Dateien liegen nicht im Repository, nur Ergebnisse, Adressen und Hashes. Markierungen:
 **gemessen** (ausgeführt, Befehl genannt), **offline** (Bytes oder Code gelesen), **hergeleitet**, **offen**.
 
 ## Kurzfassung
@@ -67,8 +67,8 @@ Folgerungen (**hergeleitet**):
 - Ein BLECH-Patch auf der Synth-Firmware müsste Sample-Speicher, Tabellen, Import und Export, die Sample-Stimme im
   DSP und die Menüs neu bauen. Der Code dafür steht in der Synth-Firmware nicht, und der Teil im DSP wäre ein
   Eingriff in ein Programm, das wir nicht lesen. Das ist kein Patch in der Größe von BLECH.
-- Alle Patches und Adressen von BLECH gelten für den Sampler (Hacktribe oder Korgs Original); auf der Synth-Firmware
-  stimmen weder Adressen noch erwartete Bytes.
+- Die Sampler-Fassungen der Patches gelten für den Sampler (Hacktribe oder Korgs Original); auf der Synth-Firmware
+  stimmen weder Adressen noch erwartete Bytes. Dafür gibt es eigene Synth-Fassungen (Abschnitt "BLECH auf der blauen Electribe 2").
 - Der Weg, der existiert, ist umgekehrt: die Sampler-Firmware auf der Synth-Hardware. Sie kommt mit dem Sampler-Teil
   des DSP-Programms, aber ohne die Synth-Stimmen. Ob die Oszillatoren der Synth-Firmware als Samples in diese
   Firmware gelegt werden können ("Oszillatoren als Samples"), ist eine eigene Frage: PCM-Wellen der Synth-Firmware
@@ -92,63 +92,32 @@ Am Sampler hängt dagegen:
 - **Alles auf der Seite, was Hacktribe oder BLECH braucht:** SysEx `0x52` bis `0x57`, die Tabellen der Gerätekarte,
   der Effekt-Editor, die Patches und Plugins, die Samples und ihre Pfade. Die blaue Firmware hat weder Hacktribes
   Code noch die Tabellen der Karte, und die Patches sind für Adressen des Samplers gebaut.
-- **Die Prüffälle** in `check.py`, `splash_cases.py`, `mfx_cases.py`, `menu_cases.py`, `script_cases.py`: ihre
-  Konstanten sind Adressen des Samplers. `check.py` gegen die blaue Firmware ist nicht gelaufen und ist keine
-  Aufgabe dieser Messung.
-
 ## Was der Emulator tut
 
 - `tools/emu/firmware.py` nimmt die blaue Firmware als dritten Build `synth` (`SYNTH_SITES`): erst die Tabelle des
   Samplers, wenn die nicht passt die des Synths. Der Sampler-Weg ist unverändert.
 - `Machine` legt den Flash mit der Kennung des Build an (`Profile.user_mark`).
 - Der Dienst hält den Flash des Synths in `flash-synth.bin` neben `flash.bin` und meldet den Build `synth` im Status.
-- Die Seite erkennt die Datei am Kopf (`buildOf`), sagt das in einer Zeile und bietet Editor, Patches und Plugins für
-  diese Firmware nicht an (`FEATURES.synth`). Eine eigene Übersicht dessen, was fehlt, gibt es nicht.
+- Die Seite erkennt die Datei am Kopf (`buildOf`) und sagt das in einer Zeile (`site/app/emulator.mjs`).
 
 Tests: `test/emulator-blue.test.mjs` (nur mit `E2_BLUE_VSB`), `test/firmware.test.mjs`, `tools/emu/test_firmware.py`,
 `tools/emu/test_flashstore.py`.
 
-## Entscheidungen, die ohne Rückfrage fielen
+## BLECH auf der blauen Electribe 2
 
-1. Der Build heißt `synth`, nicht `blue`: Farbe ist ein Handelsname, der Unterschied ist, dass es der Synth ist.
-2. Eigene Flash-Datei für den Synth, statt `flash.bin` zu teilen: die Nutzerdaten beider Geräte sind verschieden,
-   und eine geteilte Datei würde bei jedem Wechsel der Firmware die Daten des anderen überschreiben.
-3. Kartenordner `electribe`, weil dieser Pfad im Abbild steht. Eine Messung, welchen Ordner die Firmware beim
-   Update oder bei DATA UTILITY tatsächlich liest, fehlt.
-4. Die Seite erkennt den Synth am Kopf der Datei, nicht am Code, weil die Seite keinen Python-Dienst braucht, um eine
-   Datei zu beschriften. Der Dienst prüft zusätzlich den Code, und nur er entscheidet, ob die Firmware startet.
-5. Der Bereich "Gerät" und die Seitenleiste "Am Gerät" bleiben für den Synth leer: beide brauchen SysEx von
-   Hacktribe. Ob die Seite sie auch dann versucht, ist im Browser nicht geprüft.
-
-## BLECH auf der blauen Electribe 2: Plan für nach dem Release
-
-Übertragen ist nur der SysEx-Patch ([BLECH SysEx, Abschnitt Synth](2026-10-15-blech-sysex.md)). Der Rest von BLECH ist nicht begonnen. Was dafür
-gemessen ist und was fehlt:
-
-| Befund | Status | Beleg |
-|---|---|---|
-| Die Abbilder lassen sich ausrichten: 2036 Läufe gleicher Wörter, 85,0 Prozent des Abbilds, 6803 Zeiger, jeder Ort des SysEx-Patches (Haken, Funktionen, Sprungziele) wurde damit gefunden und trug dieselben 16 Wörter | gemessen | `tools/patch/fwmap.py --ref SAMPLER.VSB --vsb SYNTH.VSB ADRESSE...` |
-| RAM-Variablen werden über die Literalpools gefunden (Bedienfeld `0xC033E6F8` zu `0xC033E8F8`, Bildschirm-Verwalter `0xC03404C0` zu `0xC03406B0`), nicht alle: der Parser-Zustand des SysEx liegt unverschoben, Felder mitten in Arrays (Display-Puffer, Tick-Zähler) haben keinen eigenen Zeiger und müssen einzeln hergeleitet werden | gemessen | `fwmap.py`, Ladebefehle beider Abbilder |
-| Der freie Lauf des Synths (`0xC01217F4` bis `0xC0200000`) enthält den des Samplers (`0xC013C0B0` bis `0xC0200000`): Code und RAM der Patches behalten ihre Adressen | gemessen | Läufe aus `FF` in beiden Abbildern |
-| Das Modellbyte des Rahmens ist beim Synth `0x23`, beim Sampler `0x24` | gemessen | Gerätesuche im Emulator |
-| Zahl der Firmware-Adressen, die ein Builder festlegt (verschiedene `0xC0...`-Werte im Quelltext): Startbild-Editor 49, MFX 2 31, Pattern-Schalter 28, TAP-Motion 26, Notenassistent 17, Ladebalken 19, Power-off 10, Laufzeit (Haken 39, Menü 54, Hardware 17, LED 8, Karte 6) | gemessen | Suche im Quelltext von `tools/patch/` |
-
-Vorgehen, wenn es soweit ist, je Patch: Builder bekommen wie `blech_sysex.py` ein `--build synth --ref` und übersetzen ihre Adressen über `fwmap.py`
-(Code mit Prüfung der 16 Wörter, RAM-Variablen mit Prüfung am Lader); die Haken-Tabelle `data/hooks.mjs` bekommt je Kette die Stellen des Synths; die
-Prüffälle (`menu_cases`, `mfx_cases`, `splash_cases` und die anderen, die Adressen des Samplers fest tragen) werden auf dieselbe Übersetzung umgestellt, sonst prüfen sie
-am Synth nichts; die Schutzzeit der Startphase (`bootmap.py`) und die gesperrten Bereiche werden für den Synth neu gemessen; die Schutztabelle des SysEx bekommt die
-RAM-Karte des Synths (Heap, Stacks, Patternbank), bis dahin verweigert sie jedes Schreiben. Reihenfolge nach Nutzen und Risiko: Theme und Startbild (Daten), Power-off-Bild,
-MFX 2, Notenassistent, TAP-Motion, Pattern-Schalter, dann Menü und Laufzeit (die größte Zahl von Adressen und ein Menü, das auf den Bildschirm-Klassen des Synths sitzen muss).
-
-Nicht übertragen, mit Grund: Samplepfade, Ladebalken beim Laden der Samples und Kartenordner `electribe sampler` (der Synth hat keine Samples; sein Ordner heißt `electribe`, und
-ob ein Umbenennen etwas bringt, ist nicht gemessen), Synth-Filter (sie setzen die Sampler-Hardware voraus, die der Synth nicht hat) und Preset-Tabellen (die Tabellen von Hacktribe gibt es im Synth nicht).
-Alle Oszillator- und PCM-Dinge bleiben unberührt, das PCM-Update der Firmware schreibt den Bereich ab `0x800000`; **offen:** ob SOFTWARE UPDATE auf dem Synth nur `0x020000` bis `0x220000` schreibt
-(beim Sampler gemessen), das ist am Synth noch nicht gemessen und gehört vor jeden Gerätetest einer Firmware für den Synth.
+Die Abbilder lassen sich ausrichten (**gemessen**: 2036 Läufe gleicher Wörter, 85,0 Prozent des Abbilds, 6803 Zeiger; jeder Ort des
+SysEx-[Patches](../glossary.md#patch) trug dieselben 16 Wörter), mit `tools/patch/fwmap.py --ref SAMPLER.VSB --vsb SYNTH.VSB ADRESSE...`.
+RAM-Variablen werden über die Literalpools gefunden (Bedienfeld `0xC033E6F8` zu `0xC033E8F8`, Bildschirm-Verwalter `0xC03404C0` zu
+`0xC03406B0`), Felder mitten in Arrays einzeln hergeleitet. Der freie Lauf des Synths (`0xC01217F4` bis `0xC0200000`) enthält den des Samplers
+(`0xC013C0B0` bis `0xC0200000`), Code und RAM der Patches behalten ihre Adressen. Das Modellbyte des Rahmens ist beim Synth `0x23`, beim Sampler `0x24`.
+Die Synth-Fassungen der Patches (`data/patches/*-synth.json`, Adresstabellen unter `data/synth-map/`) bauen darauf auf; welche Funktionen die blaue
+hat, steht in [BLECH SysEx, Abschnitt Synth](2026-10-15-blech-sysex.md) und im [Patcher](../patcher.md). Nicht übertragen werden Samplepfade, der Ladebalken beim
+Laden der Samples, der Kartenordner `electribe sampler`, Synth-Filter und Preset-Tabellen: der Synth hat keine Samples und keine Hacktribe-Tabellen.
 
 ## SOFTWARE UPDATE der blauen Electribe 2: Ordner, Schreibbereich, Hin und Zurück
 
-Im Emulator gemessen (2026-10-15), Netzteil eingesteckt, mit `tools/emu/synth_update_probe.py`; die Bilder der Anzeige je Schritt liegen nur lokal (Korg-Schirme). Eingabe: die
-Original-Firmware 2.02 der blauen, `SYSTEM-blech-v22-synth.VSB` (nur der SysEx-Patch mit FLASH READ), ein Flash mit der PCM-Bank aus den WAVs
+Im Emulator gemessen, Netzteil eingesteckt, mit `tools/emu/synth_update_probe.py`; die Bilder der Anzeige je Schritt liegen nur lokal (Korg-Schirme). Eingabe: die
+Original-Firmware 2.02 der blauen, eine Testfirmware `v22-synth` (nur der SysEx-Patch mit FLASH READ), ein Flash mit der PCM-Bank aus den WAVs
 ([PCM-Bank](2026-10-15-synth-pcm-flash.md)), nach einem ersten Start (dabei schreibt die Firmware einmal 4 KiB bei `0x7EF000`, ihre Marke; auf einem benutzten Gerät ist sie da).
 
 | Befund | Status | Beleg |

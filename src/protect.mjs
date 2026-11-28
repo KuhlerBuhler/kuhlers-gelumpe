@@ -51,9 +51,10 @@ export function accessOf(msg) {
  * @param {{space: "ram"|"flash", op: "read"|"write", addr: number, length: number}} access
  * @param {object} [o]
  * @param {{start: number, end: number, what: string}[]} [o.declared] the regions the editor may write; the ones an exception can name
+ * @param {boolean} [o.devMode] DEV MODE is on: a region with `devOpen` passes writes (not in the mirror), its `devClosed` parts stay closed
  * @returns {{region: object, message: string} | null} the reason to refuse, or null
  */
-export function refusal(access, { declared, build } = {}) {
+export function refusal(access, { declared, build, devMode = false } = {}) {
   const { space, op, addr, length } = access;
   const verb = op === "write" ? "Schreiben" : "Lesen";
   const where = `${verb} bei ${hex(addr)} für ${length} Byte`;
@@ -62,19 +63,27 @@ export function refusal(access, { declared, build } = {}) {
     if (fit === undefined) fit = (declared ?? allowedRegions({ build: build ?? "hacktribe" })).find(r => addr >= r.start && addr + length <= r.end) ?? null;
     return fit;
   };
+  const { start: ws, end: we } = RAM_WINDOW;
+  // Korg's blue firmware: its RAM map is not measured, so BLECH's table there (src/sysex-table.mjs) refuses every write
+  // in the window but one that lies wholly inside one of its effect records. Reading is free.
+  if (build === "synth" && space === "ram" && op === "write" && addr >= ws && addr + length <= we && !declaredHit()) {
+    const region = { id: "synth-ram", what: "RAM der blauen Electribe 2", start: ws, end: we, space };
+    return { region, message: `${where} liegt nicht in einem Effekt-Record der blauen Electribe 2; ihr RAM ist sonst nicht vermessen. Gesperrt.` };
+  }
   // A write to one half of the window is also a write to the other, as far as anyone knows.
   const spots = [{ at: addr, mirror: false }];
-  const { start: ws, end: we } = RAM_WINDOW;
   if (space === "ram" && addr >= ws && addr + length <= we) {
     const other = addr + (addr < ws + PROTECTED.ram.mirror.distance ? 1 : -1) * PROTECTED.ram.mirror.distance;
     spots.push({ at: other, mirror: true });
   }
 
+  const closed = devMode && space === "ram" && op === "write" ? devClosedRegions(build) : [];
   for (const { at, mirror } of spots) {
-    for (const region of PROTECTED_REGIONS) {
+    for (const region of [...closed, ...PROTECTED_REGIONS]) {
       if (region.space !== space || (region.deny === "write" && op !== "write")) continue;
       if (at >= region.end || at + length <= region.start) continue;
       if (!mirror && region.except && covers(declaredHit()?.what ?? "", region.except)) continue;
+      if (!mirror && devMode && region.devOpen && build !== "synth") continue;
       const proposal = region.status === "proposal" ? " Schutzvorschlag, am Gerät nicht beobachtet." : "";
       const via = mirror ? ` Die Adresse liegt im vermuteten Spiegel (${hex(at)}) des Bereichs.` : "";
       return {
@@ -92,6 +101,17 @@ export function refusal(access, { declared, build } = {}) {
     };
   }
   return null;
+}
+
+/** The regions DEV MODE keeps closed in one build's image, as protection entries. The synth has no DEV MODE. */
+export function devClosedRegions(build = "hacktribe") {
+  const list = PROTECTED.devClosed[build] ?? [];
+  return list.map((r, i) => ({
+    id: `dev-closed-${i}`, space: "ram", start: r.start, end: r.end, deny: "write", status: "derived",
+    what: "Im Dev Mode gesperrt",
+    why: `SysEx- oder Flash-Weg der Firmware, auch im Dev Mode gesperrt (${r.from}).`,
+    evidence: "measure:2026-11-14/dev-mode-sperrbereiche",
+  }));
 }
 
 /** The first refusal among the messages of some steps, or null. For the sender, which has no declared list of its own. */

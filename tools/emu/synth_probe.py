@@ -26,6 +26,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fat32
+import machine
+from sdcard import MemoryMedium, SDCard
 
 BASE = 0xC0000000
 HEADER = 0x100                     # a VSB file starts with a head of this size
@@ -330,7 +333,6 @@ class Probe:
     """The synth firmware in the emulator with the DSP host port and the flash reads logged."""
 
     def __init__(self, payload, flash=None, keep_words=16, card=None):
-        import machine
         self.machine = machine
         self.m = machine.Machine(bytes(payload), flash)
         if self.m.profile.build != "synth":
@@ -615,7 +617,6 @@ def cmd_osc(a):
 
 
 def boot_probe(vsb, bank, seconds, voice, relocate, card=None, expected=None, held=0):
-    import machine
     payload = load_payload(vsb)
     probe = Probe(payload, blank_synth_flash(machine, bank), card=card)
     probe.m.held = held
@@ -655,7 +656,6 @@ def boot_probe(vsb, bank, seconds, voice, relocate, card=None, expected=None, he
 
 
 def cmd_boot(a):
-    import machine
     bank = expected = None
     if a.bank:
         bank = bank_of(Path(a.bank).read_bytes())
@@ -667,9 +667,6 @@ def cmd_boot(a):
 
 def cmd_fatfs(a):
     """The firmware's own card functions at the end of the PCM load and later, on a made-up card."""
-    import fat32
-    from sdcard import MemoryMedium, SDCard
-    import machine
     wav = wav_file(sine(1000, 5, 1000), 44100)
     img = fat32.format_image(128 * 1024 * 1024)
     volume = fat32.Volume(img)
@@ -780,7 +777,6 @@ def cmd_demo(a):
     """An import, made by the probe from outside the firmware: at the end of the PCM load, a made-up 16-bit wave goes
     into free DSP memory with the firmware's own write function, the tables get an instrument (appended, or `--replace`
     an existing one), an oscillator record gets its name, and a pad plays it. What the voice sends is listed."""
-    import machine
     waves = synthetic_waves()
     probe = Probe(load_payload(a.vsb), blank_synth_flash(machine, build_bank(waves)))
     if not probe.run_to_pc(FUNCS["pcm_loaded"], 3.0):

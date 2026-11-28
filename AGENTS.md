@@ -53,8 +53,8 @@ E2_VSB=/path/SYSTEM.VSB E2_PATTERNS=/path/backup.e2sallpat npm run test:local   
 node --test test/docs.test.mjs   # after a change to README*, AGENTS.md or docs/
 ```
 
-Every local test entry point first waits until the machine is quiet (`tools/load-gate.mjs`, 1-minute load below
-0.8 x cores) and gives up after 20 minutes; `GELUMPE_LOAD_GATE=off` skips it, see [docs/development.md](docs/development.md).
+Every local test entry point first waits until the machine is quiet (`tools/load-gate.mjs`, CPUs below 80 % busy
+over a 2 s sample and at least 10 % memory free, not the load average) and gives up after 20 minutes; `GELUMPE_LOAD_GATE=off` skips it, see [docs/development.md](docs/development.md).
 
 Run `npm test` and `npm run test:e2e` before you call something done. Never mark a fix as
 done without a failing test that now passes or a check in the browser or emulator. On a loaded
@@ -67,6 +67,11 @@ node tools/patch/apply.mjs --vsb SYSTEM.VSB --set data/patches/blech.json --out 
 tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched BLECH.VSB --quick   # start scenarios only, minutes
 tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched BLECH.VSB --cases menu_cases   # start scenarios plus these case modules
 ```
+
+Cases on the executed DSP code (`blackfin_swap_cases`, `blackfin_cases`) need a Blackfin worker built outside the
+repository (`tools/dsp/build_qemu.py ~/gelumpe-dsp/worker`); how to build, choose and run it is in
+[docs/emulator.md](docs/emulator.md), "Blackfin-Worker: QEMU oder GNU". A worker test that fails locally but
+not in CI usually means a worker built from older `tools/dsp/` sources: rebuild it before you look for a bug.
 
 The full `check.py` (all case modules) takes hours on a loaded machine. Locally run `--quick` and the
 case modules your change touches; CI runs the rest (see below). The blue Electribe uses
@@ -122,30 +127,45 @@ case modules your change touches; CI runs the rest (see below). The blue Electri
 
 ## Docs
 
-Where things live: [docs/README.md](docs/README.md) is the index. The knowledge itself stays in
-`docs/`, do not copy it into this file.
+Where things live: [docs/README.md](docs/README.md) is the index, [docs/glossary.md](docs/glossary.md) explains the
+terms. Both have English twins, [docs/README.en.md](docs/README.en.md) and [docs/glossary.en.md](docs/glossary.en.md). The knowledge itself stays in `docs/`, do not copy it into this file.
 
-The docs are written in the author's own voice, in German. README, `docs/plugins.en.md`,
-`docs/patcher.en.md` and `docs/original-zurueck.en.md` have English twins; change both.
+The docs are written in the author's own voice, in German. README, `docs/README.md`, `docs/glossary.md`, `docs/plugins.md`,
+`docs/patcher.md` and `docs/original-zurueck.md` have English twins (`*.en.md`); change both. `docs/plugins.fr.md` is a
+French twin of the plugins page that no test pins; keep it in line when you change the plugins page.
+Link a technical term to the glossary on its first use in a page (`[VSB](glossary.md#vsb)`; an English page links
+`glossary.en.md`), and add a term to both glossaries when a new page needs one. The anchor ids are the same in both
+languages, German headings carry an explicit `<a id="...">`, so keep the id when you rename a heading. The English
+index lists the `.en.md` twin where one exists, else the German page.
 They name no person other than in the sentence that explains the project name, and they carry no
 agent working vocabulary. No em or en dashes anywhere, no absolute personal paths, relative links only.
 `test/docs.test.mjs` fails on dead links, absolute user paths, those names and dashes, and on a
 `korg.*` call that `docs/plugins.md` names but `docs/plugins.en.md` does not.
 Mark facts as measured, derived or open, and keep measurement files at their paths, because
-`data/` and `test/` point at them. A new file in `docs/messungen/` gets a line in its README.
-Docs state what holds now; before and after belong in commits and release notes.
+`data/` and `test/` point at them. A new file in `docs/messungen/` gets a line in its README, under its topic.
+Docs state what holds now; before and after belong in commits and release notes. Ideas that are not built go to
+`docs/ideen.md`, not into the feature pages.
 
 ## Firmware patches
 
 - **Core features are built into the firmware**, with a switch under `Menü -> BLECH -> FEATURES`
-  (Key Pads, Filter Toggle, LAST PATTERN, STEREO 1 PAD, AUTO SAVE). A catalog plugin is for extras, not
+  (Key Pads, Filter Toggle, LAST PATTERN, STEREO 1 PAD, AUTO SAVE, GLIDE CHAIN, GLIDE SWITCH). A catalog plugin is for extras, not
   for playing features. Screens use the firmware's own look: its value window for a value, the file
   browser for a list, never a hand-drawn screen.
 - A new patch is `tools/patch/<name>.py` (builder), `data/patches/<name>.json` (and `-synth.json` for
   the blue), an entry in the set `data/patches/blech.json` or `blech-synth.json`, cases in
   `tools/emu/<name>_cases.py`, a row in the table of [docs/patcher.md](docs/patcher.md) and a
   measurement in `docs/messungen/`. Add the case module to `tools/ci/verify-scope.mjs`;
-  `test/verify-scope.test.mjs` fails otherwise.
+  `test/verify-scope.test.mjs` fails otherwise. Give the case module's id prefix an area in
+  `TEST_AREAS` (`data/rescue.mjs`); `test/rescue.test.mjs` fails otherwise.
+  When you register the case module in `tools/emu/check.py`, also collect its result into the report
+  (`done.pop(0)` and `checks.extend`): a started group whose result is never collected shifts the result list,
+  and the start evaluation fails with `KeyError: 'blocks'` in `bootmap.combine`.
+- A patch that changes the DSP boot stream fails the start check `dsp_stream` unless its JSON is listed in
+  `DSP_PATCHES` in `tools/emu/check.py`. List it only after the QEMU DSP core shows the patch's OFF setting
+  bit-identical (`tools/dsp/tube_qemu.py`).
+- `tools/patch/arm.py` has no character literals: `#'0'` is read as the number 0 (`#'7'` as 7), not as ASCII,
+  and without an error. Write `#0x30`. It also has no `.hword`; use `.word` or `.byte`.
 - The runtime patches (`data/patches/script-runtime*.json`) are built, not committed: `npm test`,
   `npm start`, `npm run serve`, `build:site`, `build:sidecar`, `check_sets.mjs` and `verify-patches.mjs`
   build what is missing or older than the sources (`tools/patch/ensure-runtime.mjs`); by hand
@@ -156,6 +176,9 @@ Docs state what holds now; before and after belong in commits and release notes.
   same RAM. A word inside a block that is already in use collides silently, check the block first.
 - An address on the blue Electribe goes through `tools/patch/synthaddr.py`; an emulator case that pokes
   firmware RAM has to translate its address the same way.
+- Runtime code that uses red or Hacktribe addresses with no blue twin goes into its own `tools/patch/script_*.s`
+  with a `script_*_none.s` stub for the synth build (file list in `tools/patch/script_hooks.py`). In a shared
+  file the synth build stops with "the synth build has no entry for".
 - `data/patches/verified.json` holds the checksums of patched copies that passed the full check. Do not
   edit it by hand: the workflow Verify patches writes it on the release pull request. Locally
   `node tools/verify-patches.mjs <stock> <synth> <hacktribe>` does the same with the original files.
@@ -188,6 +211,8 @@ Docs state what holds now; before and after belong in commits and release notes.
   attribution lines.
 - A pull request that may go in once CI is green gets the label `automerge` (`gh pr create ... --label automerge`):
   the workflow Automerge merges it when `unit`, `browser`, `guard` and `patches` pass. Do not poll CI or merge by hand.
+  The label only acts on pull requests to `develop`; one to `release/X.Y.Z` is merged by hand once every check is
+  green: `gh pr merge <n> --merge --admin --match-head-commit <sha>`.
   Leave the label off when the change waits for a device or listening test.
 - On a pull request to `develop`, Verify patches runs `check.py --quick` plus the case modules that
   `tools/ci/verify-scope.mjs` maps to the changed files, on all four originals. The full check runs on

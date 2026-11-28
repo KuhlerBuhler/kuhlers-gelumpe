@@ -1,10 +1,12 @@
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { readUnits } from "../src/node.mjs";
-import { buildOf } from "../src/firmware.mjs";
+import { buildOf, hardwareOf } from "../src/firmware.mjs";
 import { modFromType } from "../src/fx-v2.mjs";
 import { locateModTable, readModType } from "../src/modtable.mjs";
 import { collectionFor, targetFirmware, parseCollection, BUILDS, TARGETS } from "../src/fx-collection.mjs";
+import { withHead } from "../src/patcher.mjs";
 import { makeFirmwareWithArrays } from "./helpers.mjs";
 
 // The export of e2sFx.all is for the firmware on the device, which the user names, never for the one the emulator
@@ -30,8 +32,8 @@ async function items(vsb) {
 }
 
 test("the target picks the build in the header: Hacktribe 1, Korg's original 2", async () => {
-  assert.deepEqual(TARGETS, ["hacktribe", "stock"]);
-  for (const target of TARGETS) {
+  assert.deepEqual(TARGETS, ["hacktribe", "stock", "synth"]);
+  for (const target of ["hacktribe", "stock"]) {
     const vsb = await firmware(target);
     const made = collectionFor(target, vsb, await items(vsb), units);
     assert.equal(made.ok, true, made.reason);
@@ -55,7 +57,7 @@ test("a firmware of the other build is refused, not built for the wrong device",
   assert.deepEqual(collectionFor("hacktribe", null, [], units), { ok: false, code: "build" });
 });
 
-test("targetFirmware takes a file of the target's build, refuses the blue and another build", async () => {
+test("targetFirmware takes a file of the target's build, refuses the other device and another build", async () => {
   const stock = await firmware("stock");
   const hacktribe = await firmware("hacktribe");
   assert.equal((await targetFirmware("hacktribe", hacktribe)).bytes, hacktribe);
@@ -69,5 +71,18 @@ test("targetFirmware takes a file of the target's build, refuses the blue and an
   assert.equal(wrong.ok, false, "a file that is not Korg's original 2.02 is not converted");
   const blue = Uint8Array.from(hacktribe);
   blue.set([0x45, 0x32, 0x00], 0x10);
-  assert.deepEqual(await targetFirmware("hacktribe", blue), { ok: false, code: "device" });
+  assert.deepEqual(await targetFirmware("hacktribe", blue), { ok: false, code: "build" }, "a blue file without Hacktribe's code is Korg's, not Hacktribe");
+  assert.deepEqual(await targetFirmware("synth", hacktribe), { ok: false, code: "device" }, "a red file is not the blue synth's");
+});
+
+// Hacktribe for the blue is Hacktribe's file with the blue head (src/patcher.mjs HACKTRIBE_BLUE_SHA256). E2_VSB is the user's Hacktribe 2.02.
+test("Hacktribe on the blue gets the collection of Hacktribe: its file is taken, the header says Hacktribe", { skip: process.env.E2_VSB ? false : "E2_VSB not set" }, async () => {
+  const blue = withHead(new Uint8Array(readFileSync(process.env.E2_VSB)), "blue");
+  assert.deepEqual([hardwareOf(blue), buildOf(blue)], ["blue", "hacktribe"]);
+  const got = await targetFirmware("hacktribe", blue);
+  assert.equal(got.ok, true);
+  const made = collectionFor("hacktribe", got.bytes, await items(got.bytes), units);
+  assert.equal(made.ok, true, made.reason);
+  assert.equal(headerBuild(made.bytes), BUILDS.hacktribe);
+  assert.deepEqual(await targetFirmware("synth", blue), { ok: false, code: "build" }, "Hacktribe on the blue is not Korg's synth");
 });

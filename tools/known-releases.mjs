@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { addCatalog, addRelease, emptyKnown } from "../src/blech-update.mjs";
 import { APPEND_FORMAT, appendPresets } from "../src/fx-append.mjs";
 import { buildOf } from "../src/firmware.mjs";
-import { USB_NAME_URLS } from "../src/patcher.mjs";
+import { LANG_DE_URLS, USB_NAME_URLS } from "../src/patcher.mjs";
 import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -56,8 +56,10 @@ for (const ref of refs) {
     const patches = setOf(ref, build === "synth" ? "data/patches/blech-synth.json" : "data/patches/blech.json");
     if (!patches) throw new Error(`${ref}: no set`);
     await addRelease(known, release, build, base, patches);
-    const names = USB_NAME_URLS.map(u => show(ref, u)).filter(Boolean);
-    if (names.length) await addRelease(known, release, build, base, names);
+    for (const urls of [USB_NAME_URLS, LANG_DE_URLS]) {
+      const options = urls.map(u => show(ref, u)).filter(p => p?.builds?.includes(build));
+      if (options.length) await addRelease(known, release, build, base, options);
+    }
   }
   for (const file of catalogs) {
     const base = new Uint8Array(readFileSync(file));

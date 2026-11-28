@@ -23,6 +23,9 @@ import node_json  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+from sdcard import MemoryMedium, SDCard  # noqa: E402
+from splash_cases import Dev  # noqa: E402
 
 INTENSITY = "korg.menu.blech.customizations.display.intensity"
 BLECH = "korg.menu.blech."
@@ -113,47 +116,44 @@ def hsv(red, green, blue):
 
 def page_values(feature_pages, du_pages):
     """(name, how to open the page, the value the page shows once the plugin has set SETS) for every page of the other leaves."""
-    import menu_cases as m
     v = EVERY_VALUE
     bl, led = hsv(v["bl_red"], v["bl_green"], v["bl_blue"]), hsv(v["led_red"], v["led_green"], v["led_blue"])
     swapped_pad, swapped_select = v["select"], v["pad"]          # the write of PAD = SELECT's colour swaps the two
     pages = [
-        ("bl_hue", (m.GROUP_DISPLAY, 0), str(bl[0])), ("bl_sat", (m.GROUP_DISPLAY, 1), str(bl[1])), ("bl_bright", (m.GROUP_DISPLAY, 2), str(bl[2])),
-        ("invert", (m.GROUP_DISPLAY, 4), "ON" if v["invert"] else "OFF"),
-        ("led_mode", (m.GROUP_LED, 0), ["METER", "COLOR", "OFF"][v["led_mode"]]),
-        ("led_hue", (m.GROUP_LED, 1), str(led[0])), ("led_sat", (m.GROUP_LED, 2), str(led[1])), ("led_bright", (m.GROUP_LED, 3), str(led[2])),
-        ("m_still", (m.GROUP_LED, 4), METER[v["m_still"]]), ("m_low", (m.GROUP_LED, 5), METER[v["m_low"]]),
-        ("m_mid", (m.GROUP_LED, 6), METER[v["m_mid"]]), ("m_loud", (m.GROUP_LED, 7), METER[v["m_loud"]]),
-        ("pad", (m.GROUP_PADS, 0), COLOUR[swapped_pad]), ("select", (m.GROUP_PADS, 1), COLOUR[swapped_select]),
-        ("overlap", (m.GROUP_PADS, 2), OVERLAP[v["overlap"]]),
-        ("light", (m.GROUP_PSAVE, 0), str(v["light"])), ("dim", (m.GROUP_PSAVE, 1), f"{[0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100][v['dim']]}%"),
-        ("mfx2", (m.GROUP_FEATURES, 0), "OFF, RESTART"), ("confirm", (m.GROUP_FEATURES, 1), "OFF"),
-        ("tap", (m.GROUP_FEATURES, 2), ["OFF", "ON", "ONCE"][v["tap"]]), ("assist", (m.GROUP_FEATURES, 3), "OFF"),
+        ("bl_hue", (menu_cases.GROUP_DISPLAY, 0), str(bl[0])), ("bl_sat", (menu_cases.GROUP_DISPLAY, 1), str(bl[1])), ("bl_bright", (menu_cases.GROUP_DISPLAY, 2), str(bl[2])),
+        ("invert", (menu_cases.GROUP_DISPLAY, 4), "ON" if v["invert"] else "OFF"),
+        ("led_mode", (menu_cases.GROUP_LED, 0), ["METER", "COLOR", "OFF"][v["led_mode"]]),
+        ("led_hue", (menu_cases.GROUP_LED, 1), str(led[0])), ("led_sat", (menu_cases.GROUP_LED, 2), str(led[1])), ("led_bright", (menu_cases.GROUP_LED, 3), str(led[2])),
+        ("m_still", (menu_cases.GROUP_LED, 4), METER[v["m_still"]]), ("m_low", (menu_cases.GROUP_LED, 5), METER[v["m_low"]]),
+        ("m_mid", (menu_cases.GROUP_LED, 6), METER[v["m_mid"]]), ("m_loud", (menu_cases.GROUP_LED, 7), METER[v["m_loud"]]),
+        ("pad", (menu_cases.GROUP_PADS, 0), COLOUR[swapped_pad]), ("select", (menu_cases.GROUP_PADS, 1), COLOUR[swapped_select]),
+        ("overlap", (menu_cases.GROUP_PADS, 2), OVERLAP[v["overlap"]]),
+        ("light", (menu_cases.GROUP_PSAVE, 0), str(v["light"])), ("dim", (menu_cases.GROUP_PSAVE, 1), f"{[0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100][v['dim']]}%"),
+        ("mfx2", (menu_cases.GROUP_FEATURES, 0), "OFF, RESTART"), ("confirm", (menu_cases.GROUP_FEATURES, 1), "OFF"),
+        ("tap", (menu_cases.GROUP_FEATURES, 2), ["OFF", "ON", "ONCE"][v["tap"]]), ("assist", (menu_cases.GROUP_FEATURES, 3), "OFF"),
     ]
     if "LAST PATTERN" in feature_pages:
-        pages.append(("last", (m.GROUP_FEATURES, feature_pages.index("LAST PATTERN")), "OFF"))
+        pages.append(("last", (menu_cases.GROUP_FEATURES, feature_pages.index("LAST PATTERN")), "OFF"))
     if "STEREO 1 PAD" in feature_pages:
-        pages.append(("stereo", (m.GROUP_FEATURES, feature_pages.index("STEREO 1 PAD")), "OFF"))
+        pages.append(("stereo", (menu_cases.GROUP_FEATURES, feature_pages.index("STEREO 1 PAD")), "OFF"))
     if "SET INIT PATTERN" in du_pages:
         pages.append(("init", ("du", du_pages.index("SET INIT PATTERN")), str(v["init"])))
     return pages
 
 
 def page_text(dev, how):
-    import menu_cases as m
     if how[0] == "du":
-        m.goto_du(dev, how[1])
+        menu_cases.goto_du(dev, how[1])
     else:
-        m.goto_group(dev, *how)
-    return m.texts_of(dev)
+        menu_cases.goto_group(dev, *how)
+    return menu_cases.texts_of(dev)
 
 
 def pages_cases(payload, flash, request, built):
     """Phase 8: every leaf of the other pages of CUSTOMIZATION and FEATURES is set by a plugin and then shown by its page."""
-    import menu_cases as m
     out = []
     dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True, seconds=2.0)
-    pages = page_values(m.feature_pages(), m.du_pages())
+    pages = page_values(menu_cases.feature_pages(), menu_cases.du_pages())
     before = {name: page_text(dev, how)[1] for name, how, _ in pages}
     script_cases.leave_menu(dev)
     entries = script_cases.install(dev, built, request["programs"], ["pages"])
@@ -182,8 +182,6 @@ def pages_cases(payload, flash, request, built):
 
 
 def restart(old, payload, flash):
-    from splash_cases import Dev
-    from sdcard import MemoryMedium, SDCard
     new = Dev(payload, flash, 0)
     new.m.adapter = True
     new.m.insert_card(SDCard(MemoryMedium(bytearray(old.m.mmc.card.medium.data))))
@@ -226,7 +224,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

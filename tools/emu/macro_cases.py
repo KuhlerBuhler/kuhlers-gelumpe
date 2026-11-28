@@ -18,6 +18,16 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT), str(ROOT / "tools/patch"), str(Path(__file__).parent)]
 import macro_contract as contract
 import node_json
+import fat32
+import lifetime
+import machine
+import synthaddr
+from firmware import identify
+from fwmap import FirmwareMap
+from machine import UART1
+from sdcard import MemoryMedium, SDCard
+from splash_cases import Dev
+from tools.patch.arm import assemble
 
 BASE = 0xC0000000
 CODE, CODE_BYTES = contract.CODE, contract.CODE_BYTES
@@ -47,13 +57,11 @@ def payload(path):
 
 class Addresses:
     def __init__(self, image, build, reference):
-        import synthaddr
         self.build, self.derived = build, {}
         self.mapper = None
         if build == "synth":
             if reference is None:
                 raise ValueError("synth research needs --reference-vsb with the original Sampler")
-            from fwmap import FirmwareMap
             self.mapper = FirmwareMap(payload(reference), image, refine=True)
         self.recorded = synthaddr.table()
 
@@ -192,10 +200,6 @@ cs_restored:
 
 
 def boot(image):
-    import machine
-    import fat32
-    from sdcard import MemoryMedium, SDCard
-    from splash_cases import Dev
     machine.SLICE = 2000
     dev = Dev(image, adapter=True)
     card = fat32.format_image(64 * 1024 * 1024)
@@ -212,8 +216,6 @@ def boot(image):
 
 def task_measurement(image, build, addresses):
     import unicorn
-    import machine
-    from tools.patch.arm import assemble
     dev, _ = boot(image)
     m, uc, A = dev.m, dev.m.uc, dev.m.A
     a = addresses.at
@@ -402,8 +404,6 @@ def task_measurement(image, build, addresses):
 
 
 def tempo_measurement(image, addresses):
-    from machine import UART1
-    from tools.patch.arm import assemble
     dev, _ = boot(image)
     m, uc = dev.m, dev.m.uc
     a = addresses.at
@@ -471,7 +471,6 @@ def node_requests():
 
 
 def event_measurement(image, build):
-    import fat32
     if build != "hacktribe":
         return dict(status="not run", reason="comparison cases specify the Hacktribe recorder")
     geometry = node_json.run(GEOMETRY)
@@ -590,7 +589,6 @@ def event_measurement(image, build):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -611,7 +609,6 @@ def main():
                                           ownership={b: ownership_digest(b) for b in contract.BUILDS})
         print(json.dumps(dict(status="FAIL" if errors else "PASS", errors=errors), indent=2))
         return bool(errors)
-    from firmware import identify
     image = payload(args.vsb)
     actual = identify(image).build
     if actual != args.build:

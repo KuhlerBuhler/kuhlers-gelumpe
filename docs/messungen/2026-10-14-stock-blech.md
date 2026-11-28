@@ -1,7 +1,7 @@
 # BLECH auf Korgs Original 2.02
 
-Stand 2026-10-14. Im Emulator und offline, kein Gerät. Eingaben: Korgs `SYSTEM.VSB` aus dem Systemupdate 2.02
-(sha256 `1d0f0689...`), eine eigene, bearbeitete Hacktribe-Datei (`b0890899...`) und das eigene Flash-Abbild vom
+Im [Emulator](../glossary.md#emulator) und offline, kein Gerät. Eingaben: Korgs [`SYSTEM.VSB`](../glossary.md#vsb) aus dem Systemupdate 2.02
+(sha256 `1d0f0689...`), eine eigene, bearbeitete [Hacktribe](../glossary.md#hacktribe)-Datei (`b0890899...`) und das eigene Flash-Abbild vom
 2026-10-09 (`e177a321...`, Zustand eines Geräts mit Hacktribe). Markierungen: **gemessen** (ausgeführt, Befehl
 genannt), **offline** (Code oder Daten gelesen), **hergeleitet**, **offen**. Die Dateien liegen nicht im
 Repository, nur Ergebnisse und Hashes. Vorher: [Korgs Original-Firmware 2.02 im Emulator](2026-10-14-stock-emulator.md).
@@ -19,8 +19,7 @@ Repository, nur Ergebnisse und Hashes. Vorher: [Korgs Original-Firmware 2.02 im 
    DSP-Statusports). Mit dem Bit läuft der Boot durch. Dazu verschob ein einzelnes Gleichlaufwort `0x2C` den
    Rahmen der Host-Port-Transfers um ein Wort; das Modell überliest es jetzt. Hacktribes Boot ändert sich durch
    beides nicht.
-4. **`check.py` besteht auf BLECH aus Korgs Original, mit leerem Flash und mit dem eigenen Flash**
-   (Zahlen unten).
+4. **`check.py` besteht auf BLECH aus Korgs Original, mit leerem Flash und mit dem eigenen Flash.**
 5. **Was fehlt:** Hacktribes Zusätze (SysEx `0x52` bis `0x57`, Effekt-Presets an den Stellen der Karte). Sie
    bringt BLECH nicht mit.
 
@@ -44,8 +43,8 @@ Repository, nur Ergebnisse und Hashes. Vorher: [Korgs Original-Firmware 2.02 im 
 | Mit der Regel "`0x2C` am Rahmenanfang überlesen" sind die Rahmen ausgerichtet und die MFX-Fälle mit eigenem Flash bestehen | gemessen | `mfx:dsp_messages` mit Flash: vorher 270 gegen 163 Transfers, nachher 22 gegen 11 und gleich |
 | Ohne feinere Zeitscheiben meldete `bootmap.py` mit eigenem Flash Code des MFX-Tick-Hakens als Start: Korgs Build erreicht das Hauptbild an einer beliebigen Stelle des 40-ms-Ticks, Hacktribes 20-ms-Scheibe traf es zufällig nicht. Für Korgs Build gilt jetzt 2 ms | gemessen | `bootmap.py`-Szenario `normal` mit Flash, Blöcke bei `0xC01A5194` |
 | Das Bit ist eine **Modellannahme** (wie das `0x81` zuvor): wie echte Hardware antwortet, ist nicht gemessen | offen | |
-| `check.py` auf BLECH aus Korgs Original, ohne Flash: 88 von 88 bestanden | gemessen | siehe unten |
-| `check.py` auf BLECH aus Korgs Original, mit eigenem Flash: 89 von 89 bestanden | gemessen | siehe unten |
+| `check.py` auf BLECH aus Korgs Original, ohne Flash: alle bestanden | gemessen | siehe Prüfung |
+| `check.py` auf BLECH aus Korgs Original, mit eigenem Flash: alle bestanden | gemessen | siehe unten |
 | Die Update-Datei BLECH-aus-Korg wird von Korgs Firmware als Update gefunden (ENTER liest mehr Sektoren als ohne) | gemessen | `test/emulator-stock.test.mjs`, "the fear button with Korg's original ..." |
 | Am Gerät | offen | nicht versucht |
 
@@ -60,25 +59,11 @@ tools/emu/.venv/bin/python tools/emu/check.py --base STOCK --patched BLECH-STOCK
 
 Beide Läufe: alle Startwege, DSP-Strom, Startphase mit den Ausnahmen der Patches, die neun Startbild-Fälle, die
 acht MFX-2-Fälle, die Menü-, Einstellungs- und Look-Fälle (BLECH-Menü und Plugin-Laufzeit). Mit Flash kommt der
-Start mit leerem Flash (`boot:normal_blank`) als 89. Prüfung dazu nicht anders als bei Hacktribe: nur der Ladebalken
+Start mit leerem Flash (`boot:normal_blank`) dazu. Die Prüfung ist nicht anders als bei Hacktribe: nur der Ladebalken
 über dem Startbild ist als Abweichung beschrieben.
-
-Auf dem Weg dahin fiel es mehrmals durch, jedes Mal aus einem Grund im Emulator oder in der Prüfung, nie im Patch:
-der Ladebalken (ein Startbild-Fall), die Wartezeit des Ladens (`boot:normal`, `kill_switch`, alle MFX-Fälle),
-das noch nicht gesetzte LED-Bild eine Sekunde nach dem Hauptbild (`mfx:boot_mode`), die zu grobe Zeitscheibe
-(`start_phase`) und das verschobene Rahmenwort (`mfx:dsp_messages`, `mfx:led_copy`).
-## Was dafür geändert wurde
-
-- `machine.py`: Statusbit 2 am DSP-Port, Gleichlaufwort `0x2C` überlesen (auch in `DspLog` von `mfx_cases.py`),
-  `loading()` und `finish_boot()` (Korgs Build läuft, solange er lädt, und eine Sekunde danach).
-- `bootmap.py`, `bootcache.py`, `splash_cases.py` (`Dev.run`): warten auf das Ende des Ladens, nur für Korgs Build;
-  `bootmap.py` mit 2-ms-Scheiben für Korgs Build.
-- `splash_cases.py`: `same_image` lässt für Korgs Build den Ladebalken über dem Bild zu, `boot_case` wartet bis zu
-  12 s. Die Prüfung bleibt für Hacktribe unverändert (`test_splash_cases.py`).
 
 ## Offen
 
-- Am Gerät läuft BLECH aus Korgs Original nicht: weder Menü noch Plugins noch der Weg über SOFTWARE UPDATE.
+- Am Gerät ist BLECH aus Korgs Original nicht geprüft: weder Menü noch Plugins noch der Weg über SOFTWARE UPDATE.
 - Wie echte Hardware am DSP-Port antwortet (Bit 2), und ob Korgs Ladebalken am Gerät genauso aussieht wie im
   Emulator.
-- `script_cases.py` ist auf Korgs Build nicht gelaufen.

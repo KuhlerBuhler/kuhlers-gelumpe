@@ -1,16 +1,15 @@
 # 102. Gate Arp: Y wählt den Rhythmus
 
-Wunsch (02.11.): mit Gate Arp + Touch Scale wählt Y auf dem Touchpad die Einstellung GATE ARP aus dem Pattern-Menü (den
-Rhythmus), X bleibt die Tonhöhe.
+Wunsch: mit Gate Arp + [Touch Scale](../glossary.md#touch-scale) wählt Y auf dem Touchpad die Einstellung GATE ARP aus dem
+Pattern-Menü (den Rhythmus), X bleibt die Tonhöhe.
 
-Stand 2026-11-02: **aufgeschrieben, nichts gebaut, nichts gemessen.** Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
-Zurück zu den [Ideen](../ideen.md).
+Status: offen, nichts gebaut. Marker: **gemessen**, **hergeleitet**, **ungeprüft**. Zurück zu den [Ideen](../ideen.md).
 
 ## Was heute ist
 
-- Gate Arp + Touch Scale: X wählt die Note, Y die Notenlänge, der Rhythmus kommt aus dem Menü. (gemessen, [Idee 72](72-gate-arp-note-halten.md))
+- Gate Arp + Touch Scale: X wählt die Note, Y die Notenlänge, der Rhythmus kommt aus dem Menü. (gemessen, Plugin Gate Hold, [Plugins](../plugins.md))
 - Der Rhythmus liegt im Pattern an `+0x35`, Werte 0 bis 49, rot und blau gleich. Ein geschriebener Wert wirkt sofort im
-  laufenden Spiel. (gemessen, Idee 72)
+  laufenden Spiel. (gemessen, Plugin Gate Hold)
 - Y ist also nicht frei: wer Y auf den Rhythmus legt, verliert die Notenlänge am Touchpad.
 
 ## Vorschlag
@@ -26,8 +25,8 @@ Zurück zu den [Ideen](../ideen.md).
 
 1. Firmware-Patch im Touchpad-Pfad von Modus 3 (Gate Arp + Touch Scale): Y vor der Längenberechnung abfangen und nach
    `+0x35` schreiben. Kein Nachhinken, rot und blau. Die Stelle ist noch nicht gesucht.
-2. Plugin: geht heute nicht sauber. Maskenbit 5 verwirft die ganze Bewegung, X fällt mit weg. Bräuchte `korg.gateArp`
-   (Idee 72) und ein Filter, das nur Y abnimmt. (gemessen für das Maskenbit, Rest hergeleitet)
+2. Plugin: Der Rhythmus ist als Pattern-Wert `gateArp` schreibbar (0 bis 49, Plugin-API), aber Maskenbit 5 verwirft die
+   ganze Bewegung, X fällt mit weg. Es bräuchte ein Filter, das nur Y abnimmt. (gemessen für das Maskenbit, Rest hergeleitet)
 
 Weg 1 ist der bessere.
 

@@ -1,17 +1,15 @@
 # Effekt-Editor auf Korgs Original: Records live lesen und schreiben
 
-Stand 2026-10-15. Kein Gerätezugriff, alles im Emulator gemessen (Korgs Original 2.02 mit dem Satz BLECH, zum Vergleich
-Hacktribe 2.02 mit BLECH), über BLECHs eigene SysEx-Befehle ([BLECH SysEx](2026-10-15-blech-sysex.md)). Markierungen:
-**gemessen** (ausgeführt), **hergeleitet**, **offen**.
+Kein Gerätezugriff, alles im [Emulator](../glossary.md#emulator) gemessen (Korgs Original 2.02 mit dem Satz BLECH, zum Vergleich
+[Hacktribe](../glossary.md#hacktribe) 2.02 mit BLECH), über BLECHs eigene [SysEx](../glossary.md#sysex)-Befehle
+([BLECH SysEx](2026-10-15-blech-sysex.md)). Markierungen: **gemessen** (ausgeführt), **hergeleitet**, **offen**.
 
-## Was vorher im Weg stand
+Der Editor liest und schreibt Effekt-Records (Insert und Master) auf beiden Builds. Hacktribe hat dafür feste Tabellen
+(`table.ifx`, `table.mfx`); Korgs Build legt die Records verstreut ab und findet sie über zwei Zeigerfelder
+([Preset-Tabellen](2026-10-15-preset-tabellen.md)). Die Schutztabelle der Firmware (der [Türsteher](../glossary.md#tuersteher))
+muss deshalb je Build die richtigen Adressen kennen.
 
-Der Editor las und schrieb Effekt-Records nur an Hacktribes Tabellen (`table.ifx`, `table.mfx`) und nur mit Hacktribes
-Befehlen. Korgs Build hat beides nicht: die Records liegen verstreut und werden über zwei Zeigerfelder gefunden
-([Preset-Tabellen](2026-10-15-preset-tabellen.md)), und mit BLECH gibt es Befehle, die dort lesen und schreiben, aber die
-Schutztabelle der Firmware kannte nur Hacktribes Adressen und hätte jeden Schreibzugriff auf Korgs Records abgelehnt.
-
-## Was jetzt geht
+## Ergebnisse
 
 | Behauptung | Status | Beleg |
 |---|---|---|
@@ -28,10 +26,9 @@ Schutztabelle der Firmware kannte nur Hacktribes Adressen und hätte jeden Schre
   nur in `builds` und in der Tabelle (`src/sysex-table.mjs`, `protectTable({ build })`). Die Sitzung vergleicht die CRC der
   Tabelle im Gerät mit der ihres Builds.
 - **Zustand und Puffer von BLECH SysEx liegen bei `0xC0191000` bis `0xC01A0000`**, weil die Preset-Tabellen `0xC0174000` bis
-  `0xC017CC00` brauchen (die Prüfung der Speicherbereiche fand die Überdeckung beim Zusammenführen).
+  `0xC017CC00` brauchen; die Bereiche dürfen sich nicht überdecken.
 - **Warten statt Zurückfallen.** Ein Lesen der Seitenleiste hält die Sitzung oft gerade fest; wer ein Preset öffnet, sendet oder
   zurücknimmt, wartet darauf und versucht es erneut, statt die Kopie der Datei zu zeigen oder die Sendung scheitern zu lassen.
-- **Pegel-Seite:** sie las Records an Hacktribes Adressen, auch auf Korgs Build; jetzt über denselben Weg wie der Editor.
 
 ## Offen
 

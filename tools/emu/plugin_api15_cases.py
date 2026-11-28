@@ -23,6 +23,7 @@ import plugin_edit_cases as edit  # noqa: E402
 import remote_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 TRANSPORT = 0xC06BC318
 COMMAND = 9                     # the pattern whose filter type byte of part 0 says which call to make
@@ -41,7 +42,8 @@ VALUES = {"tempo": 1234, "swing": -20, "length": 3, "beat": 2, "key": 5, "scale"
           "mfxPadX": 50, "mfxPadY": 60}
 FIELDS = node_json.run(
     "import {PATTERN_FIELDS, PATTERN_WRITES} from './data/script/contract.mjs';"
-    "console.log(JSON.stringify(PATTERN_FIELDS.map(f => [f.name, f.offset, f.kind, PATTERN_WRITES[f.name]])))")
+    "console.log(JSON.stringify(PATTERN_FIELDS.filter(f => f.kind !== 'mfx2')"   # mfx2Type (last) is the patch's table, plugin_api27_cases
+    ".map(f => [f.name, f.offset, f.kind, PATTERN_WRITES[f.name]])))")
 SET_FIRST = 8
 
 PROGRAM = f"""let tx = -1; let plays = 0; let done = 0;
@@ -202,7 +204,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

@@ -29,6 +29,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
 
 from hacktribe_blue_probe import FIRMWARE, device_flash, head_of, with_head  # noqa: E402
+import machine  # noqa: E402
+from synth_update_probe import Rig, boot_to_main, inside_repo, probe_empty_card  # noqa: E402
 
 KORG = {"red": "electribe sampler", "blue": "electribe"}
 FOLDERS = {colour: [korg, "hacktribe", "blechtribe"] for colour, korg in KORG.items()}
@@ -64,7 +66,6 @@ def asks_to_copy(running, files):
 def update(tag, running, flash, files, shots, blech=False):
     """SOFTWARE UPDATE with `files` on the card, driven like synth_update_probe.run_update; a short report and the flash after.
     The copy question of BLECH on the blue is answered with EXIT, which writes nothing (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)."""
-    from synth_update_probe import Rig, boot_to_main
     rig = Rig(running[0x100:], flash, files, shots, tag)
     main = boot_to_main(rig)
     question = blech and asks_to_copy(running, files)
@@ -95,7 +96,6 @@ def update(tag, running, flash, files, shots, blech=False):
 
 def start(tag, running, flash, files, shots):
     """A start from `flash` with `files` on the card: main screen, flash commands, .VSB files opened."""
-    from synth_update_probe import Rig, boot_to_main
     rig = Rig(running[0x100:], flash, files, shots, tag)
     main = boot_to_main(rig)
     rig.run(3.0)
@@ -105,7 +105,6 @@ def start(tag, running, flash, files, shots):
 
 def probe(name, colour, running, own, files, blank, shots):
     blech = name.startswith("blech")
-    from synth_update_probe import probe_empty_card
     flash = device_flash(running, blank)
     out = {"runner": name, "colour": colour, "empty": [p for p in probe_empty_card(running[0x100:], flash, shots)["opened"]
                                                        if p.upper().endswith(".VSB")]}
@@ -134,8 +133,6 @@ def verdict(result):
 
 
 def main():
-    import machine
-    from synth_update_probe import inside_repo
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     for arg in ("korg-red", "korg-blue", "hacktribe", "blech", "blech-stock", "blech-blue"):
         p.add_argument(f"--{arg}", required=True, type=Path)

@@ -29,6 +29,8 @@ import power_off as spec  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev, user_flash  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 HEADER = 0x100
 IMAGE = 0xC0000000
@@ -122,9 +124,17 @@ def run_case(payload, flash, name):
         dev.run(1.5)                                  # AUTO SAVE's Global save on leaving shows the firmware's window for about 1 s
         settings = dev.u32(GLOBALS) + POWER_SAVE     # changed on the main screen: AUTO SAVE saves only on leaving a page
         dev.m.uc.mem_write(settings, bytes([(dev.read(settings, 1)[0] + 1) % 3]))
-    if kind == "blechy":    # the device is on the page of Blechy, built into BLECH, and he has stopped waving
+    if kind == "blechy":    # the device is on the page of Blechy, built into BLECH
         menu_cases.goto_blechy(dev)
         dev.run(5.0)
+        # he keeps moving, a step every 0.1 to 0.25 s: press the key right after one, so that no step of his lands before the picture
+        # and counts as a frame of the box. Without this the result depends on the build's timing.
+        before = dev.fb()
+        for _ in range(500):
+            dev.run(0.001)
+            if dev.fb() != before:
+                break
+        dev.run(0.01)       # the step is drawn in full
     ours = frame_of(payload)
     pictures = sequence_of(payload)
     # a look can come while a display frame is half sent: the upper pages already show the next picture, the lower ones still the one
@@ -156,7 +166,6 @@ def run_case(payload, flash, name):
 
 def run_task(name):
     """run_case in a worker (parallel.py)."""
-    import parallel
     return run_case(parallel.shared["payload"], parallel.shared["flash"], name)
 
 
@@ -257,7 +266,6 @@ def shots(payload, flash, png_dir):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -278,7 +286,6 @@ def main():
         return 0
 
     def compute():
-        import parallel
         tasks, combine = cases_tasks(payload)
         checks = combine(parallel.run_tasks(tasks, {"payload": payload, "flash": flash}))
         return {"ok": all(c["ok"] for c in checks), "checks": checks}

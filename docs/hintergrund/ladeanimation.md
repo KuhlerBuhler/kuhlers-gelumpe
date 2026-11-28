@@ -1,15 +1,17 @@
 # Eigene Ladeanimation: das Dateiformat
 
-Stand 28.10.2026, [Idee 71](../ideen/71-ladeanimation-karte.md). Gebaut sind Kodieren, Dekodieren, Prüfen
+Die Ladeanimation ist das Bild, das die Firmware beim Laden der Samples zeigt (zuerst [Blechy](../glossary.md#blechy), die eigene
+Figur des Projekts). Gebaut sind Kodieren, Dekodieren, Prüfen
 (`src/loading-anim.mjs`), der Dekoder in Python für die Emulator-Fälle (`tools/patch/loading_anim.py`), ein GIF-Dekoder für
-den Import (`src/gif.mjs`) und das Abspielen in der Firmware (`tools/patch/load_bar.py`, Hacktribe und rot). Die App
-macht die Datei im Bereich Design und schreibt sie beim Patchen in den Slot (siehe unten), am Gerät ist nichts geprüft.
+den Import (`src/gif.mjs`) und das Abspielen in der Firmware (`tools/patch/load_bar.py`, Hacktribe und rot). Die Datei liegt
+auf der Karte, `KORG/blechtribe/Media/loading.blla`, die Firmware liest sie bei jedem Start (siehe unten). Die App
+macht die Datei im Bereich Design und schreibt sie auf die Karte oder als Download.
 
 ## Bilder
 
 Ein Bild ist der Frame-Buffer, wie ihn der Ladebalken heute zeichnet (`tools/patch/load_bar.py`): 8 Seiten zu 128 Byte,
 Bit 0 ist die oberste Zeile einer Seite, ein gesetztes Bit leuchtet auf dem invertierten Display (DISPLAY INVERT ON).
-Ist DISPLAY INVERT aus, invertiert der Patch das Bild selbst, wie heute.
+Ist DISPLAY INVERT (BLECH-Menü, Display umkehren) aus, invertiert der Patch das Bild selbst, wie heute.
 
 `pixelsToFrame` wandelt Pixel in der Form des Startbilds (Zeile für Zeile, 1 = gezeichnet, also dunkel, wie `toMono`
 sie liefert) in so ein Bild: Bits gespiegelt und invertiert gegenüber `pixelsToSplash`.
@@ -26,7 +28,9 @@ Alle Zahlen little endian.
 | 6 | 2 | N, Fortschritts-Bilder (mindestens 1, Bild 0 mitgezählt) |
 | 8 | 2 | M, Schleifen-Bilder |
 | 10 | 2 | Offset der Listentabelle (heute 1040) |
-| 12 | 4 | Größe der Datei |
+| 12 | 2 | Größe der Datei |
+| 14 | 1 | Einstellungen: Bit 0 keine Schleife, Bit 1 aus (das Fenster der Firmware), Bit 2 Blechy statt der Datei |
+| 15 | 1 | 0 |
 | 16 | 1024 | Bild 0, voll |
 | Tabelle | 2 je Liste | N - 1 + M Offsets ab Dateianfang: erst Fortschritt 1 bis N - 1, dann Schleife 0 bis M - 1 |
 
@@ -74,18 +78,28 @@ Die Prüfung läuft einmal über alle Listen, ihre Kosten wachsen höchstens mit
 
 ## In der Firmware
 
-Der Bereich `0xC01A6000` bis `0xC01ADF00` war bis 1.3.7 die erste Code-Fläche der Plugin-Laufzeit und ist seitdem frei
-(`FF` in allen drei Abbildern, Sample Swap nutzt ihn nicht). Auf Hacktribe und rot gehört er jetzt dem Ladebalken, auf
+Der Bereich `0xC01A6000` bis `0xC01ADF00` ist `FF` in allen drei Abbildern (Sample Swap nutzt ihn nicht). Auf Hacktribe und rot gehört er dem Ladebalken, auf
 blau bleibt er Reserve der Laufzeit:
 
 | Bereich | Inhalt |
 |---|---|
-| `0xC01A6000` bis `0xC01AA000` | eigene Animation, 16384 Byte, von der App geschrieben; `FF` ohne |
+| `0xC01A6000` bis `0xC01AA000` | RAM: die Datei von der Karte, 16384 Byte, beim Start gelesen; `FF` im Abbild |
 | `0xC01AA000` bis `0xC01AC000` | Standard-Blechy `assets/blechy/loading.blla` (7918 Byte), vom Patch geschrieben |
 | `0xC01AC000` bis `0xC01AC800` | Code: Prüfen, Abspielen, Zählen der Lesevorgänge |
 | `0xC01AC800` + 0x40 | RAM: welche Animation, gezeigtes Bild, gelesene Bytes, Rate, gezeigter Fortschritt |
 | `0xC01ACC00` + 0x400 | RAM: das Fortschritts-Bild auf dem Schirm |
-| `0xC01AD000` bis `0xC01ADF00` | frei |
+| `0xC01AD000` bis `0xC01ADF00` | Code: die Datei von der Karte lesen, Byte 14 für das BLECH-Menü lesen und schreiben (Einträge +0, +4, +8) |
+
+## Von der Karte
+
+`media_load` läuft im Start-Haken der Script-Laufzeit (`0xC0038D34`, vor dem Sample-Lader; vorher hängt das Lesen der
+Karte), nur wenn ein Laden kommt. Es liest `Media/loading.blla` in den Slot. Ohne Datei spielt Blechy, eine ungültige Datei
+heißt ebenfalls Blechy. Byte 14 entscheidet danach: Bit 2 spielt Blechy, Bit 1 lässt das Fenster der Firmware stehen,
+Bit 0 lässt die Schleife weg. Das BLECH-Menü zeigt unter `CUSTOMIZATION -> SPLASH` die Zeilen `LOADING ANIM` (CARD,
+BLECHY, OFF) und `ANIM LOOP` (ON, OFF); eine Änderung schreibt sofort Byte 14 der Datei (`media_set`, öffnen, `f_lseek` auf
+14, ein Byte schreiben), sonst bleibt die Datei, wie sie ist. Ohne gültige Datei beim Start zeigt das Menü `NO FILE`.
+Emulator-Fälle: `tools/emu/loadbar_cases.py` (`case_media`: Karte, ohne Datei, ungültig, Flags) und `tools/emu/menu_cases.py`
+(`media_menu_cases`).
 
 Geprüft wird einmal, wenn der Start fragt, ob `e2sSample.all` da ist (`lb_stat`), vor dem ersten Bild. Der Fortschritt
 kommt aus den Lesevorgängen des Sample-Parsers (`0xC00362FC` und `0xC003635C`, je bis 64 KiB): Position und Größe der
@@ -97,6 +111,17 @@ ist der Tick des Betriebssystems; im Emulator zählt er beim Lesen von einer Kar
 Standard-Blechy ist ein Fortschritts-Bild je Prozent 0 bis 99 mit der Zahl darin, dazu das Bild beim Fertig (N = 101), und
 das Finale als Schleife ab 95 Prozent (8 Bilder). `tools/art/loading/firmware_assets.py` baut die Datei aus den Teilen in
 `assets/blechy/loading.bin` und vergleicht jedes Bild mit dem Renderer.
+
+## Im Image Viewer
+
+Das Katalog-Plugin Image Viewer liest dieselbe Datei: unter ANIMATIONS steht jede `.blla` aus
+`KORG/blechtribe/Media/`, also auch `loading.blla`. `korg.file.picture` (Art 1, `tools/patch/script_media.s`) gibt Bild 0
+bis N-1 als Fortschritt und N bis N+M-1 als Schleife (Schleifenbild j ist das Basisbild nach `loopBase` mit der
+Schleifenliste j), wie `decodeAnimation` sie liefert. Die ganze Datei wird einmal geprüft, wenn die Datei wechselt; eine
+kaputte Liste irgendwo heißt -1 für jedes Bild. Ein gezeichneter Punkt ist dort dunkel wie beim Laden, auch auf Blau, wo
+der Ladebalken-Code fehlt. Der Viewer spielt alle N+M Bilder und fängt danach bei Bild 0 an, die Schleife allein spielt
+er nicht. Zeiten im Emulator: [Messung](../messungen/2026-11-16-image-viewer-timing.md); Format der Aufrufe:
+[Plugins, Karte und Dateiformat](../plugins.md#karte-und-dateiformat).
 
 ## Größe
 
@@ -120,27 +145,30 @@ stehen in `tools/emu/loadbar_cases.py` (`case_smooth`, `case_custom`).
 
 ## In der App
 
-`Gerät -> Design`, Tab Ladeanimation: eine Galerie mit 100 Plätzen, Platz n für n % (die App schreibt immer 100
-Fortschrittsbilder, `progressIndex(100, ...)`), immer ein Platz zu sehen, mit Pfeilen, Regler und Abspielen. Ein GIF oder
-mehrere Einzelbilder (sortiert nach Namen) oben ersetzen die Galerie, nach einer Rückfrage, wenn schon Bilder drin sind.
-Weniger als 100 Bilder: "Strecken" verteilt sie gleichmäßig (Bild j auf Platz floor(j * 100 / k), die Plätze dazwischen
-bleiben leer), "Wiederholen" gibt Platz n das Bild n % k. Mehr als 100 werden gleichmäßig ausgedünnt (`slotSource` in
-`src/loading-anim.mjs`). Ein leerer Platz zeigt ein Plus, nimmt ein einzelnes Bild per Ziehen oder Auswahl und kostet in
-der Datei nur seine leere Liste, weil er das Bild davor stehen lässt; Platz 0 leer heißt leeres Display. Der Stift oben
-rechts öffnet einen Editor mit Stift und Radierer auf den 128 x 64 Pixeln des Platzes. Gewandelt wird wie das Startbild
-(`pixelsOf` in `site/app/splash.mjs`, Schwelle und Rastern unter "Umwandlung"); "Umkehren" gilt für die ganze Animation.
-Darunter läuft die Vorschau ständig im Display-Look des Emulators (`drawDisplay`, gesetzte Bits hell), bei reduzierter
-Bewegung zeigt sie den Platz der Galerie. "Warte-Schleife" mit "Schleife ab ... %" (1 bis 99, Standard 95) macht die
-belegten Plätze ab da zu Schleifenbildern, der Fortschritt hält dort das Bild davor (`slotsToAnimation`); geladen kommen
-die Schleifenbilder ohne Lücken ab dem Prozent zurück (`animationToSlots`). Eine ältere Datei mit 0 in Byte 5 zeigt 95 und
-wird mit 95 geschrieben, eine mit anderer Bildzahl wird auf die Plätze gestreckt. Die Größe steht als "x von 16 KB"; zu
-groß heißt gesperrt, mit den drei teuersten Bildern im Hinweis und dem Knopf Ausdünnen (leert jedes zweite belegte Bild
-vor der Schleife). Gespeichert wird die Datei im Browser. Der Speichern-Knopf ist nur aktiv, solange etwas nicht
-gespeichert ist; eine Hilfezeile darunter sagt, was der Patcher nimmt, ob die Änderungen gespeichert sind, und verlinkt
-den Firmware Patcher.
+`Gerät -> Design`, Tab Ladeanimation:
 
-Der Firmware Patcher schreibt sie als Patch `loading-anim` in das Kartenfeld `loadingAnim` (der Slot ab `0xC01A6000`,
-Rest `FF`), in einem eigenen Durchgang nach dem Set und nur, wenn `load-bar` mit drauf ging: `load-bar` meldet den Slot
-als seinen RAM, in einer Liste mit ihm würde der Patch abgelehnt. Vorher prüft `loadingAnimPatch` die Datei mit
-`validateAnimation`. "Standard wiederherstellen" löscht die gespeicherte Datei, dann bleibt der Slot `FF` und die Firmware
-zeigt Blechy. Tests: `test/loading-anim-patch.test.mjs`, `test/e2e/loading-anim.e2e.mjs`.
+- **Galerie:** 100 Plätze, Platz n für n % (die App schreibt immer 100 Fortschrittsbilder, `progressIndex(100, ...)`), immer ein
+  Platz zu sehen, mit Pfeilen, Regler und Abspielen. Ein leerer Platz zeigt ein Plus, nimmt ein einzelnes Bild per Ziehen oder
+  Auswahl und kostet in der Datei nur seine leere Liste, weil er das Bild davor stehen lässt. Platz 0 leer heißt leeres Display.
+- **Import:** ein GIF oder mehrere Einzelbilder (sortiert nach Namen) oben ersetzen die Galerie, nach einer Rückfrage, wenn
+  schon Bilder drin sind. Weniger als 100 Bilder: "Strecken" verteilt sie gleichmäßig (Bild j auf Platz floor(j * 100 / k),
+  die Plätze dazwischen bleiben leer), "Wiederholen" gibt Platz n das Bild n % k. Mehr als 100 werden gleichmäßig ausgedünnt
+  (`slotSource` in `src/loading-anim.mjs`). Gewandelt wird wie das Startbild (`pixelsOf` in `site/app/splash.mjs`);
+  "Umkehren" gilt für die ganze Animation.
+- **Editor:** der Stift oben rechts öffnet Stift und Radierer auf den 128 x 64 Pixeln des Platzes.
+- **Vorschau:** läuft ständig im Display-Look des Emulators (`drawDisplay`, gesetzte Bits hell), bei reduzierter Bewegung zeigt
+  sie den Platz der Galerie.
+- **Warte-Schleife:** "Schleife ab ... %" (1 bis 99, Standard 95) macht die belegten Plätze ab da zu Schleifenbildern, der
+  Fortschritt hält dort das Bild davor (`slotsToAnimation`); geladen kommen die Schleifenbilder ohne Lücken ab dem Prozent
+  zurück (`animationToSlots`). Eine ältere Datei mit 0 in Byte 5 zeigt 95 und wird mit 95 geschrieben, eine mit anderer
+  Bildzahl wird auf die Plätze gestreckt.
+- **Größe:** steht als "x von 16 KB"; zu groß heißt gesperrt, mit den drei teuersten Bildern im Hinweis und dem Knopf
+  Ausdünnen (leert jedes zweite belegte Bild vor der Schleife).
+- **Beim Start** (Diese Animation, Blechy, Aus) setzt Byte 14.
+- **Ausgabe:** "Auf die Karte schreiben" fragt nach dem Ordner der Karte und legt `loading.blla` nach `KORG/blechtribe/Media`
+  (`writeMedia` in `site/app/card-access.mjs`, in der App über den Befehl `card_write`, der nur in diesen Ordner schreibt);
+  kann der Browser nicht in Ordner schreiben, kommt die Datei als Download. "Herunterladen" gibt sie direkt. Beides merkt sich
+  die Datei im Browser, damit die Seite sie beim nächsten Mal wieder zeigt. "Leeren" leert die Seite und vergisst die Datei,
+  die Datei auf der Karte bleibt.
+
+Tests: `test/loading-anim.test.mjs`, `test/e2e/loading-anim.e2e.mjs`.

@@ -1,13 +1,13 @@
-# CPU-Last und Laden der Samples (18.10.)
+# CPU-Last und Laden der Samples
 
 Grundlage für [Idee 56](../ideen/56-laden-und-strom.md). Werkzeug: `tools/emu/cpu_profile.py --vsb SYSTEM.VSB`
-(Emulator, ohne Flash-Abbild, Karte mit einer `e2sSample.all` aus 20 Samples, zusammen 20 s Audio, 1.948.736 Byte).
+([Emulator](../glossary.md#emulator), ohne Flash-Abbild, Karte mit einer `e2sSample.all` aus 20 Samples, zusammen 20 s Audio, 1.948.736 Byte).
 Gezählt werden ausgeführte ARM-Befehle je 256-Byte-Seite Code; "beschäftigt" ist Befehle mal 5 ns (die Annahme des
 Emulators) über die Gerätezeit, den Rest schläft die Firmware im Wait-for-Interrupt (`0xC0001808`).
 
 ## Ergebnisse
 
-| Lauf | eigene Hacktribe-Datei | dieselbe mit BLECH |
+| Lauf | eigene [Hacktribe](../glossary.md#hacktribe)-Datei | dieselbe mit [BLECH](../glossary.md#blech) |
 |---|---|---|
 | Laden: Befehle je Byte der Datei | 71,3 | 71,2 |
 | Laden: beschäftigt | 18,3 % | 18,2 % |

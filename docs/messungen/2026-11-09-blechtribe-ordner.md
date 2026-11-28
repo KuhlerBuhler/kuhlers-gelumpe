@@ -1,12 +1,12 @@
-# Ordner KORG/blechtribe beim ersten Start, Frage der blauen nach der Pattern-Sicherung (9.11.)
+# Ordner KORG/blechtribe beim ersten Start, Frage der blauen nach der Pattern-Sicherung
 
-Stand 2026-11-09. Alles im Emulator mit Korgs blauer 2.02 (`41fc5f1c`), Korgs roter (`1d0f0689`) und Hacktribe
-(`7cb4825c`), die Dateien außerhalb des Repositorys. **Am Gerät nichts.** Vorgeschichte: [rote Fassung](2026-10-19-ordner-uebernehmen.md),
+Alles im [Emulator](../glossary.md#emulator) mit Korgs blauer 2.02 (`41fc5f1c`), Korgs roter (`1d0f0689`) und [Hacktribe](../glossary.md#hacktribe)
+(`7cb4825c`), die Dateien außerhalb des Repositorys. **Am Gerät nichts.** Siehe auch: [rote Fassung](2026-10-19-ordner-uebernehmen.md),
 [blaue Fassung](2026-10-29-blau-ordner-uebernehmen.md).
 
 Marker: **gemessen** (ausgeführt), **hergeleitet** (aus Code geschlossen).
 
-Nachtrag: ein vorhandenes `KORG/blechtribe` bekommt inzwischen fehlende Unterordner, und rot und Hacktribe fragen auch nach der
+Ein vorhandenes `KORG/blechtribe` bekommt außerdem fehlende Unterordner, und rot und Hacktribe fragen auch nach der
 Pattern-Sicherung, siehe [fehlende Unterordner, Sicherung der roten](2026-11-09-unterordner-rote-sicherung.md).
 
 ## Belegtabelle
@@ -14,8 +14,7 @@ Pattern-Sicherung, siehe [fehlende Unterordner, Sicherung der roten](2026-11-09-
 | Behauptung | Marker | Beleg |
 |---|---|---|
 | Korgs blaue schreibt EXPORT ALL PATTERN als `KORG/electribe/electribe_allpattern.e2allpat` (4161792 Byte), direkt in den Ordner, nicht nach `PatternSet` | gemessen | unveränderte blaue 2.02 im Emulator, DATA UTILITY Seite 2, MENU, MENU, "OK"; danach `fat32.Volume.walk()` der Karte: nur `KORG`, `KORG/electribe` und diese Datei |
-| Vorher (Stand develop): die blaue fragt, wenn `SD:KORG/blechtribe` fehlt und `SD:KORG/electribe` da ist, egal was darin liegt | hergeleitet | `mg_blue` in `tools/patch/script_migrate.s` vor dieser Änderung (`mg_dir_exists` beider Ordner); Fall `blue_update_file_only_asks_and_copies` fragte mit nur `System/SYSTEM.VSB` |
-| Vorher: rot und Hacktribe fragen, wenn `KORG/blechtribe/Sample/e2sSample.all` fehlt und eine `e2sSample.all` in `KORG/hacktribe` oder `KORG/electribe sampler` liegt | hergeleitet | `migrate_start`, unverändert; Fälle `menu_copies_the_folder`, `old_folder_without_samples_no_question` |
+| Rot und Hacktribe fragen, wenn `KORG/blechtribe/Sample/e2sSample.all` fehlt und eine `e2sSample.all` in `KORG/hacktribe` oder `KORG/electribe sampler` liegt | hergeleitet | `migrate_start`; Fälle `menu_copies_the_folder`, `old_folder_without_samples_no_question` |
 | BLECH liest und schreibt in `KORG/blechtribe` die Ordner `Plugin` (Plugins, `store.*.bin`), `Presets` (`e2sFx.all`, nur rot), `Gif` (`GIFnn.E2G`), `Doom` (`doom.bin`, nur rot), `Sample` (`e2sSample.all`, nur rot) und `System` (`SYSTEM.VSB` für das Update) | hergeleitet | Pfade in `script_card.s`, `script_menu.s`, `script_store.s`, `fx_card.s`, `script_file.s`, `doom_loader.py`, `blech_sysex.py`; `fx_card.s` und die Doom-Patches kommen nur in die roten Sätze (`script_hooks.py`, `data/patches/doom-loader.json`) |
 
 ## Der Patch

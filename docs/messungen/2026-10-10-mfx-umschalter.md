@@ -1,23 +1,23 @@
-# MFX 2 auf TOUCH SCALE (Idee 44): gebaut und im Emulator geprüft
+# MFX 2 auf TOUCH SCALE: gebaut und im Emulator geprüft
 
-Stand 2026-10-14. Alles im Emulator (`tools/emu/machine.py`, Unicorn 2.1.4) und offline mit Capstone.
-Firmware: `SYSTEM.VSB` und `SYSTEM-ringtest.VSB`, Flash: eigener Dump vom 9.10. Am Gerät erprobt ist ein
+Alles im [Emulator](../glossary.md#emulator) (`tools/emu/machine.py`, Unicorn 2.1.4) und offline mit Capstone,
+Firmware [`SYSTEM.VSB`](../glossary.md#vsb), Flash: eigener Dump vom 9.10. Am Gerät erprobt ist ein
 früherer Stand des Patches ohne Startmodus (`2026-10-13-mfx-umschalter-geraet.md`: TOUCH SCALE schaltet
 auf MFX 2, MASTER FX gibt den eigenen Typ, EXIT beim Einschalten hält den Patch aus); **der Startmodus
-MASTER FX ist nur im Emulator geprüft.** Der DSP ist im Emulator eine Attrappe: dass es richtig klingt,
+MASTER FX ist nur im Emulator geprüft.** Der [DSP](../glossary.md#dsp) ist im Emulator eine Attrappe: dass es richtig klingt,
 ist im Emulator nicht gemessen, nur dass der DSP dieselben Nachrichten bekommt wie bei einer Änderung im
 Menü.
 
 **Am Gerät offen:** dass bei GATE ARP wirklich nur die GATE-ARP-LED leuchtet und das Touch-Pad sich wie
-zuvor verhält (Gerätetest unten, Schritt 7), dass die LEDs am Gerät wie bisher aussehen (der Weg über den
-Manager ist nur im Emulator gemessen) und dass die Seite im Gerätemodus sie jetzt richtig zeigt.
+zuvor verhält, dass die LEDs am Gerät wie bisher aussehen (der Weg über den Manager ist nur im Emulator
+gemessen) und dass die Seite im Gerätemodus sie richtig zeigt.
 
 Markierungen: **gemessen** (im Emulator ausgeführt), **offline** (Code gelesen),
 **hergeleitet**, **offen**.
 
 ## Was gebaut ist
 
-Ein Patch (`data/patches/mfx-switch.json`, erzeugt von `tools/patch/mfx_switch.py`).
+Ein [Patch](../glossary.md#patch) (`data/patches/mfx-switch.json`, erzeugt von `tools/patch/mfx_switch.py`, dessen Kopf den Aufruf nennt).
 TOUCH SCALE ist eine zweite MASTER-FX-Taste: ein Touch-Pad-Modus wie MASTER FX,
 mit einem zweiten Effekttyp (MFX 2) für das aktuelle Pattern. Intern bleibt es ein
 Effekt, MFX 2 ist ein schneller Typwechsel pro Pattern.
@@ -44,7 +44,8 @@ Effekt, MFX 2 ist ein schneller Typwechsel pro Pattern.
   erreichbar** (die Firmware erreicht ihn nur mit GATE ARP aus 2 oder 3). Was dieser Modus
   tut, steht im Abschnitt „Reihenfolge der Modi“; die Taste dafür, SHIFT + GATE ARP, ist der
   Sprung auf die Seite GATE ARP des Pattern-Menüs und bleibt.
-- **MFX HOLD:** unverändert. Ein gehaltener Effekt bei MFX 2 ist einfach MFX 2.
+- **MFX HOLD:** seit dem 25.11.2026 hat jeder der beiden sein eigenes Halten, siehe
+  [MFX HOLD je Effekt](2026-11-25-mfx-hold-je-effekt.md). Vorher blieb der gehaltene Zustand beim Wechsel stehen.
 - **SHIFT + MASTER FX** (Firmware: Sprung auf die Seite MFX TYPE) bleibt, auch bei
   MFX 2. Die Seite zeigt dann MFX 2.
 - **WRITE speichert immer den eigenen Typ (MFX 1)**, nie MFX 2.
@@ -53,49 +54,27 @@ Effekt, MFX 2 ist ein schneller Typwechsel pro Pattern.
   Tabelle (250 Einträge) beim nächsten WRITE. Leerer oder ungültiger Datensatz:
   jedes Pattern hat 07 Looper (wie das Display zählt).
 - **Notschalter:** EXIT beim Einschalten gehalten: alle Haken springen sofort ins
-  Original, TOUCH SCALE ist die Firmware-Taste.
+  Original, TOUCH SCALE ist die Firmware-Taste. Der Schalter MFX 2 im BLECH-Menü (FEATURES, gilt ab dem
+  nächsten Start) wirkt auf den Patch wie dieses EXIT: steht er auf OFF, läuft nichts davon.
 - **Start:** kein Haken läuft vor den Rettungswegen (gemessen im Emulator: Panel-Austausch
   69 ms, Startmodus-Weiche und Update-Abfrage 72 ms, Setter-Haken ab 95 ms beim Laden des
-  ersten Patterns, Hauptbildschirm bei 260 ms; Tick-Haken ab 341 ms mit dem alten Takt, neu nicht
-  gemessen, siehe `2026-10-12-emulator-takt.md`). Dort prüfen sie nur den
-  Notschalter, den Bildschirm (der Startmodus kommt erst im Hauptbildschirm) und dass MFX 2 aus
+  ersten Patterns, Hauptbildschirm bei 260 ms; der Tick-Haken kommt danach, die Zeit ist
+  nicht neu gemessen, siehe `2026-10-12-emulator-takt.md`). Dort prüfen sie nur den
+  [Notschalter](../glossary.md#notschalter), den Bildschirm (der Startmodus kommt erst im Hauptbildschirm) und dass MFX 2 aus
   ist. Der Patch nennt diese Stellen unter `startPhase`
-  (Ausnahme zu Regel 1 in `docs/patcher.md`, wie beim Startbild-Editor), `check.py` lässt sie
-  mit `--allow-code` zu: zwei Wörter, 44 + 480 + 68 Byte. Die Tabelle wird erst beim ersten
+  (Ausnahme zu Regel 1 in [`patcher.md`](../patcher.md), wie beim Startbild-Editor), `check.py` lässt sie
+  mit `--allow-code` zu: zwei Wörter, 60 + 480 + 68 Byte. Die Tabelle wird erst beim ersten
   Druck auf TOUCH SCALE aus dem Flash gelesen.
-- **Parameter beim Bauen:** `--b-type N` (Vorgabe für Patterns ohne Eintrag, 1 bis 100,
-  wie das Display zählt).
-
 ### Keine eigene Menüseite
 
-Geplant war eine Seite „MFX 2“ im Pattern-Menü nach MFX TYPE, ersatzweise
-Global Seite 21. Beides ist nicht gebaut:
-
-- **Pattern-Menü (offline):** Seiten sind fest im Code: Schalter über 0 bis 14
-  (`0xC00672C4`, `cmp r3, #0xe`), eigene Widget-Aufbauten pro Seite, die Seitenzahl
-  „/29“ im Kopf zählt Pattern- und Part-Menü zusammen, und Edit rechts auf der
-  letzten Seite führt ins nächste Menü. Eine Seite nach MFX TYPE verschöbe alle
-  folgenden; eine am Ende bräuchte Eingriffe in die Übergänge. Zu riskant.
-- **Global Seite 21 (hergeleitet):** der Startbild-Editor ersetzt die vtable von
-  Bildschirm 9 über ein einziges Literal (`0xC0064D3C`); ein zweiter Patch kann es nicht
-  ebenfalls ersetzen, die Seite müsste in den Startbild-Editor gebaut werden (neue
-  Fassung von dessen Code und Prüfung).
-- **Stattdessen** wählt man MFX 2 auf der vorhandenen Seite MFX TYPE, solange MFX 2 an
-  ist. Das braucht keine neuen Bildschirmklassen und zeigt den Namen des Effekts wie
-  für MFX 1. Eine eigene Seite bleibt möglich (siehe „Offen“).
-
-```bash
-python3 tools/patch/mfx_switch.py --vsb SYSTEM-ringtest.VSB --out data/patches/mfx-switch.json [--b-type 7]
-node tools/patch/apply.mjs --vsb SYSTEM-ringtest.VSB --patch data/patches/mfx-switch.json --out NEU.VSB
-# zusammen mit dem Startbild-Editor:
-node tools/patch/apply.mjs --vsb SYSTEM-ringtest.VSB --patch data/patches/splash-editor.json --patch data/patches/mfx-switch.json --out NEU.VSB
-tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM-ringtest.VSB --patched NEU.VSB [--allow-code ...] --flash dump.bin
-tools/emu/.venv/bin/python tools/emu/mfx_cases.py run --base SYSTEM-ringtest.VSB --patched NEU.VSB --flash dump.bin
-```
+MFX 2 wählt man auf der vorhandenen Seite MFX TYPE, solange MFX 2 an ist. Das braucht keine neuen
+Bildschirmklassen und zeigt den Namen des Effekts wie für MFX 1. Eine eigene Seite im Pattern-Menü ist
+nicht gebaut (**offline**): die Seiten sind fest im Code (Schalter über 0 bis 14 bei `0xC00672C4`), die
+Seitenzahl "/29" zählt Pattern- und Part-Menü zusammen, eine Seite nach MFX TYPE verschöbe alle folgenden.
 
 ## Wie es funktioniert
 
-Vier Haken, alle mit dem Notschalter am Eingang, keiner vor den Rettungswegen. Code 1872 Byte
+Vier Haken, alle mit dem Notschalter am Eingang, keiner vor den Rettungswegen. Code 1944 Byte
 bei `0xC01A5000` (frei, hinter dem Startbild-Editor), Zustand bei `0xC01A5C00`, der
 Datensatz-Puffer bei `0xC01A5D00`.
 
@@ -137,7 +116,7 @@ Datensatz-Puffer bei `0xC01A5D00`.
   steht der eigene Typ im Puffer (Byte 61), das Live-Pattern bleibt MFX 2. Ist die Tabelle
   geändert, geht sie vor der Firmware-Schreibung in den Flash.
 - **Datensatz:** Flash `0x7E8000` (ein 4-KiB-Sektor, im Dump `FF`, kein bekannter
-  Schreiber, wie beim Startbild-Editor hergeleitet, `docs/hintergrund/startbild-editor.md`): Kennung `MFX2`,
+  Schreiber, wie beim Startbild-Editor hergeleitet, [`startbild-editor.md`](../hintergrund/startbild-editor.md)): Kennung `MFX2`,
   Version 1, Länge 256, 256 Byte Tabelle (Eintrag n = Anzeigenummer 1 bis 100 für
   Pattern n, 0 = Vorgabe), CRC-32 über alles davor. 268 Byte.
 - **Seite MFX TYPE:** der Patch baut die Seite neu auf (`0xC0067270`), wenn er den Typ
@@ -156,7 +135,7 @@ Datensatz-Puffer bei `0xC01A5D00`.
 
 Der Touch-Pad-Modus (0 Gate Arp allein, 1 Touch Scale allein, 2 Master FX, 3 Gate Arp + Touch
 Scale) wird nur von GATE ARP, TOUCH SCALE und MASTER FX geändert. Die Firmware
-(`SYSTEM-ringtest.VSB`, gemessen, alle zwölf Übergänge) macht:
+(gemessen, alle zwölf Übergänge) macht:
 
 | von \ Taste | GATE ARP | TOUCH SCALE | MASTER FX |
 |---|---|---|---|
@@ -181,10 +160,10 @@ Gate Arp + Touch Scale wiederholt das Pad (bei X = 500 doppelt so oft wie Gate A
 spielt zusätzlich je Schritt einen Skalenton. Gate Arp allein ist damit **eigenständig**, nicht
 dasselbe wie Gate Arp + Touch Scale. Es war nur über GATE ARP aus 2 oder 3 zu erreichen; die
 Taste, die sonst dafür frei wäre, SHIFT + GATE ARP, ist der Sprung auf die Seite GATE ARP im
-Pattern-Menü (`docs/tastenkombinationen.md`) und bleibt. Gate Arp allein ist darum im Patch nicht
+Pattern-Menü ([`tastenkombinationen.md`](../tastenkombinationen.md)) und bleibt. Gate Arp allein ist darum im Patch nicht
 erreichbar; mit EXIT beim Einschalten (Notschalter) ist es wie in der Firmware da.
 
-**Festgelegt (13.10.):** Gate Arp allein ist nicht nützlich; GATE ARP soll aus jedem Modus direkt Gate Arp
+**Festlegung:** Gate Arp allein ist nicht nützlich; GATE ARP soll aus jedem Modus direkt Gate Arp
 + Touch Scale geben (siehe oben), ein weiterer Druck bleibt ohne Wirkung. SHIFT + TOUCH SCALE ist die
 Firmware-Taste (aus 3, 2 und 1 nach Touch Scale allein).
 
@@ -197,12 +176,12 @@ SHIFT + TOUCH SCALE sind sie gleich denen der Firmware im selben Modus.
 
 ## GATE ARP: nur die GATE-ARP-LED
 
-**Festgelegt (14.10.):** die Firmware lässt bei GATE ARP die LEDs GATE ARP und TOUCH SCALE leuchten. Im Patch leuchtet nur die
+**Festlegung:** die Firmware lässt bei GATE ARP die LEDs GATE ARP und TOUCH SCALE leuchten. Im Patch leuchtet nur die
 GATE-ARP-LED, das Verhalten ist genau das von Gate Arp + Touch Scale (Pad je Schritt neu ausgelöst, dazu
 ein Skalenton). Sonst gilt das oben Beschriebene: Start in MASTER FX, TOUCH SCALE ist MFX 2, SHIFT + TOUCH SCALE ist die
 Firmware-Taste, EXIT beim Einschalten ist die Firmware.
 
-**Wie die Firmware die LEDs für den Modus setzt (gemessen im Emulator, offline gelesen, `SYSTEM-ringtest.VSB`):**
+**Wie die Firmware die LEDs für den Modus setzt (gemessen im Emulator, offline gelesen):**
 
 - Die drei LEDs GATE ARP (`0x1a`), TOUCH SCALE (`0x1b`) und MASTER FX (`0x1c`) setzt `0xC0088118(LED-Verwaltung,
   Modus)`: je LED ein Byte aus der Tabelle `0xC00E5030` (drei Bytes je Modus, Modus 0 `01 00 00`, 1 `00 01 00`,
@@ -224,12 +203,8 @@ Firmware-Taste, EXIT beim Einschalten ist die Firmware.
 das der Patch behandelt, nach dem Aufruf der Firmware-Taste) schreibt für TOUCH SCALE `0` statt des Tabellenwerts,
 wenn der Modus 3 ist. Die Tabelle und das Byte in der LED-Verwaltung bleiben, wie die Firmware sie hat (TOUCH
 SCALE „an“); der Patch schickt nur die Panel-Nachricht für die LED. Weil die Firmware die LEDs nach dem Wechsel
-nicht neu setzt, reicht dieser eine Aufruf, ein Nachhalten im Tick ist nicht nötig. Code: 1872 Byte, kein eigener Haken
+nicht neu setzt, reicht dieser eine Aufruf, ein Nachhalten im Tick ist nicht nötig. Kein eigener Haken
 für die LED, keine eigene Startphasen-Stelle.
-
-**Verworfen:** das Byte für Modus 3 in der Tabelle `0xC00E5030` auf `01 00 00` ändern. Das wäre ein Datenbyte
-statt Code, aber es gälte auch mit EXIT beim Einschalten (Modus 3 aus den Tasten der Firmware), der Notschalter
-verspricht „nichts vom Patch wirkt“.
 
 **Gemessen im Emulator (`mfx_cases.py run`, `cases`):**
 
@@ -244,14 +219,12 @@ verspricht „nichts vom Patch wirkt“.
   2 s, nach GATE ARP, GATE ARP zweimal, TOUCH SCALE dann GATE ARP und GATE ARP dann SHIFT + TOUCH SCALE.
   (a) Alle Kanalnachrichten (Note an, Note aus, Controller; im Lauf 91 in Modus 3, davon 46 Note-ons, und 7 in
   Modus 1) sind gleich denen der Firmware im selben Modus; geprüft in `mfx_cases.py run` (Note-ons, Note-offs und der
-  Rest). (b) Gegen den Patch ohne die LED-Änderung (aus dem Patch vom 13.10. auf
-  `SYSTEM-ringtest.VSB` gebaut) sind die **rohen MIDI-Bytes** des ganzen Laufs in allen fünf Folgen gleich (342, 342, 342, 162 und 168 Byte,
-  gemessen mit einem einmaligen Vergleichslauf, nicht als Dauerprüfung, weil der alte Patch nicht mehr im Repository liegt).
-  Die einzige Differenz zwischen alt und neu in diesen Läufen sind die LEDs.
+  Rest). (b) Gegen einen Patch ohne die LED-Änderung (einmaliger Vergleichslauf, nicht als Dauerprüfung) sind die
+  **rohen MIDI-Bytes** des ganzen Laufs in allen fünf Folgen gleich; die einzige Differenz sind die LEDs.
 - **Offen am Gerät:** ob die TOUCH-SCALE-LED im Moment des Drucks sichtbar aufblitzt. Die Firmware schickt ihre
   Nachricht für den Modus 3 vor der des Patches (im Emulator `0x1b` 255, zwei Nachrichten später 0); wie weit das
   am Gerät auseinanderliegt, ist nicht gemessen. Dass der Ton und das Touch-Pad gleich bleiben, ist aus dem
-  Vergleich der MIDI-Bytes hergeleitet; der Gerätetest (Schritt 7) prüft es.
+  Vergleich der MIDI-Bytes hergeleitet, am Gerät offen.
 
 ## Startmodus
 
@@ -272,23 +245,16 @@ offline gelesen):
   `0xC00819D8(*0xC06912E0, 2)`. Der Patch erreicht ihn schon über den Tastendispatcher
   (TOUCH SCALE reicht Taste 6 weiter).
 
-Zwei Wege, MASTER FX als Startmodus zu bekommen:
-
-| Weg | Urteil |
-|---|---|
-| die Konstante im Konstruktor ändern (`mov r2, #2`) | verworfen: ein Wort in der Startphase, vor Panel-Austausch (69 ms) und Rettungswegen; der Notschalter ist dort noch nicht lesbar, EXIT beim Einschalten würde ebenfalls Master FX liefern |
-| beim ersten Tick im Hauptbildschirm den Taste-Handler für MASTER FX aufrufen | gebaut |
-
-Gebaut ist der zweite Weg im vorhandenen Tick-Haken (`boot_mode` in `mfx_switch.py`), hinter dem
-Notschalter. Beim Tick prüft er: Zustandswort `S_BOOT` noch nicht gesetzt, Bildschirm des
-Screen-Managers ist 1 (Hauptbildschirm). Dann setzt er `S_BOOT`, überspringt den Start, wenn beim
-Einschalten irgendeine Taste gehalten war (die Startmodi der Firmware bleiben, wie sie sind) oder SHIFT
-jetzt gehalten wird, prüft, dass der Modus Touch Scale (1) ist, und ruft `0xC006FF94` mit Taste 6. Einmal pro Einschalten; danach bedient die Firmware den Modus allein.
-Kein neuer Haken, keine neue Einhängestelle im Register (die Beschreibung des Tick-Haken sagt,
-dass er den Startmodus setzt). Im Emulator erscheint der erste Tick bei 179 ms im Bildschirm 0,
-der erste im Hauptbildschirm bei 340 ms: die TOUCH-SCALE-LED leuchtet vom LED-Abgleich (99,7 ms)
-bis dahin, dann wechselt sie auf MASTER FX. Wie lange das am Gerät sichtbar ist, ist nicht
-gemessen.
+Gebaut ist der Startmodus im vorhandenen Tick-Haken (`boot_mode` in `mfx_switch.py`), hinter dem
+Notschalter. Die Konstante im Konstruktor zu ändern (`mov r2, #2`) wäre ein Wort in der Startphase, vor
+dem Panel-Austausch (69 ms) und den Rettungswegen, wo der Notschalter noch nicht lesbar ist. Beim Tick prüft
+der Haken: Zustandswort `S_BOOT` noch nicht gesetzt, Bildschirm des Screen-Managers ist 1 (Hauptbildschirm).
+Dann setzt er `S_BOOT`, überspringt den Start, wenn beim Einschalten irgendeine Taste gehalten war (die
+Startmodi der Firmware bleiben, wie sie sind) oder SHIFT jetzt gehalten wird, prüft, dass der Modus
+Touch Scale (1) ist, und ruft `0xC006FF94` mit Taste 6. Einmal pro Einschalten; danach bedient die Firmware
+den Modus allein. Im Emulator erscheint der erste Tick im Hauptbildschirm bei 340 ms: die TOUCH-SCALE-LED
+leuchtet vom LED-Abgleich (99,7 ms) bis dahin, dann wechselt sie auf MASTER FX. Wie lange das am Gerät
+sichtbar ist, ist nicht gemessen.
 
 ## Belege
 
@@ -296,12 +262,11 @@ gemessen.
 |---|---|---|
 | Patch gleicht dem, was der Builder erzeugt; beide VSB ergeben denselben Patch | gemessen | `npm test` mit `E2_VSB` |
 | Patch ändert nur genannte Bytes (Code und vier Wörter); die Start-Spans sind genannt | gemessen | `test/mfx-switch.test.mjs`, `check.py` (`start_phase`, ohne die Spans schlägt es fehl) |
-| 56 Schritte des Laufs gegen die unveränderte Firmware, auf `SYSTEM-ringtest.VSB` und `SYSTEM.VSB`, alle bestanden | gemessen | `mfx_cases.py run` |
+| Der Lauf gegen die unveränderte Firmware besteht, auf beiden VSB-Dateien | gemessen | `mfx_cases.py run` |
 | GATE ARP: nur `0x1b` unterscheidet sich von der Firmware im Modus 3 (255 gegen 0); MIDI-Nachrichten gleich der Firmware; rohe MIDI-Bytes gleich dem Patch ohne LED-Änderung | gemessen | `mfx_cases.py run` (zwei Schritte); Vergleich mit dem Patch ohne LED-Änderung einmalig |
 | Die Firmware setzt die drei Modus-LEDs nur im Moduswechsel, danach nicht mehr (Modus 3: keine Nachricht an `0x1a` bis `0x1c` in 10 s Leerlauf, Patternwechseln, Spielen, Menüs, WRITE, 19 Tasten) | gemessen | Panel-Nachrichten im Emulator, Disassembly `0xC0088118`, `0xC00819D8` |
-| Alle Startwege bestehen: allein 28 von 28 (`SYSTEM-ringtest.VSB`) und 28 von 28 (`SYSTEM.VSB`) mit den Start-Spans des Patches | gemessen | `check.py --flash` |
+| Alle Startwege bestehen mit den Start-Spans des Patches | gemessen | `check.py --flash` |
 | Nach jeder Taste einer Folge (MFX 2, MASTER FX, GATE ARP, SHIFT + TOUCH SCALE, Patternwechsel) ist die Kopie des LED-Managers (`+ 0x88c + 8 * LED`, Byte 2) für `0x1a` bis `0x1d` gleich dem, was zuletzt an die Panel-UART ging; im Modus 3 nur GATE ARP an. Dieselbe Prüfung schlägt gegen den Patch mit dem direkten LED-Weg fehl (Kopie vertauscht) | gemessen | `mfx_cases.py cases` (`mfx:led_copy`), `mfx_cases.py run` (alle 64 Dreierfolgen und neun Zweierfolgen mit EXIT) |
-| Gerätedatei `SYSTEM-blech-v6.VSB` (sha256 `ec4a54e17036e3d18cdc38ed4028402326aee9962a7feffa186fca738fb652fe`, `SYSTEM.VSB` (`b0890899…`) + Startbild-Editor + MFX 2 + Blech-Startbild): `mfx_cases.py run` 56 von 56 und `check.py` 38 von 38 (Startbild-Editor-Fälle eingeschlossen), `splash_cases.py run` 36 von 36, alle mit dem Flash-Dump vom 9.10. Ohne `--flash` schlagen zwei Schritte von `run` (MIDI-Programmwechsel, Flash-Sektoren) und je ein Schritt von `check.py` und `splash_cases.py` fehl (für `run` und `splash_cases.py` an einem früheren Stand gemessen, dort fehlt der Flash-Sektor ebenso) | gemessen | `check.py --flash`, `mfx_cases.py run --flash`, `splash_cases.py run --flash` |
 | Startmodus: nach dem Einschalten Modus 2, MASTER FX-LED an, eigener Typ, gleiches Display und LEDs wie die Firmware nach einem Druck auf MASTER FX; mit EXIT gehalten Modus 1, TOUCH SCALE-LED an, `S_BOOT` nie gesetzt, gleich der Firmware; mit SHIFT, REC oder dem Startmodus XY-Pad-Check gehalten wie die Firmware | gemessen | `mfx_cases.py run` (Schritte „start“), `cases` (`mfx:boot_mode`, `mfx:exit_held_boot_mode`) |
 | Die Firmware setzt den Startmodus als Konstante im Konstruktor, nicht aus Globals, Pattern oder Flash | gemessen + offline | Schreibzugriffe auf `*0xC06912E0 + 0x334` im Emulator (2 Schreibungen: Allokation 0, Konstruktor 1), Disassembly `0xC0081810` |
 | EXIT ist am Gerät Bit 13 | gemessen am Gerät (10.10.) | `docs/messungen/2026-10-10-rueckweg-geuebt.md` |
@@ -338,32 +303,19 @@ gemessen.
   Kennung, halb geschrieben, oder ein Eintrag außerhalb von 1 bis 100: Vorgabe. Geändert sind
   nur der Slot des Patterns und der Tabellen-Sektor. Ohne MFX 2 ändert die Seite MFX TYPE
   den Typ wie in der Firmware und berührt die Tabelle nicht.
-- **MFX HOLD:** der gehaltene Zustand (Pattern-Byte 65) bleibt beim Wechsel unverändert.
+- **MFX HOLD:** bis zum 25.11.2026 blieb der gehaltene Zustand (Pattern-Byte 65) beim Wechsel unverändert.
+  Jetzt merkt sich jeder der beiden sein Halten ([MFX HOLD je Effekt](2026-11-25-mfx-hold-je-effekt.md)).
 - **Seite MFX TYPE:** nach dem Druck steht der neue Name sofort da (gleiches Bild wie nach
   erneutem Aufbau); zehn schnelle Paare auf der Seite ohne Assertion.
 - **Der Typ des Patterns ist schon MFX 2:** TOUCH SCALE schaltet den Modus ein, ohne Effektwechsel.
 - **Zwölf schnelle Drücke** (sechs Paare) wechseln sauber.
-- **`check.py`:** allein 28 von 28 (die fünf Start-Spans des Patches, ohne sie schlägt
-  `start_phase` fehl), auf `SYSTEM.VSB` und `SYSTEM-ringtest.VSB`; zusammen mit dem
-  Startbild-Editor und dem Blech-Startbild 37 von 37 auf `SYSTEM-ringtest.VSB`.
-
-## Gefunden, nicht Teil dieser Änderung
-
-- **Startbild-Editor, Zeitabhängigkeit (gemessen):** nach WRITE zeichnet der Editor das
-  Bild neu, sobald das Fenster „Working...“ weg ist. In `splash_cases.py run` scheitert
-  dieser Schritt (das Display zeigt die Seite SPLASH SCREEN statt des Bildes), wenn der
-  WRITE-Druck um 10 ms verschoben wird, auch ohne den MFX-Patch (gemessen mit dem
-  Startbild-Editor allein). Gespeichert wird richtig; betroffen ist nur die Anzeige nach WRITE,
-  EXIT bleibt möglich. Nicht angefasst. Im Lauf mit beiden Patches besteht dieser Schritt
-  (36 von 36), die Verschiebung hängt an der Zeit.
-
 ## Risiken beim Einsatz am Gerät
 
 - **Haken in jedem Tastenereignis und jedem Tick:** der Code läuft bei jedem Tastendruck
   (nicht bei Pads, Reglern, Touch-Pad) und 22 Mal pro Sekunde im Tick. Im Tick tut er im
   Normalfall (MFX 2 aus) nur den Notschalter-Test und eine Abfrage. Ein Fehler, der nur am
   Gerät auftritt, könnte die Bedienung stören. Rettung: EXIT beim Einschalten halten, dann
-  ist der Patch aus (EXIT ist am Gerät Bit 13, gemessen 10.10.).
+  ist der Patch aus (siehe [Rettung](../rettung.md)) (EXIT ist am Gerät Bit 13, gemessen 10.10.).
 - **Flash beim WRITE:** hat man MFX 2 verändert, schreibt WRITE zusätzlich einen 4-KiB-
   Sektor (`0x7E8000`) vor dem Pattern. Das dauert länger, die Firmware macht es für das
   Pattern ohnehin. Bricht der Strom dabei ab, ist der Datensatz ungültig (Vorgabe) oder
@@ -381,32 +333,6 @@ gemessen.
   (der Weg über MENU bleibt).
 - **MFX 2 gehört zum Pattern-Platz, nicht zum Inhalt:** kopiert man ein Pattern in einen
   anderen Platz, gilt dort dessen Eintrag.
-
-## Schritte für den Gerätetest
-
-1. `SYSTEM-blech-v6.VSB` (Startbild-Editor, MFX 2, Blech-Startbild)
-   wie beim Rückweg-Versuch (`2026-10-10-rueckweg-geuebt.md`) über die SD-Karte und DATA UTILITY einspielen, am Netzteil; die Originaldatei
-   (`163d1d8d…`) bleibt als Rückweg bereit.
-2. Beim Einschalten **EXIT halten**: Gerät startet, TOUCH SCALE verhält sich wie vorher.
-   Ausschalten.
-3. Normal einschalten: MASTER FX-LED an, TOUCH SCALE-LED aus (Startmodus). Pattern mit Delay als Master-Effekt. TOUCH SCALE: Touch-Pad im
-   Master-FX-Modus, TOUCH SCALE-LED an, MASTER FX-LED aus, Effekt ist 07 Looper (MENU, MFX
-   TYPE, zeigt „07 Looper“). MASTER FX: Delay zurück, MASTER FX-LED an, TOUCH SCALE-LED aus.
-   TOUCH SCALE noch einmal drücken: nichts passiert.
-4. MFX 2 wählen: TOUCH SCALE, MENU, Seite MFX TYPE, VALUE auf den Wunschtyp, EXIT. MASTER FX,
-   dann TOUCH SCALE: der gewählte Typ kommt. WRITE zweimal (wie immer), Gerät aus und an,
-   dasselbe Pattern: TOUCH SCALE gibt den gewählten Typ; ein anderes Pattern gibt 07 Looper.
-5. Mit MFX 2 an das Pattern wechseln (Rad, Pad): Modus und LEDs bleiben, der neue Effekt ist
-   MFX 2 des neuen Patterns. MASTER FX: sein eigener Effekt.
-6. Mit MFX 2 an WRITE: gespeichertes Pattern öffnen, sein Effekt ist der eigene (nicht MFX 2).
-7. GATE ARP (aus Master FX, aus MFX 2, aus Touch Scale): **nur die GATE-ARP-LED leuchtet**, TOUCH SCALE
-   und MASTER FX sind dunkel (kurzes Aufblitzen der TOUCH-SCALE-LED beim
-   Druck wäre ein Befund, der Patch löscht sie im selben Tastenereignis). Bei laufender Sequenz
-   ein Trigger-Pad halten und das Touch-Pad berühren: das Pad wird je Schritt ausgelöst, dazu
-   ein Skalenton, wie bei Gate Arp + Touch Scale der Firmware. Noch einmal GATE ARP: nichts ändert sich. MFX 2 geht mit GATE ARP aus (eigener
-   Effekt kommt zurück). SHIFT + TOUCH SCALE: Touch Scale allein (TOUCH SCALE-LED an), MFX 2 geht dabei aus.
-8. Das Ganze bei laufender Sequenz, Ton auf Knackser achten. MFX HOLD bei MFX 2 ausprobieren.
-9. Wenn etwas hängt: ausschalten, EXIT halten beim Einschalten, Original zurück.
 
 ## Offen
 

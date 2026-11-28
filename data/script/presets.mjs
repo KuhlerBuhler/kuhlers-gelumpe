@@ -1645,20 +1645,30 @@ korg.onEvent("buttonPress", (key) => {
     category: text("catalog.category.tools"),
     creator: "Kuhler Buhler",
     added: "2026-11-03",
-    controls: [text("catalog.bmpviewer.control1"), text("catalog.bmpviewer.control2"), text("catalog.bmpviewer.control3")],
-    source: `// Image Viewer, an app under TOOLS: shows the pictures of a picture file GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/
-// on the card one at a time (tools/gif/gif2e2g.py puts several BMPs or other pictures into one file, one frame each).
-// Part right and left show the next and the previous picture, the encoder picks the file. After each change the top left
-// corner shows the number of the picture for two seconds, TAP keeps it there or hides it. Backwards past the first picture
-// goes to the last one once the viewer has been through the file and knows how many there are.
+    controls: [text("catalog.bmpviewer.control1"), text("catalog.bmpviewer.control2"), text("catalog.bmpviewer.control3"), text("catalog.bmpviewer.control4")],
+    source: `// Image Viewer, an app under TOOLS: shows the start images (.bmp) and the loading animations (.blla) in KORG/blechtribe/Media/
+// on the card. The first screen lists IMAGES and ANIMATIONS with how many there are: the encoder or Part picks one, MENU opens
+// it, MENU in it goes back to the list (EXIT closes the app).
+// IMAGES: the encoder and Part page through the files and wrap around. After each change the name and the place show for two
+// seconds, TAP keeps them there or hides them.
+// ANIMATIONS: the encoder picks the file and shows its first picture, Part right and left go one picture on or back, TAP plays
+// and pauses. Playing shows a picture every 96 ms, Part right and left halve and double that (48 to 384 ms). An animation runs
+// through its progress pictures and its loop pictures, then starts again.
 korg.app("Image Viewer", "TOOLS");
 const pic = new Array(1024);
+const nm = new Array(18);
+let mode = 0;
+let sel = 0;
+let n0 = 0;
+let n1 = 0;
 let file = 0;
-let index = 0;
-let count = 0;
-let shown = 0;
+let frame = 0;
+let total = 0;
 let label = 0;
 let until = 0;
+let playing = 0;
+let ms = 96;
+let due = 0;
 let isOpen = 0;
 
 function digits(n) {
@@ -1670,47 +1680,101 @@ function digits(n) {
   return d;
 }
 
+function files() {
+  if (mode == 1) return n0;
+  return n1;
+}
+
+function drawList() {
+  korg.display.clear();
+  if (n0 < 0 || n1 < 0) {
+    korg.display.text("NO CARD", 4, 26);
+    return;
+  }
+  korg.display.textNumber("IMAGES ", n0, 12, 18);
+  korg.display.textNumber("ANIMATIONS ", n1, 12, 32);
+  korg.display.text(">", 4, 18 + sel * 14);
+}
+
+function list() {
+  mode = 0;
+  playing = 0;
+  n0 = korg.file.count(0);
+  n1 = korg.file.count(1);
+  drawList();
+}
+
+function place(a, b) {
+  korg.display.clearRect(0, 55, (digits(a) + digits(b)) * 6 + 9, 9);
+  korg.display.number(a, 1, 56);
+  korg.display.textNumber("/", b, 1 + digits(a) * 6, 56);
+}
+
 function draw() {
   korg.display.clear();
+  if (files() <= 0) {
+    if (mode == 1) korg.display.text("NO IMAGES", 4, 26);
+    else korg.display.text("NO ANIMATIONS", 4, 26);
+    return;
+  }
+  let len = korg.file.name(nm, mode - 1, file);
+  if (total <= 0) {
+    korg.display.chars(nm, 4, 18, 17);
+    korg.display.text("BAD FILE", 4, 32);
+    return;
+  }
   korg.display.bitmap(pic, 0, 0, 128);
   if (label == 0 && until == 0) return;
-  let width = digits(index + 1) * 6 + 3;
-  if (count > 0) width += digits(count) * 6 + 6;
-  korg.display.clearRect(0, 0, width, 9);
-  korg.display.number(index + 1, 1, 1);
-  if (count > 0) korg.display.textNumber("/", count, 1 + digits(index + 1) * 6, 1);
+  korg.display.clearRect(0, 0, len * 6 + 3, 9);
+  korg.display.chars(nm, 1, 1, 17);
+  if (mode == 1) place(file + 1, files());
+  else place(frame + 1, total);
 }
 
 function show() {
-  let delay = korg.file.frame(pic, file, index);
-  if (delay == 0 && index > 0) {
-    count = index;
-    index = 0;
-    delay = korg.file.frame(pic, file, 0);
-  }
-  if (delay <= 0) {
-    shown = 0;
-    korg.display.clear();
-    korg.display.textNumber("GIF ", file, 4, 14);
-    korg.display.text("no file", 4, 26);
-    return;
-  }
-  shown = 1;
+  if (files() > 0) total = korg.file.picture(pic, mode - 1, file, frame);
   until = korg.millis() + 2000;
   draw();
 }
 
+function pick(delta) {
+  let n = files();
+  if (n <= 0) return;
+  file = ((file + delta) % n + n) % n;
+  frame = 0;
+  playing = 0;
+  show();
+}
+
+function step(delta) {
+  if (total <= 0) return;
+  frame = ((frame + delta) % total + total) % total;
+  show();
+}
+
 korg.onEvent("open", () => {
   isOpen = 1;
-  show();
+  list();
 });
 
 korg.onEvent("close", () => {
   isOpen = 0;
+  playing = 0;
 });
 
 korg.onEvent("frame", () => {
-  if (shown == 1 && until > 0 && korg.millis() >= until) {
+  if (mode == 0) return;
+  if (playing == 1 && korg.millis() >= due) {
+    if (until > 0 && korg.millis() >= until) until = 0;
+    frame = (frame + 1) % total;
+    total = korg.file.picture(pic, 1, file, frame);
+    if (total <= 0) playing = 0;
+    due += ms;
+    if (due < korg.millis()) due = korg.millis() + ms;
+    draw();
+    return;
+  }
+  if (until > 0 && korg.millis() >= until) {
     until = 0;
     draw();
   }
@@ -1718,28 +1782,56 @@ korg.onEvent("frame", () => {
 
 korg.onEvent("encoder", (i, delta) => {
   if (isOpen == 0) return;
-  file += delta;
-  if (file < 0) file = 0;
-  if (file > 99) file = 99;
-  index = 0;
-  count = 0;
-  show();
+  if (mode == 0) {
+    if (delta > 0) sel = 1;
+    if (delta < 0) sel = 0;
+    drawList();
+    return;
+  }
+  pick(delta);
 });
 
 korg.onEvent("buttonPress", (key) => {
   if (isOpen == 0) return;
-  if (key == korg.key.PART_RIGHT) {
-    index += 1;
-    show();
+  if (mode == 0) {
+    if (key == korg.key.PART_LEFT) sel = 0;
+    if (key == korg.key.PART_RIGHT) sel = 1;
+    if (key == korg.key.MENU && n0 >= 0 && n1 >= 0) {
+      mode = sel + 1;
+      file = 0;
+      frame = 0;
+      label = 0;
+      show();
+      return;
+    }
+    drawList();
+    return;
   }
-  if (key == korg.key.PART_LEFT) {
-    if (index > 0) index -= 1;
-    else if (count > 0) index = count - 1;
-    show();
+  if (key == korg.key.MENU) {
+    list();
+    return;
   }
-  if (key == korg.key.TAP && shown == 1) {
-    label = 1 - label;
-    until = 0;
+  if (mode == 1) {
+    if (key == korg.key.PART_RIGHT) pick(1);
+    if (key == korg.key.PART_LEFT) pick(-1);
+    if (key == korg.key.TAP && files() > 0) {
+      label = 1 - label;
+      until = 0;
+      draw();
+    }
+    return;
+  }
+  if (playing == 1) {
+    if (key == korg.key.PART_RIGHT && ms > 48) ms = ms / 2;
+    if (key == korg.key.PART_LEFT && ms < 384) ms = ms * 2;
+  } else {
+    if (key == korg.key.PART_RIGHT) step(1);
+    if (key == korg.key.PART_LEFT) step(-1);
+  }
+  if (key == korg.key.TAP && total > 0) {
+    playing = 1 - playing;
+    due = korg.millis() + ms;
+    until = korg.millis() + 2000;
     draw();
   }
 });
@@ -1791,12 +1883,12 @@ function setTempo(tempo) {
 function arm(step) {
   pending = 0;
   chain = 0;
-  length = korg.current.length * 16;
-  const after = korg.current.chainTo;
-  if (!chainOn || !korg.chainMode || after < 0) return;
+  length = korg.pattern.current.length * 16;
+  const after = korg.pattern.current.chainTo;
+  if (!chainOn || !korg.global.chainMode || after < 0) return;
   base = korg.tempo;
   target = korg.patterns[after].tempo;
-  total = length * korg.current.chainRepeat;
+  total = length * korg.pattern.current.chainRepeat;
   chainLap = laps;
   chain = base != target ? 1 : 0;
 }
@@ -2049,7 +2141,7 @@ korg.onEvent("touch", (x, y, first) => {
   if (!on || !gate) return;
   if (first || !holding) {
     letGo();
-    base = korg.current.gateArp;
+    base = korg.pattern.current.gateArp;
     rhythm = -1;
     korg.touchLockX(x >> 3);
     holding = 1;
@@ -2064,7 +2156,7 @@ korg.onEvent("touch", (x, y, first) => {
 // A new pattern brings its own rhythm: that one comes back on release.
 korg.onEvent("patternChange", () => {
   if (!holding) return;
-  base = korg.current.gateArp;
+  base = korg.pattern.current.gateArp;
   rhythm = -1;
 });
 
@@ -2120,7 +2212,7 @@ function run() {
   timer = -1;
   if (mode == 0) return;
   const src = from - 1;
-  let bars = korg.current.length;
+  let bars = korg.pattern.current.length;
   if (src >= bars) return;
   if (to > bars) {
     korg.seq.setPatternValue(2, to);
@@ -2796,7 +2888,7 @@ let gate = 96;
 
 // Actualise la longueur du pattern
 function updateSteps() {
-    steps = korg.current.length * 16;
+    steps = korg.pattern.current.length * 16;
 
     if (steps < 16) steps = 16;
     if (steps > 64) steps = 64;
@@ -2857,7 +2949,7 @@ function generate() {
                 position -= steps;
             }
 
-            let note = 48 + korg.current.key;
+            let note = 48 + korg.pattern.current.key;
 
             korg.seq.setStep(
                 part,
@@ -4299,6 +4391,260 @@ korg.onEvent("frame", () => {
     field();
     if (score != shown) scoreText();
   }
+});
+`,
+  }),
+  Object.freeze({
+    id: "sysinfo",
+    title: "System Info",
+    description: text("catalog.sysinfo.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-12",
+    controls: [text("catalog.sysinfo.control1")],
+    source: `// System Info, an app under TOOLS: shows on which Electribe the plugin runs, the BLECHTRIBE version, how many insert and
+// master effects and sample slots the firmware has, and whether the device runs on the adapter or on battery, with the
+// battery level as the symbol top right shows it. All values are the firmware's own (korg.system); the screen is drawn
+// again once a second, so plugging the adapter in or out shows up while the app is open.
+korg.app("System Info", "TOOLS");
+let isOpen = 0;
+let next = 0;
+
+function digits(n) {
+  let d = 1;
+  while (n >= 10) {
+    n = n / 10;
+    d += 1;
+  }
+  return d;
+}
+
+function version(v) {
+  if (v == 0) {
+    korg.display.text("BLECH -", 2, 14);
+    return;
+  }
+  const major = v / 10000;
+  const minor = (v / 100) % 100;
+  const patch = v % 100;
+  let x = 2 + 36;
+  korg.display.textNumber("BLECH ", major, 2, 14);
+  x += digits(major) * 6;
+  korg.display.textNumber(".", minor, x, 14);
+  x += 6 + digits(minor) * 6;
+  korg.display.textNumber(".", patch, x, 14);
+}
+
+function draw() {
+  korg.display.clear();
+  const device = korg.system.device;
+  if (device == 0) korg.display.text("HACKTRIBE", 2, 2);
+  if (device == 1) korg.display.text("KORG SAMPLER (RED)", 2, 2);
+  if (device == 2) korg.display.text("KORG SYNTH (BLUE)", 2, 2);
+  version(korg.system.version);
+  korg.display.textNumber("IFX ", korg.system.limits.ifxTypes, 2, 26);
+  korg.display.textNumber("MFX ", korg.system.limits.mfxTypes, 62, 26);
+  korg.display.textNumber("SAMPLE SLOTS ", korg.system.limits.samples, 2, 38);
+  if (korg.system.power == 1) {
+    korg.display.text("POWER ADAPTER", 2, 50);
+  } else {
+    korg.display.textNumber("BATTERY ", korg.system.battery, 2, 50);
+    korg.display.text("/4", 2 + 48 + 6, 50);
+  }
+  next = korg.millis() + 1000;
+}
+
+korg.onEvent("open", () => {
+  isOpen = 1;
+  draw();
+});
+
+korg.onEvent("close", () => {
+  isOpen = 0;
+});
+
+korg.onEvent("frame", () => {
+  if (isOpen == 1 && korg.millis() >= next) draw();
+});
+`,
+  }),
+  Object.freeze({
+    id: "vumeter",
+    title: "VU Meter",
+    description: text("catalog.vumeter.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-12",
+    controls: [text("catalog.vumeter.control1")],
+    source: `// VU Meter, an app under TOOLS: two bars show the output level the way the level meter LEDs do (korg.audio.level, the
+// firmware's smoothed value, new every 40 ms), each with a mark that holds its peak for a second. Which side is left on
+// the device is not checked yet, so the bars are named 1 and 2. Only a bar that changed is drawn again.
+korg.app("VU Meter", "TOOLS");
+const WIDTH = 108;
+const shown = [-1, -1];
+const mark = [-1, -1];
+const peak = [0, 0];
+const until = [0, 0];
+
+function bar(side, level) {
+  const y = 12 + side * 26;
+  const w = level * WIDTH / 254;
+  const p = peak[side] * WIDTH / 254;
+  korg.display.clearRect(14, y, WIDTH + 1, 14);
+  if (w > 0) korg.display.rect(14, y, w, 14);
+  korg.display.rect(14 + p, y, 1, 14);
+  shown[side] = level;
+  mark[side] = peak[side];
+}
+
+function draw() {
+  korg.display.clear();
+  korg.display.text("1", 4, 15);
+  korg.display.text("2", 4, 41);
+  shown[0] = -1;
+  shown[1] = -1;
+}
+
+korg.onEvent("open", () => {
+  peak[0] = 0;
+  peak[1] = 0;
+  draw();
+});
+
+korg.onEvent("frame", () => {
+  const now = korg.millis();
+  for (let side = 0; side < 2; side++) {
+    const level = korg.audio.level(side);
+    if (level >= peak[side]) {
+      peak[side] = level;
+      until[side] = now + 1000;
+    } else if (now >= until[side]) {
+      peak[side] = level;
+    }
+    if (level != shown[side] || peak[side] != mark[side]) bar(side, level);
+  }
+});
+`,
+  }),
+  Object.freeze({
+    id: "spettro",
+    title: "Spettro",
+    description: text("catalog.spettro.description"),
+    category: text("catalog.category.tools"),
+    creator: "Luigi (reflectiveboi), Kuhler Buhler",
+    added: "2026-11-12",
+    controls: [text("catalog.spettro.control1"), text("catalog.spettro.control2")],
+    source: `// Spettro, an app under TOOLS: the spectrum of the selected part, 64 bars from 20 Hz to 20 kHz (BAR 2: 20 Hz to 2 kHz),
+// 0 to 96 dB. The firmware's capture service computes it (korg.audio.capture and korg.audio.spectrum, API 31); capture,
+// FFT and the first Spettro are by Luigi (GitHub reflectiveboi, PR #429). BAR 1 holds the picture. Sampler only: on the
+// blue Electribe the app says so.
+korg.app("Spettro", "TOOLS");
+const bins = new Array(64);
+let opened = 0;
+let hold = 0;
+let bass = 0;
+
+korg.onEvent("open", () => { opened = 1; hold = 0; });
+korg.onEvent("close", () => { opened = 0; korg.audio.capture(0); });
+
+korg.onEvent("buttonPress", (key) => {
+  if (!opened) return;
+  if (key == korg.key.BAR_1) hold = 1 - hold;
+  if (key == korg.key.BAR_2) bass = 1 - bass;
+});
+
+korg.onEvent("frame", () => {
+  if (!opened) return;
+  const status = korg.audio.capture(korg.read.part() + 1);
+  if (hold && status == 0) return;
+  korg.display.clear();
+  korg.display.text("PART", 0, 0);
+  korg.display.number(korg.read.part() + 1, 26, 0);
+  if (hold) korg.display.text("HOLD", 100, 0);
+  korg.display.text("20", 0, 57);
+  if (bass) korg.display.text("2k", 116, 57);
+  else korg.display.text("20k", 110, 57);
+  if (status == 2) korg.display.text("CAPTURE BUSY", 16, 27);
+  if (status == 3) korg.display.text("WAIT", 16, 27);
+  if (status == 4) korg.display.text("GAP", 16, 27);
+  if (status == 5) korg.display.text("NO MEMORY", 16, 27);
+  if (status == 6) korg.display.text("NOT ON THIS UNIT", 16, 27);
+  if (status != 0) return;
+  korg.audio.spectrum(bins, 64, bass);
+  for (let i = 0; i < 64; i++) {
+    const h = bins[i] >> 1;
+    if (h > 0) korg.display.rect(i * 2, 56 - h, 1, h);
+  }
+});
+`,
+  }),
+  Object.freeze({
+    id: "midiecho",
+    title: "MIDI Echo",
+    description: text("catalog.midiecho.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-12",
+    controls: [text("catalog.midiecho.control1"), text("catalog.midiecho.control2")],
+    source: `// MIDI Echo: every pad press also goes out as a MIDI note on a channel of its own, pad 1 as note 36 (C1, the General MIDI
+// bass drum) up to pad 16 as note 51, with the pad's velocity, and a note off on release. A drum machine or a DAW track
+// can so follow the pads next to the notes the parts send. The page MIDI ECHO CH in the BLECH menu picks the channel, 1 to
+// 16, and 0 switches it off. The MIDI SEND FILTER in Global applies as to the firmware's own notes. A note off goes to
+// the channel its note on went to, also when the channel changed in between.
+let ch = korg.store.get(0, 0);
+let page = korg.menu.add("MIDI ECHO CH", 0, 16, ch);
+const sent = new Array(16);
+
+korg.onEvent("pad", (index, down, velocity) => {
+  if (down) {
+    if (ch == 0) return;
+    let v = velocity;
+    if (v < 1) v = 1;
+    korg.midi.noteOn(ch - 1, 36 + index, v);
+    sent[index] = ch;
+    return;
+  }
+  if (sent[index] > 0) korg.midi.noteOff(sent[index] - 1, 36 + index);
+  sent[index] = 0;
+});
+
+korg.onEvent("menu", (id, value) => {
+  if (id != page) return;
+  ch = value;
+  korg.store.set(0, ch);
+  korg.store.save();
+});
+`,
+  }),
+  Object.freeze({
+    id: "motionclear",
+    title: "Motion Clear",
+    description: text("catalog.motionclear.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-12",
+    controls: [text("catalog.motionclear.control1")],
+    source: `// Motion Clear: deletes the motion sequence of the selected part from the BLECH menu, as Part Util CLEAR MOTION does
+// (korg.motion.clearPart). Turning the page CLEAR MOTION up to 3 is the confirmation: on reaching 3 the motion of the
+// selected part goes, with all parts selected the motion of every part. Turning it back below 3 arms it again, the values
+// in between do nothing. Only the pattern in RAM changes, WRITE keeps it as for any other edit.
+let page = korg.menu.add("CLEAR MOTION", 0, 3, 0);
+let armed = 1;
+
+korg.onEvent("menu", (id, value) => {
+  if (id != page) return;
+  if (value < 3) {
+    armed = 1;
+    return;
+  }
+  if (armed == 0) return;
+  armed = 0;
+  const part = korg.read.part();
+  if (part < 16) {
+    korg.motion.clearPart(part);
+    return;
+  }
+  for (let p = 0; p < 16; p++) korg.motion.clearPart(p);
 });
 `,
   }),

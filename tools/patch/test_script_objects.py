@@ -1,24 +1,30 @@
 """The object tree of API 10 (tools/patch/script_objects.s): get, set, clamp, wrong leaves and the repair at start."""
+import json
 import pathlib
 import struct
+import subprocess
 import sys
 import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
-from tools.patch.test_script_vm import UNICORN_AVAILABLE
+from tools.patch.test_script_vm import UNICORN_AVAILABLE, contract_data
 from tools.patch import test_script_hooks as hooks_tests
+from tools.patch.script_hooks import GLOBAL_SETTERS, IDLE, MENU_STATE, object_rows
+try:
+    from unicorn import UC_HOOK_CODE
+    from unicorn.arm_const import UC_ARM_REG_LR, UC_ARM_REG_PC, UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2
+except ModuleNotFoundError:
+    pass
 
-INTENSITY, REPAIRS, NO_LEAF = 0, 1, 60     # data/script/objects.mjs (2 and 3 are the test mode and keepAwake, 4 to 28 the pages of the menu BLECH, 29 to 47 the Global settings)
+INTENSITY, REPAIRS, NO_LEAF = 0, 1, 70     # data/script/objects.mjs (2 and 3 are the test mode and keepAwake, 4 to 28 the pages of the menu BLECH, 29 to 47 the Global settings)
 ERR_OK, ERR_API_ARG = 0, 15
 PATTERN_CONFIRM, TAP_MOTION, NOTE_ASSIST, LAST_PATTERN, STEREO_PAD, INIT_PATTERN, MENU_WRITE = 22, 23, 24, 25, 26, 27, 28
+POWER_SAVE, IDLE_STAGE, LOAD_METER, IDLE_SAVE, GLIDE_CHAIN, GLIDE_SWITCH = 61, 62, 63, 64, 65, 66   # API 37
 
 @unittest.skipUnless(UNICORN_AVAILABLE,'Unicorn is required for native object tests')
 class NativeObjectTests(unittest.TestCase):
     def machine(self):
         """A machine whose menu_look_apply only counts its calls (it drives the LEDs and the backlight of the firmware)."""
-        from unicorn import UC_HOOK_CODE
-        from unicorn.arm_const import UC_ARM_REG_PC, UC_ARM_REG_LR
-        from tools.patch.script_hooks import MENU_STATE
         m,built = hooks_tests.HookTests().machine()
         s = built.symbols
         self.at = (MENU_STATE + s['MX_INTENS']) & 0xffffffff
@@ -78,8 +84,6 @@ class NativeObjectTests(unittest.TestCase):
         self.assertLess(body.index('bl menu_settings_load'),body.index('bl objects_repair'))
 
     def test_the_table_has_a_row_for_every_leaf(self):
-        from tools.patch.script_hooks import object_rows
-        from tools.patch.test_script_vm import contract_data
         include = contract_data()['include']
         count = int(include.split('.equ OBJ_COUNT, ',1)[1].split()[0],0)
         self.assertEqual(object_rows(include).count('_OFFSET'),count)
@@ -101,7 +105,6 @@ class NativeObjectTests(unittest.TestCase):
             self.assertEqual(m.call('script_object_get_glue',leaf,-1 & 0xffffffff),(0,ERR_OK),leaf)
 
     def test_a_feature_writes_the_page_word_and_the_word_its_patch_reads(self):
-        from tools.patch.script_hooks import MENU_STATE
         m,s = self.machine()
         for leaf,page,patch,value in ((PATTERN_CONFIRM,0x158,0xC0180F10,0),(TAP_MOTION,0x15C,0xC0188F00,2),(NOTE_ASSIST,0xFC,0xC0189F00,0)):
             if not any(a <= patch <= b for a,b,_ in m.uc.mem_regions()): m.uc.mem_map(patch & ~0xFFF,0x1000)
@@ -136,9 +139,6 @@ class NativeObjectTests(unittest.TestCase):
 
     def global_machine(self):
         """A machine with a Global object (the block 4 bytes in) and its metronome setter replaced by a stub that records its calls."""
-        from unicorn import UC_HOOK_CODE
-        from unicorn.arm_const import UC_ARM_REG_PC, UC_ARM_REG_LR, UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2
-        from tools.patch.script_hooks import GLOBAL_SETTERS
         m,s = self.machine()
         setter = GLOBAL_SETTERS[16][0]
         for at in (self.GLOBALS_PTR,self.OBJECT,setter):
@@ -155,7 +155,6 @@ class NativeObjectTests(unittest.TestCase):
 
     def leaf(self,offset):
         """The id of the Global leaf for the dump offset `offset`."""
-        from tools.patch.test_script_vm import contract_data
         include = contract_data()['include']
         count = int(include.split('.equ OBJ_COUNT, ',1)[1].split()[0],0)
         return next(i for i in range(count) if include.split(f'.equ OBJ_{i}_BASE, ',1)[1].split()[0] == '3'
@@ -194,8 +193,6 @@ class NativeObjectTests(unittest.TestCase):
         self.assertEqual(self.repairs(m,s),2,'METRONOME and LCD CONTRAST')
 
     def test_the_setters_are_those_the_map_lists_for_each_field(self):
-        import json, subprocess
-        from tools.patch.script_hooks import GLOBAL_SETTERS
         code = ("import m from './data/map/global.mjs';"
                 "process.stdout.write(JSON.stringify(m.fields.filter(f => f.live).map(f => [f.where.offset, f.live.setter.hacktribe, f.live.setter.red, f.live.setter.blue])))")
         rows = json.loads(subprocess.run(['node','--input-type=module','-e',code],cwd=ROOT,capture_output=True,text=True,check=True).stdout)
@@ -203,12 +200,66 @@ class NativeObjectTests(unittest.TestCase):
         self.assertTrue(all(h == r for _,h,r,_ in rows))
 
     def test_the_rows_of_a_leaf_with_a_setter_carry_the_setter_of_the_build(self):
-        from tools.patch.script_hooks import object_rows, GLOBAL_SETTERS
-        from tools.patch.test_script_vm import contract_data
         include = contract_data()['include']
         self.assertIn(f'{GLOBAL_SETTERS[16][0]:#x}',object_rows(include,'hacktribe'))
         self.assertIn(f'{GLOBAL_SETTERS[16][1]:#x}',object_rows(include,'synth'))
         self.assertNotIn(f'{GLOBAL_SETTERS[16][0]:#x}',object_rows(include,'synth'))
+
+    # API 37: the bits of byte 7 of the settings (base flags2), IDLE SAVE's menu byte M_IDLE (base menu) and the two bytes the
+    # runtime reads itself (base state 5 and 6)
+    def flags2(self,m,s,value=None):
+        at = (MENU_STATE + s['MX_FLAGS2']) & 0xffffffff
+        if value is not None: m.uc.mem_write(at,bytes([value]))
+        return m.uc.mem_read(at,1)[0]
+
+    def idle_save(self,m,s,value=None):
+        at = (MENU_STATE + s['M_IDLE']) & 0xffffffff
+        if value is not None: m.uc.mem_write(at,bytes([value]))
+        return m.uc.mem_read(at,1)[0]
+
+    def test_a_flag_leaf_reads_its_bit_and_idle_save_reads_its_byte(self):
+        m,s = self.machine()
+        for byte,mode,want in ((0x00,1,[0,1,0,0]),(0x0F,0,[1,0,1,1]),(0x05,2,[1,2,1,0]),(0xF2,1,[0,1,0,0])):
+            self.flags2(m,s,byte)
+            self.idle_save(m,s,mode)
+            got = [m.call('script_object_get_glue',leaf,-1 & 0xffffffff) for leaf in (LOAD_METER,IDLE_SAVE,GLIDE_CHAIN,GLIDE_SWITCH)]
+            self.assertEqual(got,[(w,ERR_OK) for w in want],hex(byte))
+
+    def test_a_flag_leaf_sets_only_its_bit_and_keeps_the_reserved_ones(self):
+        m,s = self.machine()
+        woke = []
+        def keep(uc,address,size,_):
+            woke.append(1)
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        m.uc.hook_add(UC_HOOK_CODE,keep,begin=s['testmode_keep_awake'],end=s['testmode_keep_awake'])
+        self.flags2(m,s,0xA0)
+        self.idle_save(m,s,1)
+        for leaf,value,byte,mode in ((LOAD_METER,1,0xA1,1),(IDLE_SAVE,0,0xA1,0),(GLIDE_CHAIN,1,0xA5,0),(GLIDE_SWITCH,1,0xAD,0),
+                                     (LOAD_METER,0,0xAC,0),(IDLE_SAVE,2,0xAC,2),(IDLE_SAVE,1,0xAC,1),(GLIDE_CHAIN,5,0xAC,1),
+                                     (IDLE_SAVE,7,0xAC,2),(GLIDE_SWITCH,0,0xA4,2)):
+            self.assertEqual(m.call('script_object_set_glue',leaf,-1 & 0xffffffff,value)[1],ERR_OK)
+            self.assertEqual((self.flags2(m,s),self.idle_save(m,s)),(byte,mode),(leaf,value))
+        self.assertEqual(self.repairs(m,s),2,'5 is clamped to 1 and 7 to 2, both counted')
+        self.assertEqual(woke,[1,1,1,1],'each IDLE SAVE write starts its time again, the other three do not')
+        self.assertEqual(self.applied,[])
+
+    def test_power_save_reads_the_firmware_dim_flag_as_0_or_1(self):
+        m,s = self.machine()
+        flag = s['BL_DIM_FLAG']
+        if not any(a <= flag <= b for a,b,_ in m.uc.mem_regions()): m.uc.mem_map(flag & ~0xFFF,0x1000)
+        for byte,want in ((0,0),(1,1),(0x80,1)):
+            m.uc.mem_write(flag,bytes([byte]))
+            self.assertEqual(m.call('script_object_get_glue',POWER_SAVE,-1 & 0xffffffff),(want,ERR_OK),byte)
+        self.assertEqual(m.call('script_object_set_glue',POWER_SAVE,-1 & 0xffffffff,0)[1],ERR_API_ARG)
+
+    def test_idle_reads_the_stage_and_0_before_the_menu_is_armed(self):
+        m,s = self.machine()
+        if not any(a <= IDLE+4 <= b for a,b,_ in m.uc.mem_regions()): m.uc.mem_map((IDLE+4) & ~0xFFF,0x1000)
+        for byte,want in ((0,0),(3,3),(4,4),(0xFF,0)):
+            m.uc.mem_write(IDLE+4,bytes([byte]))
+            self.assertEqual(m.call('script_object_get_glue',IDLE_STAGE,-1 & 0xffffffff),(want,ERR_OK),byte)
+            self.assertEqual(m.call('objects_state_word',6)[0],0xFFFFFFFF if byte == 0xFF else byte,'FF is no stage for the event')
+        self.assertEqual(m.call('script_object_set_glue',IDLE_STAGE,-1 & 0xffffffff,0)[1],ERR_API_ARG)
 
 if __name__ == '__main__':
     unittest.main()

@@ -29,7 +29,7 @@ const text = (bytes, at, n) => String.fromCharCode(...bytes.subarray(at, at + n)
  * start image never touch it, so it tells the two builds apart for every Hacktribe file, original or edited.
  * The same rule is tools/emu/firmware.py `build_of`. File offsets, the header is 0x100 bytes.
  */
-const HACKTRIBE_CODE = { file: 0x170100, length: 0x40 };
+export const HACKTRIBE_CODE = { file: 0x170100, length: 0x40 };
 
 /** The head of the blue Electribe 2 (synth) ends its file type in "E2", the Sampler's in "E2S": derived from one file of
  * each (docs/messungen/2026-10-15-blaue-electribe.md). The service identifies by code (tools/emu/firmware.py). */
@@ -37,6 +37,10 @@ const isSynth = bytes => bytes.length > 0x12 && bytes[0x10] === 0x45 && bytes[0x
 
 /** The Electribe a file is made for, by its head: Hacktribe for the blue carries the blue head (tools/emu/firmware.py, hardware_of_head). */
 export const hardwareOf = bytes => (isSynth(bytes) ? "blue" : "red");
+
+/** The first word data/patches/stage2-memory.json writes, at its file offset; test/stage2-unlock.test.mjs keeps both equal. */
+export const STAGE2_MEMORY_MARK = { file: 1222870, bytes: [0x22, 0xe1, 0x28, 0x5c] };
+export const hasStage2Memory = bytes => STAGE2_MEMORY_MARK.bytes.every((b, i) => bytes?.[STAGE2_MEMORY_MARK.file + i] === b);
 
 /** CRC-32 of the run in Hacktribe 2.02 (`7cb4825c`); the same in every Hacktribe file, BLECH never writes there. */
 const HACKTRIBE_RUN_CRC = 0x12224d92;
@@ -74,7 +78,7 @@ export const FEATURES = {
 /** The two hooks of BLECH's SysEx commands (tools/patch/blech_sysex.py): a branch into the patch's code, which lies in 0xC0172100 to 0xC0173800. */
 const BLECH_SYSEX_HOOKS = [0xc0026a8c, 0xc0026418];
 /** The same hooks in the blue Electribe 2's firmware (data/patches/blech-sysex-synth.json). */
-const BLECH_SYSEX_HOOKS_SYNTH = [0xc002240c, 0xc0021d70];
+export const BLECH_SYSEX_HOOKS_SYNTH = [0xc002240c, 0xc0021d70];
 
 /** Whether a VSB carries BLECH's own SysEx commands: both hooks are branches into the patch's code. */
 export function hasBlechSysex(bytes, hooks = BLECH_SYSEX_HOOKS) {
@@ -116,7 +120,8 @@ export const STOCK_REASON = stockReason();
 
 /** Why a function of Hacktribe's is not offered for this build, or null when the build has it. */
 export function lackOf(build, what = "sysex", { blech = false } = {}) {
-  if (build === "stock" && what === "sysex" && blech) return null;
+  // BLECH's commands on Korg's builds, red or blue: on the blue they read and write its effect records alone.
+  if ((build === "stock" || build === "synth") && what === "sysex" && blech) return null;
   if (build === "stock") return stockReason();
   if (build === "synth") return FEATURES.synth[what] ? null : synthReason();
   return FEATURES[build]?.[what] ? null : say("vsb.unknown");

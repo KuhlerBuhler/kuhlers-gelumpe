@@ -1,7 +1,7 @@
 # Gate-Schweif: gehaltene Noten auf den Step-Pads (19.10.)
 
 Wunsch vom 17.10.: wo eine Note wirklich anfängt, leuchtet der Step voll; dahinter zeigt ein Schweif in anderer Farbe, der
-dunkler wird, wie weit die Note spielt. Gebaut und im Emulator geprüft (Hacktribe), am Gerät nicht. Nur auf den Sampler-Builds,
+dunkler wird, wie weit die Note spielt. Gebaut und im Emulator geprüft ([Hacktribe](../glossary.md#hacktribe)), am Gerät nicht. Nur auf den Sampler-Builds,
 zusammen mit den Akkorden in Pink ([Poly-Pads](2026-10-19-poly-pads-pink.md)).
 
 ## Wie lang eine Note spielt (Emulator, MIDI-Ausgang, 120 BPM, ein Step 125 ms)

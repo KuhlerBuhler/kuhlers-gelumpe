@@ -34,6 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import synth_probe as sp  # noqa: E402
+import machine  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 USER_MARK_AT = 0x220000                 # tools/emu/machine.py USER_MARK
@@ -190,7 +191,6 @@ def wave_bytes(values):
 def verify(vsb, flash, waves, table, files, seconds=14.0, voices=(324, 310, 399)):
     """Boot the firmware on the image and compare what it reads and sends: the PCM load, the tables, the DSP memory, the
     oscillators by number and, for a few, a voice. Everything it returns was measured in the emulator."""
-    import machine
     if bytes(machine.blank_flash(USER_MARK)[USER_MARK_AT:USER_MARK_AT + 16]) != flash[USER_MARK_AT:USER_MARK_AT + 16]:
         raise BankError("the user-data mark is not the one machine.blank_flash writes")
     payload = sp.load_payload(vsb)

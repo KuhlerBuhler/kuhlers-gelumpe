@@ -23,6 +23,9 @@ import update_guard as spec  # noqa: E402
 import synthaddr  # noqa: E402
 import machine  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+import synth_update_probe as sup  # noqa: E402
 
 IMAGE = 0xC0000000
 FOLDERS = ("blechtribe", "hacktribe", "electribe sampler", "electribe")
@@ -71,7 +74,6 @@ def with_reads_restored(payload, names):
 def update(payload, flash, file):
     """SOFTWARE UPDATE with `file` in every folder the builds read; returns the erases and programs, the firmware area after,
     the screen, the asserts and whether the firmware opened SYSTEM.VSB."""
-    import synth_update_probe as sup
     rig = sup.Rig(payload, flash, {f"/KORG/{f}/System/SYSTEM.VSB": file for f in FOLDERS}, None, "ug")
     sup.boot_to_main(rig)
     rig.to_software_update([])
@@ -96,7 +98,6 @@ def update(payload, flash, file):
 
 def start_flash(payload, flash):
     """The flash of a device that runs `payload`: its image in the firmware area."""
-    import synth_update_probe as sup
     if flash is None:
         flash = machine.hardware_flash("blue" if synthaddr.is_synth(payload) else "red")
     flash = bytearray(flash)
@@ -172,7 +173,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -181,7 +181,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

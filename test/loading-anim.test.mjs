@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   encodeAnimation, decodeAnimation, validateAnimation, thinAnimation, costPerFrame, pixelsToFrame, frameToPixels,
-  progressIndex, shownPicture, loopPicture, MAX_BYTES, FRAME_BYTES,
+  progressIndex, shownPicture, loopPicture, MAX_BYTES, FRAME_BYTES, animationFlags, withAnimationFlags, FLAG_NO_LOOP, FLAG_OFF, FLAG_BLECHY,
 } from "../src/loading-anim.mjs";
 
 // A block 16 columns wide and all 8 pages high, at a place that never overlaps the one before.
@@ -97,12 +97,24 @@ test("a run that writes at offset 1024 or beyond is rejected", () => {
 test("a truncated list is rejected", () => {
   const b = good();
   const cut = b.slice(0, b.length - 3);
-  new DataView(cut.buffer).setUint32(12, cut.length, true);
+  new DataView(cut.buffer).setUint16(12, cut.length, true);
   assert.match(validateAnimation(cut), /outside the file/);
   assert.equal(validateAnimation(b.slice(0, b.length - 3)), "the file is shorter than its size");
   const v = new DataView(b.buffer);
   v.setUint16(v.getUint16(10, true), b.length - 1, true);   // a list starting on the last byte
   assert.match(validateAnimation(b), /outside the file/);
+});
+
+test("byte 14 holds the flags and leaves the file valid and its pictures the same", () => {
+  const b = good();
+  assert.equal(animationFlags(b), 0);
+  for (const flags of [FLAG_NO_LOOP, FLAG_OFF, FLAG_BLECHY, 7]) {
+    const f = withAnimationFlags(b, flags);
+    assert.equal(animationFlags(f), flags);
+    assert.equal(validateAnimation(f), null);
+    assert.deepEqual(decodeAnimation(f), decodeAnimation(b));
+  }
+  assert.equal(animationFlags(b), 0);
 });
 
 test("a list table past the end is rejected", () => {

@@ -34,7 +34,7 @@ test("only feature PRs into develop or release branches select cached case check
   assert.match(workflow, /full: \$\{\{ steps\.scope\.outputs\.full \|\| steps\.push\.outputs\.full \|\| 'true' \}\}/);
   assert.match(workflow, /full: \$\{\{ needs\.ref\.outputs\.full == 'true' \}\}/);
   assert.match(read(".github/workflows/release.yml"), /full: true/);
-  assert.match(read(".github/workflows/firmware-check.yml"), /name: Develop task results\n\s+if: \$\{\{ !inputs\.full \}\}\n\s+uses: actions\/cache\/restore@v4/);
+  assert.match(read(".github/workflows/firmware-check.yml"), /name: Develop task results\n\s+if: \$\{\{ !inputs\.full \}\}\n\s+uses: actions\/cache\/restore@v6/);
 });
 
 test("the firmware matrix retains four hardware variants for each shard", () => {
@@ -65,7 +65,7 @@ test("a rerun with fewer parts selects only its own count and hardware artifacts
 test("start and editor checks occupy independent jobs with the original hardware and case coverage", () => {
   const kinds = options => firmwareMatrix(4, options).smokes.map(f => [f.name, f.kind]);
   const starts = [["hacktribe", "start"], ["red", "start"], ["blue", "start"]];
-  const full = [...starts, ["hacktribe", "editor"], ["red", "editor"]];
+  const full = [...starts, ["hacktribe", "editor"], ["red", "editor"], ["blue", "editor"]];
   assert.deepEqual(kinds(), full);
   assert.deepEqual(kinds({ full: false, cases: "" }), starts);
   assert.deepEqual(kinds({ full: false, cases: "remote_cases,menu_cases" }), starts);
@@ -112,4 +112,10 @@ test("PR and publication use one shared firmware execution with mandatory joins 
   assert.doesNotMatch(shared, /^\s+concurrency:/m);
   assert.equal([...shared.matchAll(/GELUMPE_NODE_RESULTS: \$\{\{ !inputs\.full && 'strict' \|\| '' \}\}/g)].length, 2);
   assert.doesNotMatch(shared, /path:.*(?:SYSTEM\.VSB|\/boot|\/power-on)/);
+});
+
+test("the shard join still runs when the optional DSP worker is skipped", () => {
+  const workflow = read(".github/workflows/firmware-check.yml");
+  const join = workflow.match(/\n  join:\n([\s\S]*?)\n  [a-z-]+:\n/)[1];
+  assert.match(join, /if: \$\{\{ !cancelled\(\) && needs\.shard\.result == 'success' \}\}/);
 });

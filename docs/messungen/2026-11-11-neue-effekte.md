@@ -1,9 +1,9 @@
 # Neue Katalog-Effekte für Bass, Kick, Verzerrung und Mix (11.11.)
 
 Stand 2026-11-11. 14 Insert-Effekte, 3 Master-Effekte und 4 Modulationen in `data/fx/catalog.mjs`, Beschreibung in
-[Effekt-Katalog](../effekt-katalog.md). Eingaben: Korgs rotes Original 2.02 (`1d0f0689...`) und Hacktribe 2.02 (`7cb4825c...`),
+[Effekt-Katalog](../effekt-katalog.md). Eingaben: Korgs rotes Original 2.02 (`1d0f0689...`) und [Hacktribe](../glossary.md#hacktribe) 2.02 (`7cb4825c...`),
 eigene Dateien. Markierungen: **gemessen** (ausgeführt), **hergeleitet**, **offen**. **Kein Effekt ist am Gerät gehört.**
-Der Emulator rechnet kein Audio und der DSP ist dort nur ein Stub ([MFX-DSP](2026-10-09-mfx-dsp.md)): die DSP-Last und der Klang sind
+Der [Emulator](../glossary.md#emulator) rechnet kein Audio und der [DSP](../glossary.md#dsp) ist dort nur ein Stub ([MFX-DSP](2026-10-09-mfx-dsp.md)): die DSP-Last und der Klang sind
 mit ihm nicht messbar.
 
 ## Was gebaut wird
@@ -23,7 +23,7 @@ stecken (`data/units.json`), die Modulationen sind Einträge der 72-Arten-Tabell
 | Jeder Eintrag geht durch den Türsteher der Sammeldatei | gemessen | `test/fx-v2.test.mjs`, "every catalog effect passes" |
 | Emulator, Hacktribe: Start 15 von 15, `preset_cases` 12 Prüfungen, `fx_card_cases` 22 Prüfungen, alle grün (INSERT-Regler läuft alle Plätze durch und springt zurück, jeder neue Platz hat Record und Namen, jede Wahl schickt dem DSP Übertragungen, keine Assertion; Sammeldatei lädt) | gemessen | `node tools/verify-patches.mjs --cases preset_cases,fx_card_cases <Original>`, 55 Prüfungen |
 | Dasselbe auf Korg rot | gemessen | derselbe Befehl, 55 Prüfungen |
-| Blaue Electribe | offen | der Katalog gilt nur für rot ([Katalog fest](2026-10-23-fx-katalog-fest.md)), nicht gelaufen |
+| Blaue Electribe | offen | der Katalog gilt nur für rot, nicht gelaufen |
 | Klang, Lautstärke, DSP-Last, Knacken beim Umschalten | offen | nur am Gerät |
 | Zwei Stufen aus Kompressor, EQ, Limiter und Verzerrer laufen am Gerät | offen | gemessen sind nur die Stufe-2-Bausteine mit Filter in Stufe 1 und die Werkketten Acid Drive und EQ, Filter und Filter, Filter und Acid Drive. Alle anderen Paare (Verzerrer und Limiter, EQ und Limiter, SR1 und Limiter) sind nicht gelaufen |
 

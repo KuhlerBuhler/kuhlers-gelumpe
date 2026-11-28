@@ -10,14 +10,17 @@ inputs:
   blue-head:
     description: Fingerprint after selecting the blue Hacktribe head
     default: ""
+  save-cache:
+    description: '"false" leaves out the npm cache, which would be written after the job (code that is not merged yet)'
+    default: "true"
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v7
       with:
-        node-version: 22
-        cache: npm
-    - uses: actions/setup-python@v5
+        node-version: 26
+        cache: ${{ inputs.save-cache == 'true' && 'npm' || '' }}
+    - uses: actions/setup-python@v7
       with:
         python-version: "3.12.16"
     - shell: bash

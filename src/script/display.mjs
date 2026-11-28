@@ -58,6 +58,18 @@ export class Display {
     }
   }
 
+  /** korg.display.chars: the low byte of each slot as a character, up to `count` (31 at most), the array's end or a 0. */
+  chars(slots, x, y, count) {
+    for (let i = 0, cursor = x; i < Math.min(count, slots.length, 31) && cursor < WIDTH; i++, cursor += ADVANCE) {
+      const code = slots[i] & 255;
+      if (!code) break;
+      const columns = glyph(code);
+      for (let column = 0; column < GLYPH_WIDTH; column++) {
+        for (let row = 0; row < GLYPH_HEIGHT; row++) if ((columns[column] >> row) & 1) this.pixel(cursor + column, y + row, 1);
+      }
+    }
+  }
+
   number(value, x, y) { this.text(String(value), x, y); }
 
   /** Text, then the number right after its last character (the number is cut off at the edge like any text). */
@@ -85,6 +97,26 @@ export class Display {
   rows() {
     return Array.from({ length: HEIGHT }, (_, y) => Array.from({ length: WIDTH }, (_, x) => (this.get(x, y) ? "#" : ".")).join(""));
   }
+}
+
+/** Firmware popup outline and content clipping, as a display picture for the script simulator. */
+export function popupDisplay(content, base = null) {
+  const popup = new Display();
+  if (base) popup.bytes.set(base);
+  for (let x = 1; x <= 126; x++) for (let y = 12; y <= 49; y++) popup.pixel(x, y, 0);
+  for (let x = 1; x <= 126; x++) {
+    popup.pixel(x, 13);
+    popup.pixel(x, 48);
+  }
+  for (let y = 14; y <= 47; y++) {
+    popup.pixel(1, y);
+    popup.pixel(126, y);
+  }
+  for (let x = 3; x <= 125; x += 2) popup.pixel(x, 49);
+  for (let y = 14; y <= 47; y++) {
+    for (let x = 2; x <= 125; x++) if (content.get(x, y)) popup.pixel(x, y);
+  }
+  return popup;
 }
 
 /** The screen a faulted script leaves: its name, the source line and the error name, one text row each. */

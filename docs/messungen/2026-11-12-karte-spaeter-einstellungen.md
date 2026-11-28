@@ -1,14 +1,15 @@
 # Kartentausch bringt die ganze Einstellungsdatei mit (12.11.)
 
-Stand 12.11.2026, Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Stands) und Gerät
-(Hacktribe 2.02, nur READ über BLECH SysEx). Ziel: Karte tauschen, und die Electribe hat sofort das Setup und das Aussehen dieser Karte.
+Stand 12.11.2026, [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Stands) und Gerät
+(Hacktribe 2.02, nur READ über BLECH [SysEx](../glossary.md#sysex)). Ziel: Karte tauschen, und die Electribe hat sofort das Setup und das Aussehen dieser Karte.
 Marker: **gemessen**, **offline gelesen** (Disassembly), **hergeleitet**, **offen**.
 
 ## Verhalten
 
 - Steckte beim Einschalten eine Karte, liest `menu_card_watch` nach Ziehen und Stecken die Einstellungsdatei der neuen Karte, sobald
   der Kartenkontakt 8 Frames (320 ms) in Folge eine Karte zeigt, und wendet sie an wie der Start.
-- Steckte beim Einschalten keine Karte, liest BLECH bis zum nächsten Start keine Karte. Grund: siehe [Hänger](#hänger-bei-der-ersten-karte-nach-einem-start-ohne-karte).
+- Steckte beim Einschalten keine Karte, las BLECH bis zum nächsten Start keine Karte. Grund: siehe [Hänger](#hänger-bei-der-ersten-karte-nach-einem-start-ohne-karte).
+  Seit 22.11. liest BLECH die erste gesteckte Karte wie eine getauschte: [CMD8 geht verloren](2026-11-22-karte-cmd8-verloren.md).
 
 ## Belegtabelle
 

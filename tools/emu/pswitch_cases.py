@@ -25,9 +25,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 import fat32  # noqa: E402
 import pattern_switch as spec  # noqa: E402
 import synthaddr  # noqa: E402
-from machine import UART1, load_flash  # noqa: E402
+from machine import UART0, UART1, load_flash, without_card  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import mfx_cases  # noqa: E402
+import panel_leds  # noqa: E402
+import parallel  # noqa: E402
+import unicorn  # noqa: E402
+from dsp_model import DspModel  # noqa: E402
 
 IMAGE = 0xC0000000
 PSEL_PTR, PLAYER_PTR, TRANSPORT_PTR = 0xC03487E8, 0xC034029C, 0xC03405BC
@@ -67,7 +73,6 @@ class Box:
         self.dev = Dev(self.payload, flash, held, adapter=adapter)
         self.m = self.dev.m
         if dsp:
-            from dsp_model import DspModel
             DspModel.attach(self.m)
         if card:
             self.m.insert_card(SDCard(MemoryMedium(card_image())))
@@ -174,8 +179,9 @@ class Box:
         return changed
 
     def look(self):
-        """The screen and the frame as the firmware drew it (the frame buffer: the load bar's look changes only what is sent)."""
-        return self.dev.screen()["number"], self.dev.read(VRAM, 1024)
+        """The screen and the frame as the firmware drew it (the frame buffer: the load bar's look changes only what is sent), the
+        card symbol's places left out (machine.without_card)."""
+        return self.dev.screen()["number"], without_card(self.dev.read(VRAM, 1024))
 
 
 VRAM = 0xC031B310               # the firmware's frame buffer
@@ -234,7 +240,7 @@ def case_browse(payload, flash):
     # line differs is the answer.
     differ = None
     for _ in range(10):
-        fb, theirs = box.dev.read(VRAM, 1024), ref2.dev.read(VRAM, 1024)
+        fb, theirs = without_card(box.dev.read(VRAM, 1024)), without_card(ref2.dev.read(VRAM, 1024))
         now = {i // 128 for i in range(1024) if fb[i] != theirs[i]}
         if now and now <= {6, 7}:
             differ = now
@@ -481,7 +487,6 @@ def case_off(payload, flash):
 
 def case_mfx(payload, flash):
     """With the MFX 2 patch in the copy, browsing leaves the effect alone and a pattern change brings MFX 2 for the new one."""
-    import mfx_cases
     if not mfx_cases.has_key_hook(payload):
         return []
     out = []
@@ -511,7 +516,6 @@ def case_unsaved(payload, flash):
     lower line says VIEW:, nothing is loaded, EXIT stays on the edited pattern, MENU loads the browsed one. Without changes the wheel is
     the firmware's. PLAY during such a browse plays the edited pattern (device wish 18.10.)."""
     out = []
-    import unicorn
 
     def edited(b):
         knob = 1 if b.dev.synth else 0    # a knob of the selected part: one byte of the pattern in RAM changes (the synth's knob 0 is not stored, measured)
@@ -604,7 +608,6 @@ def case_sync_group(payload, flash):
     another group only browses; between two patterns of one group the state of the pattern that played (part mutes and sound,
     tempo) carries over, changed or not, and back again; a part's sample only when it was changed live; the steps stay the new pattern's;
     into any other pattern nothing carries; a pad pressed during the load counts."""
-    import unicorn
     out = []
     live = lambda b: b.u32(0xC033E6A4) + 4
     rd = lambda b, at, n=1: bytes(b.dev.read(live(b) + at, n))
@@ -760,7 +763,6 @@ def case_sync_group(payload, flash):
 
 def case_sync_voices(payload, flash):
     """A held pad keeps its allocated voice and old sample through the load; the next press uses the new sample."""
-    import unicorn
     out = []
     for name, group, held, keep in (("different_samples", 7, 0, True), ("same_samples", 7, 0, True),
                                     ("other_group", 8, 0, False), ("group_off", 0, 0, False),
@@ -938,7 +940,6 @@ def case_sync_unsaved(payload, flash):
 def case_view(payload, flash):
     """While a pattern is browsed or confirmed (VIEW:, NEXT:) the pads and the Edit info texts show that pattern, from the pattern bank, and
     go back when the browse or the confirmation ends; the pattern in RAM and the sound stay on what plays."""
-    import re
     out = []
     CELL_W, CELL_O = 0xC0691388, 0xC069136C            # the Sampler's addresses, the device translates them for the synth
     STEP, PITCH = 0x800 + 0x30, 0x800 + 0x24
@@ -1652,7 +1653,6 @@ def fast_steps(b, steps, gap):
     """Turns the wheel `steps` clicks, one every `gap` seconds, as a fast hand does. Returns (most clicks the UI task was behind right
     after a click, ms from the last click until the chosen number is the last one, bytes sent to the panel from the first click until
     0.3 s after the last, so a redraw still in the firmware's queue counts)."""
-    from machine import UART0
     tx0, start, behind = len(b.m.uart[UART0]["tx"]), b.chosen(), 0
     for i in range(steps):
         b.turn(1, gap)
@@ -1709,7 +1709,6 @@ def case_pad_flicker(payload, flash):
     the LED changes with their device time (panel_leds.py) as the panel controller lights them and counts dark gaps up to 50 ms. Allowed:
     the firmware's own (EXIT held at power-on) and the two redraws the fix keeps, the first click at once and the one after the wheel
     stopped. Before the fix there was one per click. docs/emulator.md (LEDs)"""
-    import panel_leds
     out = []
     STEPS, GAP, KEPT = 20, 0.03, 2
     pads = set(range(0x2C, 0x4C))
@@ -1739,9 +1738,100 @@ def case_pad_flicker(payload, flash):
     return out
 
 
+def case_view_bpm(payload, flash):
+    """While a pattern is browsed (VIEW:) the status bar's BPM shows its tempo from the bank in place of the running one (Pascal's decision
+    20.11., docs/messungen/2026-11-19-vorschau-bpm.md). Back to the running tempo at once on MENU (NEXT:), EXIT, a pad, a program change
+    and STOP; a pattern of the running pattern's sync group shows the running tempo (it is carried along). The BPM is read where the
+    firmware draws it: its text routine called with x 50, y 0 (the tempo widget of the status bar)."""
+    out = []
+    BROWSED, TEMPO = 5, 1325                    # pattern 6 holds 132.5 in the bank, pattern 1 plays at 120.0
+    HW_TEMPO, TEMPO_SET, TEMPO_OBJECT = 0xC0691518, 0xC004A80C, 0xC06B2798
+
+    def boot(held=0, setting=None):
+        b = Box(payload, flash, held)
+        if setting is not None:
+            b.set_setting(setting)
+        b.pattern_bytes(BROWSED, 34, struct.pack("<H", TEMPO))
+        b.drawn = []
+        at = b.dev.a(0xC003F7D0)                # the text routine (text, x, y, ...)
+        reg = b.m.A
+
+        def text(u, *_):
+            if u.reg_read(reg.UC_ARM_REG_R1) == 50 and u.reg_read(reg.UC_ARM_REG_R2) == 0:
+                b.drawn.append(bytes(u.mem_read(u.reg_read(reg.UC_ARM_REG_R0), 8)).split(b"\0")[0].decode("latin1"))
+        b.m.uc.hook_add(unicorn.UC_HOOK_CODE, text, begin=at, end=at)
+        b.m.uc.ctl_flush_tb()
+        return b
+
+    def shown(b):
+        b.run(0.2)
+        return b.drawn[-1] if b.drawn else None
+
+    def to_browsed(b):
+        b.turn(BROWSED)
+        return shown(b)
+
+    box = boot()
+    play(box)
+    before = shown(box)
+    viewed = to_browsed(box)
+    running = box.u32(HW_TEMPO)
+    box.turn(-1)
+    back = shown(box)
+    box.turn(1)
+    again = shown(box)
+    out.append(entry("view_bpm_shows_the_browsed_tempo", before == "120.0" and viewed == "132.5" and running == 1200 and box.flags()[0] == 1
+                     and back == "120.0" and again == "132.5" and not box.m.asserts,
+                     f"playing {before}; browsed to pattern {BROWSED + 1}: {viewed} (the running tempo stays {running}); one click back to pattern "
+                     f"{BROWSED} (120.0 in the bank): {back}; forward again: {again}"))
+    box.dev.call(TEMPO_SET, TEMPO_OBJECT, 1400, 1)   # the running tempo changes meanwhile (as TAP or the knob)
+    during = shown(box)
+    box.key("menu")
+    armed = shown(box), box.flags()[1]
+    changed = box.until_change()
+    after = shown(box)
+    out.append(entry("view_bpm_gone_after_menu", during == "132.5" and armed == ("140.0", 1) and changed is not None and box.running() == BROWSED
+                     and after == "132.5" and not box.m.asserts,
+                     f"the running tempo set to 140.0 while browsing: {during}; MENU (NEXT:, confirmed {armed[1]}): {armed[0]} at once; "
+                     f"after the switch ({changed} s) the new pattern's own {after}"))
+    for name, leave in (("exit", lambda b: b.key("exit")), ("pad", lambda b: b.dev.call(PAD_SELECT, 0, 7)),
+                        ("program_change", lambda b: b.dev.call(MIDI_PROGRAM, 0, 9, 0)), ("stop", lambda b: b.key("stop", 0.6))):
+        b = boot()
+        play(b)
+        viewed = to_browsed(b)
+        leave(b)
+        left = shown(b)
+        out.append(entry(f"view_bpm_gone_after_{name}", viewed == "132.5" and left == "120.0" and b.flags()[0] == 0 and not b.m.asserts,
+                         f"browsed: {viewed}; {name}: {left}, browse {b.flags()[0]}"))
+    b = boot()
+    for n, g in ((0, 7), (BROWSED, 7)):
+        b.pattern_bytes(n, spec.GROUP_AT, struct.pack("<H", g))
+    b.m.uc.mem_write(b.u32(0xC033E6A4) + 4 + spec.GROUP_AT, struct.pack("<H", 7))
+    play(b)
+    grouped = to_browsed(b)
+    out.append(entry("view_bpm_sync_group_shows_the_running_tempo", grouped == "120.0" and b.flags()[1] == 1 and not b.m.asserts,
+                     f"pattern {BROWSED + 1} in the running pattern's sync group (confirmed at once: {b.flags()[1]}): {grouped}, the running tempo carries along"))
+    b = boot()
+    b.m.send([2, 1 if b.dev.synth else 0, 0, 200, 0])   # stopped, a knob of the selected part: unsaved changes
+    b.run(0.5)
+    dirty = b.dirty()
+    viewed = to_browsed(b)
+    b.key("exit")
+    left = shown(b)
+    out.append(entry("view_bpm_stopped_unsaved", dirty and viewed == "132.5" and b.flags()[0] == 0 and left == "120.0" and not b.m.asserts,
+                     f"stopped with unsaved changes ({dirty}), browsed: {viewed}; EXIT: {left}"))
+    for name, held, setting in (("exit_held", KILL, None), ("setting_off", 0, 0)):
+        b = boot(held, setting)
+        play(b)
+        viewed = to_browsed(b)
+        out.append(entry(f"view_bpm_{name}_is_stock", viewed == "120.0" and b.u32(spec.VIEW_W + spec.V_BPM) == 0xFFFFFFFF and not b.m.asserts,
+                         f"wheel {BROWSED} clicks: the status bar shows {viewed} as the firmware does (V_BPM {b.u32(spec.VIEW_W + spec.V_BPM):#x})"))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
           case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side, case_view_blink, case_view_back,
-          case_fast_steps, case_pad_flicker)
+          case_fast_steps, case_pad_flicker, case_view_bpm)
 
 
 def group_entries(payload, flash, i):
@@ -1752,7 +1842,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -1761,7 +1850,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

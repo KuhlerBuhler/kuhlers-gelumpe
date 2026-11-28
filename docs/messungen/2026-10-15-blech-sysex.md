@@ -1,6 +1,6 @@
 # BLECH SysEx: RAM lesen und schreiben in großen Blöcken
 
-Stand 2026-10-15. Kein Gerätezugriff, alles im Emulator gemessen (Hacktribe 2.02 und Korgs Original 2.02, beide mit
+Stand 2026-10-15. Kein Gerätezugriff, alles im Emulator gemessen ([Hacktribe](../glossary.md#hacktribe) 2.02 und Korgs Original 2.02, beide mit
 BLECH, mit dem eigenen Flash-Abbild), über die emulierte DIN-MIDI wie in [DIN-MIDI und SysEx](2026-10-09-din-sysex.md).
 Markierungen: **gemessen** (ausgeführt), **offline** (Code gelesen), **hergeleitet**, **offen**. Der Patch ist
 `data/patches/blech-sysex.json`, gebaut von `tools/patch/blech_sysex.py`, die Prüffälle stehen in
@@ -23,7 +23,7 @@ außerhalb dessen, was Korg (`0x0E`, `0x10`, `0x11`, `0x1C`, `0x21` bis `0x26`, 
 
 | Funktion | Anfrage | Antwort | Nutzdaten der Antwort |
 |---|---|---|---|
-| `0x60` INFO | nichts | `0x68` | Status, Version (1), Flags (1 lesen, 2 schreiben, 4 CRC-32, 8 FLASH READ), größter Block, CRC-32 der Schutztabelle, größter Block von FLASH READ (4096) |
+| `0x60` INFO | nichts | `0x68` | Status, Version (1), Flags (1 lesen, 2 schreiben, 4 CRC-32, 8 FLASH READ, weitere bis 0x100; 0x200 DEV MODE eingebaut, 0x400 DEV MODE an, siehe `2026-11-14-dev-mode-sperrbereiche.md`), größter Block, CRC-32 der Schutztabelle, größter Block von FLASH READ (4096) |
 | `0x61` READ | Adresse, Länge | `0x69` | Status, Adresse, Länge, CRC-32, dann die Bytes |
 | `0x62` WRITE BEGIN | Adresse, Länge, CRC-32 der Bytes | `0x6A` | Status, Adresse, Länge |
 | `0x63` WRITE DATA | die Bytes, so viele wie BEGIN sagte | `0x6B` | Status, Adresse, Länge, CRC-32 des RAM nach dem Kopieren |
@@ -63,8 +63,8 @@ der Haken zum Original weiter. Mit EXIT beim Einschalten tut keiner der beiden e
 genommen, das Gerät schweigt dazu wie Korgs Original. Kein Haken in der Startphase.
 
 Der Code (1760 Byte) liegt bei `0xC0172100`, die Tabelle bei `0xC0173800`, der Zustand bei `0xC0191000` und der Puffer
-bei `0xC0191100` bis `0xC01A0000` (61184 Byte, genug für einen Block von 32768 Byte, dessen Antwort 37 KiB packt: die
-Antwort wird von hinten im selben Puffer gepackt, ohne zweite Kopie). Das ist der freie Lauf hinter dem Code der
+ab `0xC0191100` (37632 Byte, genug für einen Block von 32768 Byte samt gepackter Antwort: die Antwort wird vorwärts im selben
+Puffer gepackt, ohne zweite Kopie, Herleitung in [Patch-Effizienz](../hintergrund/patch-effizienz.md)). Das ist der freie Lauf hinter dem Code der
 Synth-Filter, in beiden Builds `FF`. Zuerst lagen Zustand und Puffer bei `0xC0174000` bis `0xC0180000`; dort liegen
 seit den Preset-Tabellen deren Plätze für weitere Presets (`0xC0174000` bis `0xC017CC00`), also zogen Zustand und Puffer um.
 
@@ -169,7 +169,7 @@ nur die 6.
 | `0x65` FILE READ | `f_open` (nur lesen), `f_lseek`, `f_read` oder `f_close` scheitert (`file_read_back`, Sprungziel `frb_error`) | offline gelesen |
 | `0x63` WRITE DATA in eine Datei | `f_open` (auch nach dem Anlegen fehlender Ordner), `f_lseek`, `f_write`, `f_close` scheitert, weniger Bytes geschrieben als verlangt, oder das Zurücklesen scheitert (`data_file_error`) | offline gelesen |
 | `0x71` FILE COPY, `0x72` FILE DELETE, `0x73` FILE CRC | Öffnen, Lesen, Schreiben oder Löschen auf der Karte scheitert | offline gelesen |
-| alle Dateibefehle | ohne Karte, und wenn die Datei fehlt | gemessen im Emulator (`sysex:file_*`, `doom_no_card`, `doom_missing`, [Doom per USB](2026-11-11-doom-usb.md)) |
+| alle Dateibefehle | ohne Karte, und wenn die Datei fehlt | gemessen im Emulator (`sysex:file_*`, `doom_no_card`, `doom_missing`) |
 
 Was hinter einer 6 stecken kann. Die Nummern sind FatFs' `FRESULT`; 1, 4 und 5 sind in dieser Firmware gemessen bzw. im Code
 benutzt, die übrigen folgen aus derselben Reihenfolge:
@@ -182,16 +182,18 @@ benutzt, die übrigen folgen aus derselben Reihenfolge:
 | 5 | `FR_NO_PATH` | Ordner fehlt; beim ersten Schreibblock legt BLECH ihn an und versucht es einmal neu | gemessen |
 | 7 | `FR_DENIED` | Karte oder Verzeichnis voll | hergeleitet |
 | 13 | `FR_NO_FILESYSTEM` | Karte ohne FAT, z. B. nicht formatiert | hergeleitet |
-| 0x80 | `FR_CARD_NEVER` (BLECH) | Gerät ohne Karte gestartet: kein Dateibefehl fasst eine Karte an, bis zum nächsten Start (siehe unten) | gemessen im Emulator (`sysex:file_no_card`, `file_card_after_start_without_one`) |
+| 0x80 | `FR_CARD_NEVER` (BLECH) | nur ältere Stände: Gerät ohne Karte gestartet, kein Dateibefehl fasste eine Karte an bis zum nächsten Start (siehe unten) | gemessen im Emulator an älteren Ständen |
 | 0x81 | `FR_SHORT` (BLECH) | `f_write` hat weniger Bytes geschrieben als verlangt: Karte voll | offline gelesen |
 
-Nach einem Start ohne Karte steht das Kartenwort des BLECH-Menüs (`M_CARD`, `MENU_STATE + 0x1B0`) auf `CARD_NEVER`. Eine danach
-gesteckte Karte kann Korgs SD-Init hängen lassen (#518). Darum prüfen alle Dateibefehle dieses Wort vor dem Öffnen oder Löschen
-(`fs_open`, `fs_unlink` in `tools/patch/blech_sysex.py`) und antworten mit 6 und Code 0x80, ohne die Karte anzusprechen. Im
-Emulator geht nach Stecken einer Karte kein einziger Befehl an sie (`file_card_after_start_without_one`, **gemessen**). Ob der
-Hänger am Gerät genau so entsteht, ist **hergeleitet**, nicht am Gerät gemessen.
+Am Gerät nach einem DSP-Absturz gesehen (rot, 14.11.): `usbfile.py` bekam Status 6 für `SYSTEM.VSB` und `ORIGINAL.BIN`,
+obwohl beide auf der Karte lagen. Aus und wieder Ein, ohne SOFTWARE UPDATE zu starten, brachte die Karte zurück (**gemessen**).
 
-Am Gerät heißt das: bei 0x80 neu starten, mit gesteckter Karte. Bei 3 prüfen, ob die Karte eingehängt ist (BLECH READ von
+Eine nach einem Start ohne Karte gesteckte Karte lesen und schreiben die Dateibefehle wie jede andere
+(`file_card_after_start_without_one`, **gemessen** im Emulator). Ältere Stände ließen so eine Karte in Ruhe und antworteten mit 6 und
+Code 0x80, weil die erste Karte nach so einem Start Korgs SD-Init hängen lassen konnte; die Ursache und der Fix stehen in
+[CMD8 geht verloren](2026-11-22-karte-cmd8-verloren.md).
+
+Am Gerät heißt das: bei 0x80 (ältere Stände) neu starten, mit gesteckter Karte. Bei 3 prüfen, ob die Karte eingehängt ist (BLECH READ von
 `fs_type`, siehe [Init-Sperre](2026-11-14-karte-init-sperre.md)), bei 4 und 5, ob Datei und Ordner da sind.
 
 ## Die blaue Electribe 2 (Synth)

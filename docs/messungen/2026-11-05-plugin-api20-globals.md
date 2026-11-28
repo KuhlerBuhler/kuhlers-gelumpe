@@ -1,11 +1,11 @@
 # Plugin API 20: die Globals als Blätter von `korg.global`
 
-Stand 5. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
-mit dem BLECH-Satz. Fälle: `tools/emu/global_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
+**Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+mit dem [BLECH](../glossary.md#blech)-Satz. Fälle: `tools/emu/global_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
 
 ## Frage
 
-Plan Phase 6: kann ein Plugin jedes bekannte Global (die 19 Seiten von GLOBAL PARAMETERS) lesen und setzen, so dass der Wert ohne
+Kann ein [Plugin](../glossary.md#plugin) jedes bekannte Global (die 19 Seiten von GLOBAL PARAMETERS) lesen und setzen, so dass der Wert ohne
 Neustart wirkt, das Menü ihn zeigt, die Firmware ihn behält und ein ungültiger gespeicherter Wert beim Start repariert wird?
 
 ## Weg

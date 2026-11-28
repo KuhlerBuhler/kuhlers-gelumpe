@@ -25,8 +25,12 @@ sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import synth_filters as spec  # noqa: E402
-from machine import load_flash  # noqa: E402
+from machine import load_flash, without_card  # noqa: E402
 from pswitch_cases import Box  # noqa: E402
+import lifetime  # noqa: E402
+import menu_cases  # noqa: E402
+import parallel  # noqa: E402
+import unicorn  # noqa: E402
 
 IMAGE = 0xC0000000
 PATTERN_PTR = 0xC033E6A4
@@ -75,7 +79,6 @@ class FBox(Box):
 
     def __init__(self, payload, flash=None, held=0):
         super().__init__(payload, flash, held, adapter=True)
-        import unicorn
         self.names_read, self.notices = [], []
         uc = self.m.uc
         arm = self.m.A
@@ -103,7 +106,8 @@ class FBox(Box):
         return tuple(self.m.leds.get(x, 0) for x in LEDS)
 
     def frame(self):
-        return bytes(self.dev.fb())
+        """The frame, the card symbol's places left out (machine.without_card)."""
+        return without_card(self.dev.fb())
 
     def press(self, name, wait=0.4):
         """A key; returns (stored type, LEDs, frame, the names the display looked up (type numbers), the notices of the parameter change)."""
@@ -182,7 +186,6 @@ def hacktribe_entry(key, payload, ref, flash):
 def case_stock_frames(payload, flash):
     """Filter frames before the popup expires, with DISPLAY INVERT off on both paths."""
     on, off = FBox(payload, flash), FBox(payload, flash, KILL)
-    import menu_cases
     if menu_cases.has_menu(payload):
         on.m.uc.mem_write(menu_cases.STATE + menu_cases.S_INVERT, struct.pack("<I", 0))
     on.run(0.3)
@@ -275,7 +278,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -284,7 +286,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

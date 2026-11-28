@@ -1,6 +1,6 @@
-# Startbild-Editor im Menü Global (Idee 35): gebaut und im Emulator geprüft
+# Startbild-Editor im Menü Global: gebaut und im Emulator geprüft
 
-Stand 2026-10-10. **Seit dem 15.10. speichert der Editor auf die Karte statt in den Flash:** [Startbild auf der Karte](2026-10-15-startbild-karte.md); wo unten Flash `0x7F0000` steht, ist das der erste Stand. Alles im Emulator (`tools/emu/machine.py`, Unicorn 2.1.4)
+Stand 2026-10-10. Der Editor speichert in den Flash `0x7F0000` und spiegelt das Bild als `Media/splash.bmp` auf die Karte (siehe [Startbild-Editor: Hintergrund](../hintergrund/startbild-editor.md)). Alles im Emulator (`tools/emu/machine.py`, Unicorn 2.1.4)
 und offline mit Capstone. Firmware: `SYSTEM.VSB` (Basis des Emulators) und
 `SYSTEM-ringtest.VSB` (die Datei auf dem Gerät, Grundlage für die fertige
 Kopie), Flash: eigener Dump vom 9.10. **Am Gerät nichts geprüft, kein

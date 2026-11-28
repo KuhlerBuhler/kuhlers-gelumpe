@@ -12,6 +12,14 @@
 ;                 (device test 11.11.). Then every knob value of the part goes to the firmware's parameter set and FILTER, MOD and
 ;                 IFX TYPE through the part edit, as their controls pass them (sc_push_values): the load alone left the sound
 ;                 engine on the values from before (device test 15.11.). Stopped and playing.
+; STOP held       every sound ends at once, without turning AMP EG or the level down (wish on Discord, 22.11.): once STOP has been
+;                 down for SH_FRAMES frames (half a second) with the sequencer stopped, the next tick calls the firmware's own
+;                 silencing of all parts (SC_SILENCE (0): per part the level ramped to 0 and the part switched off at the DSP, which
+;                 clears its output and its insert effect, then the voices reset), the call a pattern load, a SysEx dump and the
+;                 DATA UTILITY make before they change the sound (docs/messungen/2026-11-22-stop-halten.md). The next note switches
+;                 its part on again. The STOP key's messages pass unchanged, so a short press is the firmware's STOP; a press
+;                 while playing stops first and silences after the half second. The master effect's tail stays (its state is
+;                 not the part's).
 ; Not with EXIT held at power-on. On the synth too, with its places from data/synth-map/ (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md). The firmware addresses SC_LEDMGR (LED manager:
 ; +0xB58 pad mode, +0xB60 selected part), SC_PLAYER (returns the player, +0x318 the running number), SC_PATPTR (the pattern in RAM,
 ; its file at +4), SC_BANK (the pattern bank, 0x4000 each), SC_LOAD ((pattern, source, 1): the firmware's pattern load) and
@@ -19,13 +27,21 @@
 ; sample of a part; the synth, which has no such handler, its per part setup of the pattern change) come with the build
 ; (script_hooks.py).
 .equ SC_EXIT, -0x04             ; bytes in front of MENU_STATE (behind the MX_ bytes of the menu): 1 while EXIT is held
-.equ SC_SAVE, -0x03             ; 1 to SC_WAIT: frames left for the Write window to open after EXIT + WRITE
+.equ SC_SAVE, -0x03             ; 1 to SC_WAIT: frames left for the Write window to open after EXIT + WRITE; SC_QUIET plus 1 to
+                                ; SC_WAIT: frames left after korg.pattern.write saved without the window (popups off)
 .equ SC_RESET, -0x02            ; 1 to 16: the part (plus 1) the next tick resets
 .equ SC_DIRTY, -0x01            ; 1 while the pattern in RAM differs from its place in the bank (sc_unsaved)
 .equ SC_KEY_EXIT, 0x0D
+.equ SC_KEY_STOP, 0x01
+.equ SH_STATE, KEY_HOLD+20      ; STOP held: 0 up, 1 to SH_FRAMES - 1 the frames it is down, SH_DONE silenced or given up until it
+                                ; goes up; the FF of the power-on counts as SH_DONE (the unused word of the korg.keyHold record)
+.equ SH_FRAMES, 13              ; 12 ticks of the frame hook (25 a second): half a second
+.equ SH_DONE, 0x80
 .equ SC_KEY_WRITE, 0x0E
 .equ SC_WINDOW, 18              ; the firmware's Write window (screen 0x12)
 .equ SC_WAIT, 25                ; one second
+.equ SC_QUIET, 0x80
+.equ SC_COMMAND_WRITE, 8        ; the command the Write window's WRITE posts (number, 0): the save of a pattern
 .equ SC_SEQUENCER, 4            ; pad modes where a pad is a step (0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 5 KEYBOARD, 6 CHORD,
 .equ SC_STEP_JUMP, 7            ; 9 PATTERN SET: a pad is its part)
 .equ SC_PART_AT, 0x800          ; part 0 in a pattern file
@@ -59,6 +75,14 @@ shortcut_input:
     bne sc_pass
     ldrb r1, [r4, #0x0d]
     ldrb r2, [r4, #0x0e]
+    cmp r1, #SC_KEY_STOP
+    bne sc_exit_key
+    cmp r2, #0
+    movne r2, #1
+    ldr r3, =SH_STATE
+    strb r2, [r3]
+    b sc_pass
+sc_exit_key:
     cmp r1, #SC_KEY_EXIT
     bne sc_write
     cmp r2, #0
@@ -135,6 +159,14 @@ shortcut_tick:
     beq sc_tick_done
     ldr r4, =MENU_STATE
     ldrb r0, [r4, #SC_SAVE]
+    tst r0, #SC_QUIET
+    beq sc_tick_window
+    sub r0, r0, #1
+    cmp r0, #SC_QUIET
+    movls r0, #0
+    strb r0, [r4, #SC_SAVE]
+    b sc_tick_reset
+sc_tick_window:
     sub r0, r0, #1
     cmp r0, #SC_WAIT
     bhs sc_tick_reset
@@ -203,8 +235,29 @@ sc_tick_copy:
     bl sc_push_values
 sc_tick_done:
     bl kp_tick
+    bl sh_tick
     bl sc_unsaved
     pop {r4-r6, pc}
+
+; From shortcut_tick: counts the frames STOP is down and silences every part once it was down SH_FRAMES frames, if the sequencer
+; stands then (it gives up otherwise, until STOP goes up). Clobbers r0 to r3 and r12.
+sh_tick:
+    ldr r1, =SH_STATE
+    ldrb r0, [r1]
+    sub r2, r0, #1
+    cmp r2, #SH_FRAMES-1
+    bxhs lr
+    add r0, r0, #1
+    cmp r0, #SH_FRAMES
+    movhs r0, #SH_DONE
+    strb r0, [r1]
+    bxlo lr
+    ldr r0, =HW_TRANSPORT
+    ldr r0, [r0]
+    cmp r0, #0
+    bxne lr
+    ldr r12, =SC_SILENCE
+    bx r12
 
 ; r0 = the part (0 to 15). Hands every knob value of the part in the pattern in RAM to the firmware's parameter set
 ; (HW_PARAM_SET: part + 1, the knob's id, the value, 1), the call a knob, the CUTOFF encoder and the IFX ON and MFX SEND keys
@@ -753,6 +806,77 @@ sc_un_write:
     blx r12
 sc_un_out:
     pop {r4-r7, pc}
+; korg.pattern.write (API 33): EXIT + WRITE for a plugin. On the main screen presses WRITE and lets shortcut_tick give the Write
+; window its second WRITE. With korg.display.popups off it posts what that second WRITE posts (SC_COMMAND_WRITE with the running
+; pattern, POST_COMMAND) and no window opens (decided 14.11.). -> r0 1 when the save is under way, 0 off the main screen or while a
+; save waits for its window or is a second old.
+script_pattern_write_glue:
+    push {r4, lr}
+    mov r0, #0
+    mov r1, #SHORTCUTS
+    cmp r1, #0
+    beq sc_write_glue_done
+    ldr r4, =MENU_STATE
+    ldrb r1, [r4, #SC_SAVE]
+    cmp r1, #0
+    bne sc_write_glue_done
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    beq sc_write_glue_done
+    ldr r1, [r1, #0x2c]
+    cmp r1, #1
+    bne sc_write_glue_done
+    bl popups_quiet
+    bne sc_write_glue_quiet
+    mov r1, #SC_WAIT
+    strb r1, [r4, #SC_SAVE]
+    mov r0, #SC_KEY_WRITE
+    mov r1, #1
+    ldr r12, =HW_PANEL_KEY
+    blx r12
+    mov r0, #SC_KEY_WRITE
+    mov r1, #0
+    ldr r12, =HW_PANEL_KEY
+    blx r12
+    mov r0, #1
+    b sc_write_glue_done
+sc_write_glue_quiet:
+    ldr r12, =SC_PLAYER
+    blx r12
+    ldr r1, [r0, #0x318]
+    mov r0, #0
+    cmp r1, #250
+    bhs sc_write_glue_done
+    mov r0, #SC_QUIET + SC_WAIT
+    strb r0, [r4, #SC_SAVE]
+    mov r0, #SC_COMMAND_WRITE
+    mov r2, #0
+    ldr r12, =POST_COMMAND
+    blx r12
+    mov r0, #1
+sc_write_glue_done:
+    mov r1, #ERR_OK
+    pop {r4, pc}
+; korg.part.copy(pattern, from, to) (API 33): the firmware's Copy Part of Part Util (docs/messungen/2026-10-30-vorschau-part-reinholen.md).
+; It reads +0x40 to +0x42 of its object (source pattern, source part, target part) and, on the synth, the target part in r1; from
+; the pattern in RAM when the source is the chosen number, else from the bank. UI task as the page COPY PART.
+.equ PART_COPY, 0xC00667D4
+script_part_copy_glue:
+    push {r4, lr}
+    sub sp, sp, #0x48
+    strb r0, [sp, #0x40]
+    strb r1, [sp, #0x41]
+    strb r2, [sp, #0x42]
+    mov r0, sp
+    mov r1, r2
+    ldr r12, =PART_COPY
+    blx r12
+    add sp, sp, #0x48
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4, pc}
 .align 4
 shortcut_pool:
 .pool

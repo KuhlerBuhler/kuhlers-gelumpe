@@ -1,15 +1,13 @@
 # KEY PADS fest eingebaut
 
-Stand 07.11.2026, nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau), kein Gerät. Zu
-[Idee 85](../ideen/85-keyboard-tonart.md). Vorher gab es das als Plugin Key Pads im Katalog (API 15,
-[Messung](2026-11-03-plugin-api15.md)); das Plugin ist aus dem Katalog genommen. Die Belegung der Pads unten ist der Stand
-vom 07.11.; seit dem 08.11. liegen die Töne chromatisch auf den Pads ([Messung](2026-11-08-key-pads-chromatisch.md)).
+Nur [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau), kein Gerät. Die Funktion ist im
+[BLECH](../glossary.md#blech)-Satz eingebaut (kein Plugin mehr). Die Belegung der Pads steht in der
+[chromatischen Messung](2026-11-08-key-pads-chromatisch.md), die Oktaven und das Transponieren auf Pad 13 bis 16 in
+[Oktave](2026-11-12-key-pads-oktave.md) und [Transponieren](2026-11-15-key-pads-transpose.md); der Weg vom Pad zum KEY ist unverändert.
 
 ## Was es tut
 
-KEYBOARD gehalten auf dem Hauptbildschirm, ein Pad gedrückt: der KEY des Patterns springt auf den Ton des Pads. Untere
-Reihe (Pads 9 bis 16) C D E F G A B C, obere Reihe die schwarzen Tasten darüber (Pads 2, 3, 5, 6, 7 = C#, D#, F#, G#, A#),
-Pads 1, 4 und 8 tun nichts. Das Wertefenster der Firmware zeigt "KEY" und den Ton, wie beim Drehen eines Werts.
+KEYBOARD gehalten auf dem Hauptbildschirm, ein Pad gedrückt: der KEY des Patterns springt auf den Ton des Pads. Das Wertefenster der Firmware zeigt "KEY" und den Ton, wie beim Drehen eines Werts.
 KEYBOARD kurz allein geht beim Loslassen an die Firmware und schaltet wie immer den Modus. SHIFT + KEYBOARD und alles bei
 offener App, im Menü oder auf anderen Bildschirmen bleibt bei der Firmware. BLECH > FEATURES > KEY PADS (letzte Seite)
 schaltet es aus, WRITE behält das in Bit 4 von Byte 5 der Einstellungsdatei. Vor dem Scharfschalten des Menüs (EXIT beim
@@ -46,7 +44,7 @@ Hacktribe, rot und blau:
 
 | Fall | Ergebnis | Marker |
 |---|---|---|
-| KEYBOARD gehalten, Pads 1 bis 16 nacheinander: KEY nach jedem Pad `[0,1,3,3,6,8,10,10,0,2,4,5,7,9,11,0]`, KEYBOARD geht nicht an die Firmware | wie erwartet | gemessen (Emulator) |
+| KEYBOARD gehalten, ein Pad nach dem anderen: KEY springt auf den Ton des Pads, KEYBOARD geht nicht an die Firmware | wie erwartet | gemessen (Emulator) |
 | Wertefenster nach einem Pad mit Ton: "KEY" und der Name des Tons im Bildspeicher (auch "C#", das Zeichen # gibt es in der großen Schrift) | wie erwartet | gemessen (Emulator) |
 | KEYBOARD kurz allein: geht markiert als Druck und Loslassen durch, die Firmware schaltet in KEYBOARD (Pad-Modus 5) | wie erwartet | gemessen (Emulator) |
 | SHIFT + KEYBOARD + Pad und KEY PADS OFF + KEYBOARD + Pad 13: KEY bleibt 0, die Firmware wählt still Part 13 | wie erwartet | gemessen (Emulator) |
@@ -55,7 +53,9 @@ Hacktribe, rot und blau:
 
 ## Grenzen
 
+- Korgs blaue 2.02 zeichnet ihren Hauptbildschirm etwa alle 2,4 s ganz neu. Fällt das in das Bild direkt nach der Anfrage
+  des Wertefensters, fällt das Fenster weg, der Wert ist trotzdem gesetzt (gemessen im Emulator).
+  Auf einer blauen kann das KEY-Fenster daher selten einen Pad-Druck auslassen. `shortcut_cases.py` drückt das Pad dann noch
+  einmal;
 - Ein BLECH vor dieser Version lehnt eine Einstellungsdatei mit Bit 4 in Byte 5 ab und startet mit den Vorgaben, wie bei
   den früheren Bits (hergeleitet aus `menu_load`).
-- Im Objektbaum der Plugin-API (`korg.object`) gibt es noch keinen Eintrag für KEY PADS; dafür bräuchte es eine neue
-  API-Version.

@@ -1,24 +1,22 @@
-# Samples auf der blauen Electribe 2: PCM-Wellen, Oszillator-Tabelle und ein Entwurf für BLECH
+# Samples auf der blauen Electribe 2: PCM-Wellen und Oszillator-Tabelle
 
-Stand 2026-10-15. Im Emulator und offline, kein Gerät. Eingabe: die `SYSTEM.VSB` 2.02 der blauen Electribe 2 (Synth), zum
-Vergleich Korgs Sampler-Original 2.02, und der PCM-Bereich der eigenen Flash-Sicherung des Samplers (nur als Eingabe
-für Messungen, die Firmware der blauen nimmt ihn an). Alles andere sind selbstgebaute Sinuswellen. Es liegt nichts davon
+Im [Emulator](../glossary.md#emulator) und offline, kein Gerät. Eingabe: die [`SYSTEM.VSB`](../glossary.md#vsb) 2.02 der blauen Electribe 2
+(Synth), zum Vergleich Korgs Sampler-Original 2.02, und der PCM-Bereich der eigenen Flash-Sicherung des Samplers (nur als
+Eingabe für Messungen, die Firmware der blauen nimmt ihn an). Alles andere sind selbstgebaute Sinuswellen. Es liegt nichts davon
 im Repository, nur Ergebnisse, Adressen und Aufbau. Markierungen: **gemessen** (ausgeführt, Befehl genannt),
 **offline** (Code oder Bytes gelesen), **hergeleitet**, **geschätzt**, **offen**. Die Messungen laufen mit
 `tools/emu/synth_probe.py` und sind in `tools/emu/test_synth_probe.py` festgehalten, siehe unten.
 
-Frage: Kann BLECH auf der Synth-Firmware ein Menü IMPORT SAMPLE anbieten, das eine WAV von der Karte als Oszillator
-spielbar macht, und EXPORT SAMPLE, das sie zurückschreibt, möglichst ohne den Flash zu beschreiben? Die
-[frühere Messung](2026-10-15-blaue-electribe.md) hatte das als "nicht als kleiner Patch" eingeschätzt, weil die Firmware
-keinen Sample-Pfad hat. Das stimmt für Sample-Plätze wie im Sampler. Die Synth-Firmware hat aber etwas anderes, das
-reicht: eine Tabelle von PCM-Wellen im RAM, die sie beim Start selbst aufbaut, und eine Oszillator-Tabelle, die darauf
-zeigt.
+Frage: Wie bringt [BLECH](../glossary.md#blech) auf der Synth-Firmware eine WAV von der Karte als Oszillator zum Klingen, möglichst ohne
+den Flash zu beschreiben? Die Synth-Firmware hat keinen Sample-Pfad wie der Sampler, aber das reicht: eine Tabelle von
+PCM-Wellen im RAM, die sie beim Start selbst aufbaut, und eine Oszillator-Tabelle, die darauf zeigt. Umgesetzt ist das im
+[Patch](../glossary.md#patch) `user-samples-synth` ([Eigene Samples auf der blauen](2026-11-12-blau-sample-import.md)).
 
 ## Kurzfassung
 
 1. **PCM-Wellen.** Die Bank liegt im Flash bei `0x800000` (8 MiB, komprimiert in 12-Bit-Blöcken). Beim Start liest die
    Firmware sie in zehn Stücken in ihren Arbeitspuffer (`0xC0B6BD00`), entpackt sie auf dem ARM und schreibt sie als
-   16-Bit-Wörter über den Host-Port in den DSP-Speicher ab Byteadresse `0x365AE0`, einmal, nur beim Start. Danach sieht
+   16-Bit-Wörter über den [Host-Port](../glossary.md#host-port) in den [DSP](../glossary.md#dsp)-Speicher ab Byteadresse `0x365AE0`, einmal, nur beim Start. Danach sieht
    der ARM den DSP-Speicher nie wieder an, der DSP spielt die Wellen von dort. Es ist derselbe Weg, den der Sampler für
    die Nutzersamples nimmt (Arbeitspuffer, Host-Port), mit eigenen Adressen.
 2. **Oszillator-Tabelle.** 409 Einträge zu 32 Byte im Abbild, mit Name, Gruppe und Wellen-Nummer. Wellen-Nummern ab
@@ -40,12 +38,11 @@ zeigt.
    und dem 8-MiB-Bild des Flash-Bereichs. Die Firmware schreibt es unverändert in den Flash. Aufbau der Bank, Prüfsumme
    und Block-Kodierung sind unten; eine selbstgebaute Bank aus Rohblöcken nimmt die Firmware im Emulator an und streamt
    sie bitgenau in den DSP.
-6. **WAV.** Der Synth hat einen WAV-**Schreiber** (48 kHz, 16 Bit, Stereo, 44-Byte-Kopf) und **keinen Leser**. Den Leser
-   (Kopf, `fmt `, `data`, `smpl`) müssen wir selbst schreiben; Öffnen, Lesen, Schreiben und Schließen der Datei kann
-   BLECH mit den Funktionen der Firmware.
+6. **WAV.** Der Synth hat einen WAV-**Schreiber** (48 kHz, 16 Bit, Stereo, 44-Byte-Kopf) und **keinen Leser**; Öffnen, Lesen,
+   Schreiben und Schließen der Datei geht mit den Funktionen der Firmware.
 
 **Urteil: machbar ohne Flash-Schreiben**, mit zwei Dingen, die nur am Gerät zu klären sind (spielt der DSP von einer
-Adresse hinter den Werksdaten, und die Tonhöhen-Konstante). Entwurf, Grenzen und Testplan stehen unten.
+Adresse hinter den Werksdaten, und die Tonhöhen-Konstante).
 
 ## Belegtabelle
 
@@ -96,7 +93,7 @@ Adresse hinter den Werksdaten, und die Tonhöhen-Konstante). Entwurf, Grenzen un
 | Schleife: **Anfang und Ende sind Byteabstände vom Start der Welle** (die Werksdaten haben bei einer Welle ohne Schleife Anfang gleich Ende; die Länge ist Ende plus 2). Der DSP bekommt Anfang und Länge (Ende minus Anfang); Länge 0 heißt eine Wiedergabe ohne Schleife. Bit 16 im Schalterwort eines `SMPR`-Eintrags ist bei den Werksdaten genau dann gesetzt, wenn Anfang gleich Ende | gemessen | selbstgebaute Welle mit Anfang gleich Ende und mit Schleife 200 bis 598 (`0xC8000`, `0x18E000`), Test `test_a_loop_is_sent_as_its_start_and_its_length_and_a_moved_wave_changes_only_the_start`; an der eigenen Bank Schleife 1000 bis 5000 (`0x3E8000`, `0xFA0000`); eigene Bank: 342 ohne Schleife, 69 mit |
 | Die Lage (`MSRL`, 8 Byte) hat bei den Werksdaten: größte Anschlagstärke (127), 0, die Sample-Nummer (16 Bit), das Tonhöhenwort (16 Bit), ein Wort (meist `0xFFFF`). Der Zonen-Eintrag (`MSVS`, `+0x18`) hat ein Wort, das die Firmware doppelt nimmt und als Pegel mit der Stimme malnimmt (`0x8000` ist 1,0, nach oben begrenzt) | offline | `0xC0086B18`, `0xC0086E1C` (Pegel in `+0x32`), `0xC0086FC4` |
 | **Tonhöhenwort**: 16 Bit, Einheit ein Zweihundertsechsundfünfzigstel Halbton. Die Firmware **addiert beim Laden 375** zum Wort jeder Lage (0x4800 in der Datei wird `0x4977` im RAM; 375 ist 1,4648 Halbtöne, der Abstand von 44,1 zu 48 kHz). Das Wort im RAM ist die Taste, bei der die Welle mit einem Wert je Ausgangswert spielt: bei den Werksdaten mit einer Schleife von einem Zyklus (neun Wellen) ist Wort geteilt durch 256 gleich der MIDI-Note der Schleife bei 48 kHz auf rund 0,15 Halbton | gemessen | Lage nach dem Laden mit der Datei verglichen; Schleifenlänge in Wert 48000 durch Länge in Note umgerechnet: Unterschied Wort minus Note zwischen minus 1,33 und minus 1,47 in der Datei, zwischen 0 und plus 0,13 im RAM |
-| Daraus für eine Welle mit Rate R und Wurzeltaste K: Wort = `256 * (K + 12 * log2(48000 / R))`, dieselbe Zahl, die der DSP sieht (`pitch_word` in `synth_probe.py`) | hergeleitet | aus der Zeile davor; **offen**, ob der DSP die Taste wirklich so einsetzt und ob die Tastenzählung der Firmware der MIDI-Zählung entspricht (ein Messton am Gerät klärt es, siehe Testplan) |
+| Daraus für eine Welle mit Rate R und Wurzeltaste K: Wort = `256 * (K + 12 * log2(48000 / R))`, dieselbe Zahl, die der DSP sieht (`pitch_word` in `synth_probe.py`) | hergeleitet | aus der Zeile davor; **offen**, ob der DSP die Taste wirklich so einsetzt und ob die Tastenzählung der Firmware der MIDI-Zählung entspricht (ein Messton am Gerät klärt es) |
 | Stimmenplatz: die Stimmen gehen reihum (Stimme 0, 1, 2, ...), der Parameterindex springt um `0x1A` je Stimme | gemessen | drei Pad-Drücke nacheinander |
 | **Eine Welle an anderer Adresse**: Lage-Start auf eine freie Adresse nach den Werksdaten gesetzt, die Stimme sendet dieselben vier Parameter, nur der Start (und der Stimmenplatz) ändert sich | gemessen | `boot --voice 1 --relocate` mit selbstgebauter Bank und mit der eigenen Bank (Start `0xB6AD92` wird `0x133F5C0`, `voice_params_changed` enthält nur `start`) |
 | Der Emulator zeigt nicht, ob der DSP von dort tatsächlich spielt: er hat keinen DSP-Speicher und keinen Klang | offen | `docs/emulator.md` |
@@ -110,10 +107,9 @@ Adresse hinter den Werksdaten, und die Tonhöhen-Konstante). Entwurf, Grenzen un
 | Freier Block im Abbild: `0xC01217F4` bis `0xC01FFFF0` (911.356 Byte; beim Sampler beginnt der freie Block bei `0xC013C0B0`). In einem Lauf mit Start, 60 Drehgeberschritten und Pad wurde **kein Wort** darin geschrieben (Schreib-Haken auf Block und 64-MiB-Spiegel) | gemessen | `0xC01217F4` bis `0xC01FFFF0` ist FF in der Datei; Haken `UC_HOOK_MEM_WRITE` über den Lauf |
 | RAM hinter dem Abbild: benutzt bis `0xC1780000` (Stacks), darüber in den Läufen nichts. Der Arbeitspuffer `0xC0B6BD00` bis `0xC176BE00` (12 MiB) trägt nach dem Start noch die Kopie der Bank; keine Tabelle zeigt in ihn hinein | gemessen | Seitenkarte `ram_runs` nach dem Start und nach dem Spielen; die Tabellen stehen in eigenen Arrays |
 | DSP-Speicher: die Firmware kennt keine Obergrenze (keine Konstante im Code, alle Pool-Wörter durchsucht). Frei ist, was hinter den Werksdaten liegt, wenn der DSP dort nichts Eigenes hält. Der Sampler hält seine Nutzersamples im Bereich `0x365EC0` bis `0x1C65EC0` (siehe [2026-10-14-sample-speicher-voll.md](2026-10-14-sample-speicher-voll.md)); der Anfang der Werksdaten des Synths (`0x365AE0`) liegt `0x3E0` darunter, ein Hinweis, dass die untere Reserve des DSP bei beiden Programmen gleich ist | offen, hergeleitet | `synth_probe.py boot`; Ende der Werksdaten der eigenen Bank: `0x133F5B0`, aufgerundet `0x133F5C0` |
-| Rechnet man mit derselben oberen Grenze wie im Sampler, bleiben hinter der Sampler-Bank 9.595.136 Byte (9,15 MiB, 100 s mono bei 48 kHz). Die eigene Bank des Synths ist unbekannt, die Rechnung nimmt der Entwurf zur Laufzeit aus den Tabellen | geschätzt | Grenze `0x1C65EC0` minus `0x133F5C0` |
 | FatFs ist da, mit denselben Funktionen und Signaturen wie im Sampler: `f_open` `0xC008A6B8`, `f_read` `0xC008A8CC`, `f_write` `0xC008AB10`, `f_close` `0xC008AF34`, `f_lseek` `0xC008AF5C`, `f_opendir` `0xC008B1B8`, `f_closedir` `0xC008B280`, `f_readdir` `0xC008B298`. `f_unlink` wurde mit der Signatur des Samplers nicht gefunden | gemessen | Maskensuche der Signaturen aus dem Sampler im Synth-Abbild (`firmware.sign`, `firmware.search`) |
 | Diese Funktionen laufen im Emulator **am Ende der PCM-Ladung** (Stelle `0xC00473D0`, `mov r0, r6`): Datei öffnen, 2044 Byte lesen und vergleichen, Ordner auflisten (`TEST.WAV`), mit `0x0A` anlegen, schreiben, schließen, auf der Karte wiedergefunden. Die Firmware fasst die Karte erst 4 ms später an | gemessen | `synth_probe.py fatfs VSB --synthetic` |
-| Lesegeschwindigkeit im Emulator während des Starts (am Ende der PCM-Ladung und bis zum Ende der Init-Funktion): Blöcke bis 16 KiB rund 550 KiB/s, ein einzelnes `f_read` über 32 KiB (64 Sektoren) nur 37 KiB/s (je Aufruf 0,8 s). Ursache offen, das Kartenmodell kann es sein; der Entwurf liest in Blöcken von 16 KiB. Später im Betrieb (Bildschirm-Takt läuft) schafft der Emulator 500 KiB/s auch mit 32 KiB | gemessen | `f_read` in Blöcken von 512, 4096, 8192, 16384, 32768 Byte; Kartenmodell: [virtuelle SD](../hintergrund/virtuelle-sd.md) |
+| Lesegeschwindigkeit im Emulator während des Starts (am Ende der PCM-Ladung und bis zum Ende der Init-Funktion): Blöcke bis 16 KiB rund 550 KiB/s, ein einzelnes `f_read` über 32 KiB (64 Sektoren) nur 37 KiB/s (je Aufruf 0,8 s). Ursache offen, das Kartenmodell kann es sein; der Lader liest in Blöcken von 16 KiB. Später im Betrieb (Bildschirm-Takt läuft) schafft der Emulator 500 KiB/s auch mit 32 KiB | gemessen | `f_read` in Blöcken von 512, 4096, 8192, 16384, 32768 Byte; Kartenmodell: [virtuelle SD](../hintergrund/virtuelle-sd.md) |
 | Kartenordner der Firmware: `SD:KORG/electribe/` (und `SD:KORG/electribe sampler/`), darunter `System`, `PatternSet`, `Project`, `Audio`. Ein eigener Ordner ist unabhängig davon (BLECH ruft `f_open` mit eigenem Pfad) | offline | Zeichenketten um `0xC00904B0`; der Ordner `electribe` ist nur hergeleitet geprüft ([blaue Electribe](2026-10-15-blaue-electribe.md)) |
 | EXIT beim Einschalten ist an der Stelle sichtbar, an der BLECHs Lader nachsieht: `[[Bedienfeld] + 0x18] & 0x2000` (`0xC033E8F8` ist das Bedienfeld des Synths) | gemessen | `boot --held 0x2000`, Wert am Ende der Ladung `0x2000` gegen `0x0` |
 
@@ -133,152 +129,15 @@ Adresse hinter den Werksdaten, und die Tonhöhen-Konstante). Entwurf, Grenzen un
 |---|---|---|
 | Es gibt einen WAV-Schreiber `0xC00328B8(Pfad, Daten, Anzahl Frames)`: Platz auf der Karte prüfen (Fehler 6), Kopf aufbauen (RIFF, `fmt ` mit PCM, 2 Kanäle, 48000 Hz, 192000 Byte/s, Ausrichtung 4, 16 Bit, `data`), Datei mit `0x0A` öffnen, Kopf und Daten schreiben, schließen. Es ist **immer 48 kHz, 16 Bit, Stereo** | offline | Code und Kopfvorlage bei `0xC00329EC` |
 | Die Kennungen `RIFF`, `WAVE`, `fmt ` und `data` kommen im Synth nur in diesem Schreiber vor, es gibt keinen Leser, keinen `smpl`- und keinen `korg`-Abschnitt. Im Sampler sind die Kennungen in zwei Funktionen (Schreiber und Leser), dort steht auch `korg` | offline, hergeleitet | `refs` und `ldr`-Nutzer der Konstanten in beiden Abbildern |
-| Wiederverwendbar sind `f_open`, `f_read`, `f_write`, `f_close` und der Weg zum Plattenplatz; den WAV-Leser und -Schreiber (Mono, beliebige Rate, `smpl`-Schleife) schreiben wir selbst | hergeleitet | |
+| Wiederverwendbar sind `f_open`, `f_read`, `f_write`, `f_close` und der Weg zum Plattenplatz | hergeleitet | |
 
-## Entwurf BLECH: Samples vom Kartenordner als Oszillatoren
+## Umsetzung
 
-**Ziel.** Beim Start liest BLECH eine Liste von der Karte und macht daraus Oszillatoren, nie Flash. Fehlt die Liste oder wird EXIT beim
-Einschalten gehalten, ist das Gerät genau das Original. IMPORT SAMPLE und EXPORT SAMPLE im Menü legen die Dateien an, die
-der nächste Start lädt.
-
-### Dateien auf der Karte
-
-Ordner `KORG/blechtribe/Wave/` (eigener Pfad, unabhängig vom Ordner der Firmware):
-
-- `waves.txt`: eine Zeile je Sample, UTF-8, Felder durch `|` getrennt: `Oszillator | Datei | Name | Wurzeltaste | Pegel`.
-  `Oszillator` ist die Nummer des Eintrags (1 bis 409) oder `auto` (der nächste umwidmbare Eintrag, siehe unten).
-  `Wurzeltaste` und `Pegel` sind optional (60 und volle Aussteuerung). Leere Zeilen und `#`-Zeilen gelten nicht.
-- die WAV-Dateien daneben: PCM, 16 Bit, mono oder stereo (Stereo wird zu Mono gemittelt), jede Rate von 8000 bis 96000 Hz
-  (keine Umrechnung der Rate, die Tonhöhe trägt es), Schleife aus einem `smpl`-Abschnitt (erste Vorwärts-Schleife), sonst keine.
-  24-Bit und Fließkomma werden abgelehnt (später möglich).
-
-### Ablauf beim Start
-
-1. **Haken** an der Stelle `0xC00473D0`, dem Befehl `mov r0, r6` am Ende der PCM-Ladung (Ersatz: Sprung in den freien Block,
-   dort Register retten, Lader rufen, Register zurück, `mov r0, r6`, Rücksprung nach `0xC00473D4`). Davor sind alle Tabellen
-   fertig und alle Werksdaten im DSP.
-2. `r6` ist 0 (keine gültige Bank): nichts tun. EXIT gehalten (`[[Bedienfeld]+0x18] & 0x2000`): nichts tun.
-3. `f_open("SD:KORG/blechtribe/Wave/waves.txt")`; fehlt sie, nichts tun, weiter.
-4. Freien DSP-Platz suchen: das größte `Start + Ende + 2` über alle `SMPR`-Einträge, auf 32 Byte aufgerundet; Obergrenze aus der
-   Konfiguration (Zeile `limit=` in `waves.txt`, Vorgabe die Rechnung unten, nie höher als die gemessene Grenze des Geräts).
-5. Je Zeile: WAV öffnen, Kopf lesen (Abschnitte durchlaufen), prüfen (PCM, 16 Bit, Länge, Rate); Daten in **Blöcken zu 16 KiB**
-   mit `f_read` lesen, Stereo mitteln, im 32-Byte-Raster mit `0xC00105A4` in den DSP schreiben, am Ende
-   64 Byte Nullen anhängen (Reserve für die Interpolation, hergeleitet). Eine Zeile mit Fehler wird übersprungen, die anderen
-   laden weiter.
-6. Tabellen (alles RAM): `SMPR`-Eintrag (Start, Schleife, Ende, Schalter), `MSRL`-Lage (Sample-Nummer, Tonhöhenwort, Pegel in
-   `MSVS +0x18`), neuer Instrument-Eintrag in `MSVS` und `MSPR`, vier Zähler um eins. Der Oszillator-Eintrag bekommt Name,
-   Wellen-Nummer und die Regler-Bereiche eines PCM-Eintrags (siehe Test `test_an_appended_instrument_plays_from_the_address_it_was_written_to`).
-7. Ende: eine Zeile im Kontrollblock (Zahl der geladenen und abgelehnten Samples, erster Fehler), die BLECHs Menü anzeigt.
-
-### Oszillator-Einträge
-
-- **Anhängen und umbiegen** (Vorgabe): Das Instrument wird hinter dem letzten angelegt, ein Eintrag der Oszillator-Tabelle zeigt
-  darauf. Als Eintrag kommen die elf **Zwillinge** in Frage (Liste oben), `auto` nimmt den ersten freien in Tabellenreihenfolge.
-  Damit geht kein Klang verloren, und ein Pattern, das den Eintrag benutzt, spielt ohne Karte oder bei EXIT den Zwilling.
-- **Ersetzen** (auf Wunsch, `Oszillator` ist die Nummer eines PCM-Eintrags): Start, Schleife, Ende und Tonhöhe seiner Welle
-  zeigen auf die neuen Daten im freien Teil, Name und Instrument bleiben. Das Original ist weg, solange die Zeile gilt, und
-  kommt beim nächsten Start ohne Zeile zurück. Die alte Welle im DSP bleibt unberührt.
-- **Verlängern** der Liste: später, nur wenn die elf nicht reichen (Aufwand und Stellen oben).
-
-### Grenzen
-
-- Samples: höchstens 512 minus die Zahl der Instrumente der Bank (bei der Bank des Samplers 101), bei `auto` höchstens elf (die
-  Zwillinge), und 32 je Liste (Entscheidung, damit der Start nicht ausufert).
-- DSP: Summe der aufgerundeten Längen, mindestens 64 Byte Nullen je Sample, bis zur Obergrenze. Bei einer Bank wie der des Samplers und
-  der Grenze des Samplers 9,15 MiB (**geschätzt**, 100 s Mono bei 48 kHz).
-- Zeit: im Emulator 550 KiB/s Kartenlesen (16-KiB-Blöcke), also rund 1,9 s je MiB WAV, dazu das Schreiben in den DSP
-  (**geschätzt**, weniger als das Lesen). Zwanzig Samples zu je 100 KB sind rund 4 s mehr beim Start. Am Gerät ist die Karte
-  der unbekannte Teil.
-- Name: bis 15 ASCII-Zeichen. Anzeige: wie jeder Eintrag (`[Synth] 335 NAME`).
-
-### Menüseiten
-
-BLECHs Menü (`0x2D`, [BLECH Menü](2026-10-14-blech-menue.md)) wird auf die Adressen des Synths gelegt und bekommt zwei Seiten:
-
-- **IMPORT SAMPLE**: der Ordner `Wave/` als Liste (`f_opendir`, `f_readdir`, Endung `.wav`), Wahl mit dem Drehgeber, dann Oszillator (Vorgabe
-  `auto`), Wurzeltaste und Name (aus dem Dateinamen); OK hängt die Zeile an `waves.txt` an (`f_open` mit `0x12`, anlegen wenn nötig, dann `f_lseek` ans Ende) und lädt das Sample sofort mit demselben Code wie beim Start. So hört man es ohne Neustart.
-- **EXPORT SAMPLE**: Liste der geladenen Samples, Wahl, OK liest die Daten aus dem DSP (`0xC0010148` in Blöcken, Länge und
-  Adresse stehen im `SMPR`-Eintrag) und schreibt `Wave/<Name>.wav` mit eigenem Kopf (mono, Rate aus dem Tonhöhenwort zurückgerechnet
-  oder aus der Zeile, `smpl`-Abschnitt mit der Schleife). Die Datei der Firmware (48 kHz, Stereo) passt nicht.
-- Die Firmware-Menüs bleiben unberührt, die Seiten gehören BLECH. Alternativ lässt sich eine Zeile im Datenmenü der Firmware
-  (`0xC005839C` ist die Sprungtabelle mit 33 Einträgen, Beschriftungen bei `0xC0058420`) ergänzen, das ist mehr Eingriff
-  (hergeleitet).
-
-### Risiken
-
-1. **Der DSP spielt vielleicht nicht von der gewählten Adresse** (eigene Nutzung des Speichers hinter den Werksdaten, Adressraum
-   kleiner als gedacht). Der Emulator kann es nicht zeigen. Gegenmittel: erst im Emulator-Test mit der Attrappe, am Gerät mit
-   einer Messung (unten); notfalls die Daten **in die alte Welle** schreiben (nur wenn das Sample nicht länger ist als sie),
-   das ist Speicher, den der DSP sicher als Wellenspeicher hält.
-2. **Tonhöhe**: das Wort ist am Gerät zu eichen (eine Konstante, ein Messton genügt).
-3. **Pegel und Schleife** der Werksdaten ist ein Modell aus der Bank des Samplers; die Bank der blauen hat das gleiche Format
-   (dieselbe Kennung, derselbe Lader), aber andere Zahlen. Der Entwurf liest alles aus den Tabellen zur Laufzeit.
-4. **Startzeit**: jede Sekunde mehr beim Start ist spürbar. Die Grenze der Anzahl und eine Anzeige (Fortschritt) mildern es.
-5. **Karte ohne Dateien oder Fehler**: jeder Fehler überspringt nur die Zeile, das Gerät startet normal.
-6. **Strom weg im Menü**: es wird nie in den Flash geschrieben, nur auf die Karte (`waves.txt`, WAV). Eine halbe Zeile bei Strom
-   weg wird beim nächsten Start übersprungen.
-7. **Version**: alles gilt für die 2.02 des Synths. Eine andere Fassung verschiebt jede Adresse; der Lader prüft wie die anderen
-   BLECH-Patches an Kennungen vor dem Eingriff.
-8. **Wechselwirkung mit anderen BLECH-Teilen** (Plugins, Menü): der freie Block des Synths ist größer als der des Samplers, die
-   Aufteilung muss neu gemacht werden. Keine Überschneidung mit dem Arbeitspuffer der Firmware; die Wave-Daten liegen im DSP, nicht im
-   ARM-RAM.
-
-### Was am echten blauen Gerät geprüft werden muss
-
-In dieser Reihenfolge, jeder Schritt ohne Flash-Schreiben:
-
-1. Die `SYSTEM.VSB` der blauen mit BLECH-Haken, aber ohne Liste: das Gerät startet wie das Original (Haken harmlos).
-2. Einen kleinen DSP-Schreibtest: eine selbstgebaute Welle (Sinus, 1 kHz, 16 Bit) hinter den Werksdaten ablegen, einen
-   Eintrag darauf biegen, Pad drücken: Klang? Dann an mehreren Stellen bis `0x1C65EC0` wiederholen, Klang prüfen, zusammen mit
-   Delay, Reverb und MFX (der DSP nutzt Speicher dafür).
-3. Tonhöhe: Messton bei Rate 48000 und 44100, Wurzeltaste 60 und 72, mit einem Stimmgerät. Daraus die Konstante.
-4. Lesen der Karte beim Start: Zeit mit einer 1-MiB-Datei, Blöcke zu 16 KiB gegen 4 KiB, mit und ohne EXIT.
-5. EXPORT: Daten aus dem DSP lesen und als WAV schreiben, Vergleich mit der Eingabe.
-6. Mehrere Samples, Grenze der Obergrenze, Neustart, Karte ziehen, EXIT beim Einschalten.
-7. Ein Pattern, das den Eintrag benutzt, mit und ohne Karte.
-
-### Plan B: eigene `PCM.VSB`
-
-Über das PCM Update der Firmware (Menü der blauen). Das schreibt den Flash (`0x800000` bis `0xFFFFFF`, 8 MiB) und ist nur der
-letzte Weg, weil der Flash-Verschleiß und ein Abbruch (die Bank ist dann ungültig, der Start geht ohne Klang durch)
-auf der Gegenseite stehen. Nötig: die eigene Bank der blauen (aus dem Update von Korg oder einer eigenen Sicherung),
-darin die Tabellen um die neuen Samples erweitern, den Strom neu packen (Kodierer für die Modi 0 bis 4 oder nur Rohblöcke für den Zuwachs),
-Prüfwörter und Summe neu rechnen. Der Weg über die Karte beim Start (oben) ist für das Ziel besser: kein Flash, kein Update.
-
-## Machbarkeit und Aufwand
-
-**Urteil: machbar.** Der ganze ARM-Teil (Laden der Liste, Schreiben in den DSP, Tabellen, Name, Spielen) ist im Emulator
-mit der Firmware des Synths an einer selbstgebauten Bank durchgespielt, ohne ein Byte Korg-Daten im Repository. Offen sind zwei
-Fragen an die Hardware (der Speicher des DSP hinter den Werksdaten, die Tonhöhen-Konstante).
-
-Aufwand, **geschätzt** (Arbeitstage, ein Entwickler, mit den vorhandenen BLECH-Bausteinen):
-
-| Teil | Tage |
-|---|---|
-| Lader-Haken und Kartenzugriff auf den Synth übertragen (Stellen, freier Block, EXIT, Fehlerwege), Prüffälle | 2 |
-| WAV-Leser und Listen-Leser in ARM-Assembler (Abschnitte, Mono, Stereo, `smpl`), Tests mit selbstgebauten Dateien | 3 |
-| Laden in den DSP und Tabellen, Anhängen und Umbiegen, Auswahl der Einträge, Emulator-Test | 2 |
-| Menüseiten IMPORT SAMPLE und EXPORT SAMPLE (Menü auf den Synth legen, Dateiliste, Anzeige) | 4 |
-| EXPORT: Lesen aus dem DSP, WAV-Schreiber mit `smpl`-Abschnitt | 1 bis 2 |
-| Geräteprüfung und Nacharbeit (Tonhöhe, DSP-Speicher, Zeit) | 3 bis 5 |
-| **Gesamt** | **15 bis 18 (drei bis vier Wochen)** |
-
-Ohne Menü, nur Liste von der Karte beim Start (Editor schreibt die Liste): **rund 8 bis 10 Tage**.
-
-## Entscheidungen, die ohne Rückfrage fielen
-
-1. **Anhängen statt Liste verlängern.** Die Liste hat 13 Vergleiche, zehn Zugriffe und drei Arrays je Part, das Anhängen eines
-   Instruments hat den Lader als Schreiber und vier kleine Funktionen als Leser (Auflösung, zwei Stimmenfunktionen, Prüfung). Die Liste zu verlängern bleibt offen.
-2. **Zwillinge zuerst.** Die elf Einträge, die auf dieselbe DSP-Welle zeigen, kosten keinen Klang. Eintrag per Nummer in der Liste
-   bleibt möglich, auch auf Kosten eines PCM-Eintrags.
-3. **Hook am Ende der PCM-Ladung** (`0xC00473D0`), nicht später: dort sind Tabellen und DSP fertig, die Karte geht, und das
-   Rückgabewort der Ladung sagt, ob es eine Bank gibt. Später (nach dem Bildschirm-Takt) wäre das Lesen schneller, der Start aber schon sichtbar.
-4. **Eigener Ordner** `KORG/blechtribe/Wave/` und eine Textliste, keine Datei im Format des Samplers (`e2sSample.all`): die Datei ist
-   an 1020 Plätze und `korg`-Abschnitte gebunden, der Synth hat keinen Leser dafür.
-5. **Blöcke zu 16 KiB** beim Kartenlesen (im Emulator ist ein 32-KiB-Lesen in diesem Zustand 15 mal langsamer, die Ursache ist offen).
-6. **Mono 16 Bit** zuerst, Stereo wird gemittelt, keine Umrechnung der Rate, 24 Bit abgelehnt.
-7. **Kein Flash, kein PCM Update** als Hauptweg.
-8. **Bank unbekannt = Werte aus den Tabellen lesen**, nicht aus Konstanten der Bank des Samplers.
+Der Lader von BLECH hängt am Ende der PCM-Ladung (`0xC00473D0`, `mov r0, r6`), weil dort Tabellen und DSP fertig sind, die Karte
+geht und `r6` sagt, ob es eine Bank gibt. Er hängt neue Instrumente an die Tabellen an und lenkt Einträge der Oszillator-Tabelle darauf
+um; die Liste selbst zu verlängern kostet 13 Vergleiche, zehn Zugriffe und drei Arrays je Part (Tabelle 2). Die Wellen gehen in
+Blöcken zu 16 KiB (im Emulator ist ein 32-KiB-Lesen in diesem Zustand viel langsamer, Ursache offen) von der Karte in den DSP.
+Der tatsächliche Aufbau steht in [Eigene Samples auf der blauen](2026-11-12-blau-sample-import.md).
 
 ## Das Werkzeug und die Prüfungen
 
@@ -308,5 +167,5 @@ angehängten Instrument-Eintrag, den DSP-Schreiber, EXIT am Ende der Ladung.
 - Wie ein Pattern den Oszillator speichert, und ob die Part-Arrays beim Ersetzen etwas speichern, das nicht stimmt.
 - Warum ein 32-KiB-Lesen in der Ladephase im Emulator so langsam ist (Kartenmodell oder Treiber).
 - Ob die Firmware eine Bank mit falscher Summe tatsächlich ablehnt (im Emulator nicht probiert).
-- `f_unlink` im Synth (für ein späteres Löschen von Samples).
-- Stereo-Instrumente der Bank (zwei Samples je Instrument): nicht untersucht, der Entwurf nimmt nur Mono.
+- `f_unlink` im Synth: mit der Signatur des Samplers nicht gefunden.
+- Stereo-Instrumente der Bank (zwei Samples je Instrument): nicht untersucht.

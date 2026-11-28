@@ -271,7 +271,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   async function connect() {
     autoConnect?.manualConnect();
     if (!midi.supported) {
-      say("error", t("device.state.impossible"), t("device.noMidi"));
+      say("error", t("device.state.impossible"), t(window.__GELUMPE_MOBILE ? "device.noMidiMobile" : "device.noMidi"));
       return;
     }
     let access;
@@ -310,7 +310,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   let mirroring = false;
   async function showDisplay() {
     const s = session;
-    if (!s || s.port === emulator() || !s.device?.ram || s.busy || s.reserved || document.hidden || mirroring) return;
+    // Korg's blue firmware keeps its display elsewhere (its RAM map is not measured): nothing to draw from there.
+    if (!s || s.port === emulator() || !s.device?.ram || s.device.build === "synth" || s.busy || s.reserved || document.hidden || mirroring) return;
     mirroring = true;
     try { view()?.drawBytes(await s.readDisplay()); } catch {} finally { mirroring = false; }
   }
@@ -321,7 +322,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   async function showLeds() {
     const s = session;
     if (ledsOffFor && s !== ledsOffFor) { ledsOffFor = null; ledNote.textContent = ""; }
-    if (!s || s.port === emulator() || !s.device?.ram || s.busy || s.reserved || document.hidden || lighting || s === ledsOffFor) return;
+    if (!s || s.port === emulator() || !s.device?.ram || s.device.build === "synth" || s.busy || s.reserved || document.hidden || lighting || s === ledsOffFor) return;
     lighting = true;
     try {
       view()?.drawLeds(await s.readLeds());

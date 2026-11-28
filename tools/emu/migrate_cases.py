@@ -29,6 +29,8 @@ import sampleset  # noqa: E402
 import synthaddr  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 WORK = 0xC0190100               # MG_WORK of the sampler builds
 MENU, EXIT = 0x09, 0x0D
@@ -448,7 +450,9 @@ def case_pattern(payload, flash):
     return out
 
 
-GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt, case_folders, case_pattern)
+import patterns_cases  # noqa: E402  the Patterns folder's cases run here (card folders of the runtime, patterns_cases.py)
+
+GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt, case_folders, case_pattern) + patterns_cases.GROUPS
 
 
 def group_entries(payload, flash, i):
@@ -458,7 +462,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -467,7 +470,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

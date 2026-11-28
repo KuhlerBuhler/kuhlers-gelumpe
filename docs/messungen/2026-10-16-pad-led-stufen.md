@@ -1,38 +1,13 @@
-# Pad-LEDs: nur an oder aus (am 18.10. widerlegt)
+# Pad-LEDs: Helligkeitsstufen
 
-**Korrektur 18.10.:** Am Gerät pulsiert das Plugin Pulsieren flüssig (Beobachtung des Besitzers). Es schickt jeden
-Rahmen (25 Hz) dieselbe Panel-Nachricht `00 index helligkeit` mit 0 bis 255 an die roten Pad-LEDs
-(`script_led_try_send` in `tools/patch/script_led.s`). Die Pad-LEDs kennen also Zwischenstufen. Warum der Lauf vom
-16.10. alle Werte gleich hell zeigte, ist **offen** (Vermutung, nicht geprüft: der LED-Manager der Firmware schickte
-danach seine eigenen Werte). Der Rest dieser Seite ist der Stand vom 16.10.
+Die Pad-LEDs der Electribe 2 kennen Zwischenstufen. Das Bedienteil ([Panel-Controller](../glossary.md#panel-controller)) dimmt sie per PWM; nur 32 Tasten-LEDs kennen nur an oder aus ([Panel-Controller](../hintergrund/panel-controller.md#leds)).
 
-Stand 2026-10-16. Gemessen am Gerät (Firmware 2.02 mit Hacktribe, BLECH v21), Werkzeug
-`tools/device/led_show.py` (Stub im RAM über Hacktribes Execute `0x57`, danach zurückgesetzt, kein
-Flash), angesehen und fotografiert vom Besitzer.
+## Messungen am Gerät
 
-## Was getan wurde
+- **Gemessen (18.10.):** Das Plugin Pulsieren schickt jeden Rahmen (25 Hz) dieselbe Panel-Nachricht `00 index helligkeit` mit 0 bis 255 an die roten Pad-LEDs (`script_led_try_send` in `tools/patch/script_led.s`). Am Gerät pulsiert es flüssig.
+- **Gemessen (16.10.):** Ein Probelauf (`tools/device/led_show.py`, Stub im RAM über Hacktribes Execute `0x57`, kein Flash) schickte über den LED-Setzer der Firmware `0xC0028600(objekt, index, helligkeit)` je Pad eine Nachricht mit den Werten 255, 128, 64, 40, 30, 21, 13, 6, und alle 16 Pads leuchteten gleich hell; mit 1, 2, 3, 4, 5, 8, 16, 0 waren nur Pad 8 und 16 dunkel. Warum dieser Lauf keine Stufen zeigte, ist **offen** (Vermutung, nicht geprüft: der LED-Manager der Firmware schickte danach seine eigenen Werte).
+- Der LED-Manager der Firmware schickt dieselbe Nachricht (`0xC0087578` ruft `0xC0028600`, [LED-Zustand im RAM](2026-10-14-led-zustand-ram.md)). Das Rosa des Notenassistenten kommt aus Rot und Blau zusammen.
 
-Über den LED-Setzer der Firmware `0xC0028600(objekt, index, helligkeit)` ging an jedes Pad genau eine
-Panel-Nachricht `00 index helligkeit`, die rote LED (`0x2c + 2n`) von Pad 1 bis 8 und die blaue
-(`0x2d + 2n`) von Pad 9 bis 16, alle anderen Pad-LEDs auf 0.
+## Im Emulator
 
-| Lauf | Werte Pad 1 bis 8 (rot) und 9 bis 16 (blau) | Beobachtet |
-|---|---|---|
-| 1 | 255, 128, 64, 40, 30, 21, 13, 6 | alle 16 Pads gleich hell |
-| 2 | 1, 2, 3, 4, 5, 8, 16, 0 | Pad 1 bis 7 und 9 bis 15 gleich hell, Pad 8 und 16 dunkel |
-
-## Ergebnis
-
-**Gemessen:** Eine Pad-LED kennt pro Nachricht nur an oder aus. 0 ist aus, jeder Wert ab 1 leuchtet voll.
-Der LED-Manager der Firmware schickt dieselbe Nachricht (`0xC0087578` ruft `0xC0028600`,
-[LED-Zustand im RAM](2026-10-14-led-zustand-ram.md)); ein Wert wie 21 des Notenassistenten leuchtet also
-ebenfalls voll, das Rosa kommt nur aus Rot und Blau zusammen.
-
-**Offen:** Ein älteres Foto des Besitzers zeigt Pads in mehreren Helligkeiten. Woher die kamen (schnelles
-An und Aus durch Firmware oder Werkzeug, oder ein anderer Befehl an den Chip), ist nicht geklärt. Die
-übrigen LEDs (Tasten, untere RGB-LEDs) sind hier nicht gemessen.
-
-## Folge im Emulator
-
-Das Bedienfeld der Seite (`site/app/panel.mjs`, `showLeds`) zeigt Pad-LEDs seitdem nur an oder aus,
-wie das Gerät. Die anderen LEDs zeigen weiter den Wert als Helligkeit.
+Das Bedienfeld der Seite (`site/app/panel.mjs`, `showLeds`) zeigt Pad-LEDs gestuft als Anteil von 255; nur die LEDs in `LED_ON_OFF` (`data/panel.mjs`) sind ab 1 voll an.

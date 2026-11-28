@@ -1,4 +1,5 @@
 """Macro file boundaries and the prerequisites for native integration."""
+import copy
 import struct
 import unittest
 import zlib
@@ -92,7 +93,6 @@ class MacroContractTests(unittest.TestCase):
             self.assertTrue(macro.research_errors(report))
 
     def test_research_gate_checks_each_build_and_each_limit(self):
-        import copy
         row = dict(firmware_sha256="a" * 64, asserts=[],
                    harness=dict(slice=2000, timer_irq_count=1000, timer_window_ms=1000),
                    input=dict(ordered=True, task="CsTask", origin_separated=True),
@@ -144,7 +144,6 @@ class MacroContractTests(unittest.TestCase):
         self.assertTrue(macro.research_errors(bad))
 
     def test_recorder_comparison_rejects_missing_and_ineffective_cases(self):
-        import copy
         good = recorder_evidence()
         self.assertEqual(macro.recorder_errors(good), [])
         for name in ("encoder", "knob", "mode", "menu", "part", "mute", "pattern"):

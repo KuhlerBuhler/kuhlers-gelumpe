@@ -214,15 +214,18 @@ export function plan(edit, state) {
   return planner(edit, state || {});
 }
 
-/** The record addresses of Korg's own build, as the map lists their runs (data/map/firmware.mjs, `records`). */
-export function stockRecordRuns() {
-  const stock = POINTER_TABLES.get("presets.ifx").arrays.find(a => a.build === "stock");
+/** The record addresses of Korg's own build (`build` "synth": of the blue Electribe 2), as the map lists their runs (data/map/firmware.mjs, `records`). */
+export function stockRecordRuns(build = "stock") {
+  const stock = POINTER_TABLES.get("presets.ifx").arrays.find(a => a.build === build);
   const size = BLOCKS.get("fxRecord").size;
   return stock.records.flatMap(run => Array.from({ length: run.count }, (_, i) => run.ram + i * size));
 }
 
-/** The RAM ranges the editor may write: whole records of RAM tables, and the declared sites. `build` leaves out the other build's record tables; without it the list is the union a table fixed in a patch needs. */
+/** The RAM ranges the editor may write: whole records of RAM tables, and the declared sites. `build` leaves out the other build's record tables; without it the list is the union a table fixed in a patch needs. "synth" gives the blue Electribe 2's effect records alone. */
 export function allowedRegions({ build } = {}) {
+  const size = BLOCKS.get("fxRecord").size;
+  // The blue Electribe 2 has none of the Sampler's tables and sites at these addresses: only its own effect records.
+  if (build === "synth") return stockRecordRuns("synth").map((start, i) => ({ start, end: start + size, what: `preset.stock ${i + 1}` }));
   const regions = [];
   for (const t of TABLES.values()) {
     // Only tables whose RAM writes were measured; groove templates are
@@ -252,7 +255,6 @@ export function allowedRegions({ build } = {}) {
     }
   }
   if (build !== "hacktribe") {
-    const size = BLOCKS.get("fxRecord").size;
     stockRecordRuns().forEach((start, i) => regions.push({ start, end: start + size, what: `preset.stock ${i + 1}` }));
   }
   const display = BLOCKS.get("display");

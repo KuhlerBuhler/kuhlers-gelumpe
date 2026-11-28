@@ -1,6 +1,6 @@
 # ORIG im BLECH-Menü und die später eingesteckte Karte (11.11.)
 
-Stand 11.11.2026, nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz von `release/1.4.5`),
+Stand 11.11.2026, nur [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz von `release/1.4.5`),
 am Gerät nichts geprüft. Zwei Rückmeldungen vom Gerät. Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly),
 **hergeleitet**, **offen**.
 

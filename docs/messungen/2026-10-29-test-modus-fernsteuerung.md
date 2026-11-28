@@ -1,7 +1,7 @@
 # Test-Modus und Fernbedienung aller Bedienelemente
 
-Stand 29. Oktober 2026. Gemessen im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
-mit dem BLECH-Satz. Fälle: `tools/emu/remote_cases.py`, `tools/emu/testmode_cases.py`. **Am Gerät nicht geprüft.**
+Gemessen im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+mit dem [BLECH](../glossary.md#blech)-Satz. Fälle: `tools/emu/remote_cases.py`, `tools/emu/testmode_cases.py`. **Am Gerät nicht geprüft.**
 Beschreibung für Nutzer: [Test-Modus](../test-modus.md).
 
 ## Der Weg der Nachricht
@@ -10,11 +10,13 @@ Beschreibung für Nutzer: [Test-Modus](../test-modus.md).
   an den Verteiler `0xC002837C` (blau `0xC00257E8`). **Offline** gelesen: die Schleife bei `0xC002A50C`, Literal bei `0xC002A594`.
 - Gefüllt wird die Warteschlange vom Leser des Panels mit `0xC0024AFC(queue, 8 Byte)` (blau `0xC0020424`): Typ, vier
   Datenbytes, drei ungenutzte. Beim ersten Eintrag setzt die Funktion das Ereignis, das die CsTask weckt.
-- Der Rahmenhaken der Laufzeit läuft **außerhalb eines Tasks**: die Nummer des laufenden Tasks (`0xC06A2894`) ist dort 0
-  (**gemessen**, im Leser des Panels 2). Der Aufruf für Ereignisse aus einem Task (`0xC0000F78`) antwortet dort mit -25
-  und weckt nichts (**gemessen**: zwei Nachrichten lagen in der Warteschlange, die CsTask lief nicht). Der Aufruf für den
-  Kontext außerhalb eines Tasks ist `0xC0000E9C` (blau `0xC0000CC4`, dieselben 92 Byte); damit holt die CsTask die
-  Nachricht sofort (**gemessen**).
+- Am Rahmenhaken der Laufzeit ist die IRQ-Eintrittstiefe bei `0xC06A2894` gleich 0
+  (**gemessen**, im Leser des Panels 2). Das ist keine Tasknummer. Welche Task läuft, lässt sich daraus nicht bestimmen.
+  **Hergeleitet aus beiden roten Originalen:** Der Ereignisaufruf `0xC0000F78` verlangt eine Tiefe ungleich 0 und
+  antwortet am Rahmenhaken mit -25. Er weckt dort nichts (**gemessen**: zwei Nachrichten lagen in der Warteschlange,
+  die CsTask lief nicht). Der Aufruf `0xC0000E9C` verlangt Tiefe 0 (blau `0xC0000CC4`, dieselben geprüften 92 Byte);
+  damit holt die CsTask die Nachricht sofort (**gemessen**). Die Tiefe wurde auch am
+  [IRQ-Einstieg](2026-10-08-boot-pattern-speicher.md) geprüft.
 - Die Warteschlange hat keinen Schutz gegen zwei Schreiber. Die Laufzeit kopiert deshalb mit gesperrten Interrupts und
   setzt das Ereignis danach.
 - Jedes Byte vom Panel startet die 4 Stunden von Auto Power Off neu (`0xC00282D8`, **offline**). Die Warteschlange

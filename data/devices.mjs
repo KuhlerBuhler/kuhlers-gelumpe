@@ -25,4 +25,17 @@ export default [{
     { addr: 0xc0170000, length: 256, sha256: "3d6876a0146de8576eb2395a858de1213d1b92c65b779df3a331cfd5a4584546" },
   ],
   measurements: { transport: "emulated DIN, BLECH's own commands" },
+}, {
+  version: [2, 2],
+  build: "synth",
+  label: "Electribe 2 (blau) 2.02, Korgs Original, mit BLECHTRIBE",
+  evidence: "measure:2026-10-16/blech-synth",
+  // Code of Korg's blue build that no BLECH patch touches and that the red builds have otherwise; only asked of a device that
+  // answers the search as model 0x23.
+  fingerprints: [
+    { addr: 0xc0000040, length: 64, sha256: "8d17b1133ba069a7e11ae80ccb4fadbcb918028ce4744c162474731600099330" },
+    { addr: 0xc0001000, length: 256, sha256: "823cbc23d78acfbd1ea75268dd36475df86f264cfe3c11607a835d8daa44d422" },
+    { addr: 0xc0020000, length: 256, sha256: "60482e157eef57ef2ef2cf63368a983fe2d4d301fe6c282b5008e0970eb4b6c7" },
+  ],
+  measurements: { transport: "emulated DIN, BLECH's own commands with model byte 0x23" },
 }];

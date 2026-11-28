@@ -61,6 +61,11 @@ class Encodings(unittest.TestCase):
         ("mla r2, r0, r1, r4", 0xE0224190),
         ("mlane r3, r1, r2, r4", 0x10234291),
         ("mlas r2, r0, r1, r4", 0xE0324190),
+        ("ldrh r0, [r1]", 0xE1D100B0),
+        ("strh r2, [r3, #4]", 0xE1C320B4),
+        ("ldrsh r0, [r1, #-2]", 0xE15100F2),
+        ("ldrsb r0, [r1, r2]", 0xE19100D2),
+        ("ldrhs r0, [r1, #4]", 0x25910004),   # ldr with cond HS, not a halfword
     ]
 
     def test_known_words(self):
@@ -106,7 +111,7 @@ class Encodings(unittest.TestCase):
         self.assertEqual(a.symbols["second"], 0x2000)
 
     def test_errors(self):
-        for bad in ("mov r0, #0x12345", "foo r0", "ldr r0, [r1, #4096]", "b nowhere", "ldrh r0, [r1]", "mul r1, r1, r2"):
+        for bad in ("mov r0, #0x12345", "foo r0", "ldr r0, [r1, #4096]", "b nowhere", "ldrh r0, [r1, #256]", "mul r1, r1, r2"):
             with self.assertRaises(arm.AsmError, msg=bad):
                 arm.assemble(bad)
 

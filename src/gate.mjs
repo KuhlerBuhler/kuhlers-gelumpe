@@ -64,10 +64,12 @@ export function preconditions(ctx, edit = {}) {
     const ram = ctx.device.ram ?? (ctx.device.hacktribe ? "hacktribe" : null);
     if (!pattern && !ram) out.push(reason("error", "no-hacktribe", "lint.gate.noHacktribe"));
     if (edit.kind === "exec" && !ctx.device.hacktribe && !(ctx.device.blech?.flags & BLECH.FLAG_EXEC)) out.push(reason("error", "exec-needs-hacktribe", "lint.gate.execNeedsHacktribe"));
+    // Korg's blue firmware: its RAM map is not measured, BLECH's table there opens its effect records and nothing else.
+    if (ctx.device.build === "synth" && !stockRecord(edit)) out.push(reason("error", "synth-records-only", "lint.gate.synthRecordsOnly"));
   }
   if (!pattern) {
     if (!ctx.firmware) out.push(reason("error", "no-firmware", "lint.gate.noFirmware"));
-    else if (!ctx.firmware.known && !(ctx.device?.build === "stock" && ctx.firmware.build === "stock" && (STOCK_EDITS.has(edit.kind) || stockRecord(edit)))) out.push(reason("error", "unknown-firmware", "lint.gate.unknownFirmware", { reasons: ctx.firmware.reasons.map(render).join(" ") }));
+    else if (!ctx.firmware.known && !(ctx.device?.build === "synth" && ctx.firmware.build === "synth" && stockRecord(edit)) && !(ctx.device?.build === "stock" && ctx.firmware.build === "stock" && (STOCK_EDITS.has(edit.kind) || stockRecord(edit)))) out.push(reason("error", "unknown-firmware", "lint.gate.unknownFirmware", { reasons: ctx.firmware.reasons.map(render).join(" ") }));
   }
   if (ctx.blocked) out.push(reason("error", "target-blocked", ...as(ctx.blocked)));
   if (edit.kind === "exec" && !ctx.rehearsed) {
@@ -155,11 +157,11 @@ export async function lintCheck(edit, ctx) {
   if (edit.kind !== "fxRecord") return [];
   const after = new FxRecord(edit.bytes, edit.table);
   const before = edit.before ? new FxRecord(edit.before, edit.table) : null;
-  const found = lint(after, { units: ctx.units, profile: ctx.profile });
+  const found = lint(after, { units: ctx.units, profile: ctx.profile, stage2Memory: ctx.stage2Memory });
   if (!before) return found;
   const factory = edit.slot <= FACTORY_SLOTS[edit.table] && await isOriginalSlot(before.bytes, edit.table, edit.slot);
   if (!factory) return found;
-  const had = new Set(lint(before, { units: ctx.units, profile: ctx.profile }).map(f => `${f.code}:${f.where}`));
+  const had = new Set(lint(before, { units: ctx.units, profile: ctx.profile, stage2Memory: ctx.stage2Memory }).map(f => `${f.code}:${f.where}`));
   return found.map(f => (f.severity === "error" && had.has(`${f.code}:${f.where}`)
     ? finding({ ...f, severity: "warn", baseline: true }, "lint.gate.baseline", { message: f.text })
     : f));
@@ -215,7 +217,7 @@ export async function admit(edit, steps, ctx) {
   const pre = preconditions(ctx, edit);
   if (pre.length) return { verdict: "blocked", reasons: pre, findings: [] };
 
-  const declared = allowedRegions({ build: ctx.device?.build === "stock" ? "stock" : "hacktribe" });
+  const declared = allowedRegions({ build: ctx.device?.build === "stock" || ctx.device?.build === "synth" ? ctx.device.build : "hacktribe" });
   const regions = [...regionCheck(steps, declared), ...executeCheck(steps), ...backupFirst(edit, steps), ...recordAddressCheck(edit, ctx)];
   if (regions.length) return { verdict: "blocked", reasons: regions, findings: [] };
 

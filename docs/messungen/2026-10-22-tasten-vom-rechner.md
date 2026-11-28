@@ -2,7 +2,7 @@
 
 Stand 22. Oktober 2026. Ab BLECHTRIBE 1.3.8 geht der Befehl über die Warteschlange des Panels, für alle Bedienelemente:
 [2026-10-29-test-modus-fernsteuerung.md](2026-10-29-test-modus-fernsteuerung.md). Gemessen im Emulator (`tools/emu/remote_cases.py`, `tools/device/remote_press.py --emu`) mit der
-eigenen Hacktribe-2.02-Datei und Korgs Original 2.02 (rot), jeweils mit dem BLECH-Satz. **Am Gerät nicht geprüft.**
+eigenen [Hacktribe](../glossary.md#hacktribe)-2.02-Datei und Korgs Original 2.02 (rot), jeweils mit dem [BLECH](../glossary.md#blech)-Satz. **Am Gerät nicht geprüft.**
 
 ## Was gebaut ist
 

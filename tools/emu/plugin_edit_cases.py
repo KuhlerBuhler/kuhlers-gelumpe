@@ -20,6 +20,7 @@ import node_json  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 PATTERN_PTR = 0xC033E6A4        # the pattern in RAM, its block from +4
 BANK = 0xC08B2940               # the pattern bank in RAM, 0x4000 per pattern
@@ -313,7 +314,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

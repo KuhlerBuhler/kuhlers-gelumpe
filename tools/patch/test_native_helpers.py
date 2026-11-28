@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 from tools.patch import arm, tap_motion
 from tools.patch.test_script_vm import BareMachine, contract_data, runtime_code, UNICORN_AVAILABLE
+from tools.patch.script_hooks import build
 
 if UNICORN_AVAILABLE:
     from unicorn.arm_const import *
@@ -72,7 +73,6 @@ class NativeHelpers(unittest.TestCase):
 
     def test_card_adapter_preserves_state_registers_and_stack_on_all_builds(self):
         from unicorn import UC_HOOK_MEM_WRITE
-        from tools.patch.script_hooks import build
         m = self.m
         m.uc.mem_map(0xC0000000,0x200000)
         state = m.input+0x80000

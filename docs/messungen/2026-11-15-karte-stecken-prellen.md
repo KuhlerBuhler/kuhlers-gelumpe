@@ -1,7 +1,7 @@
 # Karte im Betrieb wieder gesteckt: Lesen, solange die Karte noch rutscht (15.11.)
 
-Stand 15.11.2026. Gerät: rote Electribe, Firmware f56f4b7e (release/1.4.6 38b75dd1, Basis Hacktribe 163d1d8d), nur READ über BLECH
-SysEx (`swappoll.py` auf linux, ~/gelumpe-probe, Log `reins-loop.log`). Emulator: dieselbe Firmware. Marker: **gemessen**,
+Stand 15.11.2026. Gerät: rote Electribe, Firmware f56f4b7e (release/1.4.6 38b75dd1, Basis [Hacktribe](../glossary.md#hacktribe) 163d1d8d), nur READ über BLECH
+[SysEx](../glossary.md#sysex) (`swappoll.py` auf linux, ~/gelumpe-probe, Log `reins-loop.log`). [Emulator](../glossary.md#emulator): dieselbe Firmware. Marker: **gemessen**,
 **hergeleitet**, **offen**.
 
 ## Befund

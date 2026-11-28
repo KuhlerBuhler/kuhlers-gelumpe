@@ -31,6 +31,8 @@ import unicorn  # noqa: E402
 from tools.patch.arm import assemble  # noqa: E402
 from machine import Machine, load_flash  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import script_cases  # noqa: E402
+from tools.patch import script_hooks  # noqa: E402
 
 # ---- firmware addresses (firmware 2.02 with Hacktribe) ----
 FRAME_SITE = 0xC00836FC        # frame hook of the plugin runtime, UiTask, 25 Hz
@@ -1053,8 +1055,6 @@ def runtime(lab):
     """6. What the real plugin runtime's input filter does with TAP: a plugin sees it, the firmware gets it as well, and the only
     switch is for a whole class of messages."""
     print("\n== runtime: the existing input filter (tools/patch/script_hooks.s, not changed) with a plugin that counts keys ==")
-    import script_cases
-    from tools.patch import script_hooks
     node = subprocess.run(["node", str(Path(__file__).with_name("tap_motion_request.mjs"))], capture_output=True, text=True, timeout=60)
     if node.returncode:
         print("   node failed:", node.stderr[:300])

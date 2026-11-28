@@ -1,6 +1,6 @@
 # Häufige Fragen
 
-Stand: 28. Oktober 2026. Kurze Antworten auf Fragen, die Neue stellen. Jede Antwort sagt dazu, was
+Kurze Antworten auf Fragen, die Neue stellen. Jede Antwort sagt dazu, was
 belegt ist und was offen bleibt. Marker wie überall in den Docs: **gemessen**, **offline**,
 **hergeleitet**, **offen**.
 
@@ -13,14 +13,14 @@ schiefgeht, geben diese Docs nicht.
 - **BLECHTRIBE kommt wie ein Update von Korg**, über SOFTWARE UPDATE von der SD-Karte. Der Rückweg über denselben
   Weg ist am Gerät geübt: eine Firmware aus dem Patcher hin, das Original zurück (**gemessen**, 10. Oktober,
   [Rückweg geübt](messungen/2026-10-10-rueckweg-geuebt.md)).
-- **Das Startprogramm (Bootloader) wird nie angefasst.** Der Patcher fasst es nicht an, und der Editor sperrt
+- **Das Startprogramm ([Bootloader](glossary.md#bootloader)) wird nie angefasst.** Der Patcher fasst es nicht an, und der Editor sperrt
   den Bereich (Flash `[0, 0x20000)`, [Sperrliste](speicherbereiche.md#die-sperrliste-als-maschinenregel)).
 - **Was trotzdem passieren kann**, aus [Was kaputtgehen kann](patcher.md#was-kaputtgehen-kann):
   - Die Firmware stürzt ab oder hängt im Betrieb: Neustart.
   - Die geflashte Firmware startet nicht und das Gerät fragt nach einem Update: Korgs Original-VSB von der
     SD-Karte (laut Hacktribe-Doku, selbst nicht durchgespielt).
-  - Die Firmware hängt, bevor die Update-Abfrage kommt: nur JTAG, auch wenn niemand den Bootloader angefasst
-    hat. Dagegen helfen die Regeln (zum Beispiel: keine Patches in der Startphase) und die Prüfungen vor dem
+  - Die Firmware hängt, bevor die Update-Abfrage kommt: nur [JTAG](glossary.md#jtag), auch wenn niemand den Bootloader angefasst
+    hat. Dagegen helfen die Regeln (zum Beispiel: keine Patches in der [Startphase](glossary.md#startphase)) und die Prüfungen vor dem
     Export.
   - Das Startprogramm ist überschrieben: nur JTAG. Der Patcher fasst es nie an.
   - Hardwareschaden durch Software: kein Fall bekannt, nicht ausgeschlossen.
@@ -33,7 +33,7 @@ schiefgeht, geben diese Docs nicht.
 
 Ja. Korgs unveränderte Datei kommt wie ein normales Update zurück, die blaue mit BLECHTRIBE nimmt sie aus
 `KORG/blechtribe/System/`. Im Emulator schreibt das Update nur den Firmware-Bereich und danach ist der Flash byteweise wie vorher
-(**gemessen**, Emulator); am echten blauen Gerät ist der Weg noch **offen**. Läuft Hacktribe auf der blauen, braucht die Datei zwei
+(**gemessen**, Emulator); am echten blauen Gerät ist der Weg noch **offen**. Läuft [Hacktribe](glossary.md#hacktribe) auf der blauen, braucht die Datei zwei
 geänderte Kopf-Bytes, die Seite Blechy macht sie. Schritt für Schritt: [Zurück zu Korgs Original](original-zurueck.md).
 
 ## Die Electribe sagt "Error, No File". Was ist falsch?
@@ -72,7 +72,7 @@ Die Firmware hat eine Datei gefunden, die nicht zu ihr passt, und schreibt nicht
 - **Gar keine Electribe im Bericht:** eingeschaltet, Datenkabel statt Ladekabel, anderer USB-Anschluss
   (**hergeleitet**).
 
-Blechy liest den MIDI-Bericht selbst und sagt, welcher Fall es ist.
+[Blechy](glossary.md#blechy) liest den MIDI-Bericht selbst und sagt, welcher Fall es ist.
 
 ## Mein Pattern-Export zeigt alte Patterns, oder es kommt nichts Neues auf die Karte
 
@@ -80,16 +80,22 @@ Kein Fehler in BLECHTRIBE ([Messung](messungen/2026-10-28-pattern-export.md), **
 
 - **Erst WRITE, dann EXPORT PATTERN.** Der Export schreibt das gespeicherte Pattern, Änderungen ohne WRITE sind nicht
   in der Datei. Korgs und Hacktribes Firmware machen es genauso.
-- **Exporte liegen in `KORG/blechtribe/`.** Die Übernahme beim ersten Start kopiert den alten Ordner dorthin und lässt
-  ihn stehen. Importier nur aus `KORG/blechtribe/`.
-- **Auf der blauen** gibt es die Übernahme nicht: Exporte liegen in `KORG/blechtribe/`, die alten Patterns bleiben in
-  `KORG/electribe/`.
+- **Exporte liegen ab 1.5 in `KORG/blechtribe/Patterns/`**, EXPORT PATTERN und EXPORT ALL PATTERN. IMPORT PATTERN und
+  IMPORT ALL PATTERN öffnen dort. Die Übernahme beim ersten Start kopiert den alten Ordner nach `KORG/blechtribe/` und lässt
+  ihn stehen, ältere Exporte liegen also direkt in `KORG/blechtribe/`.
+- **Auf der blauen** liegen Exporte direkt in `KORG/blechtribe/`, ohne `Patterns/`, die alten Patterns bleiben in `KORG/electribe/`.
+  Eine Frage zur Übernahme kommt dort nur, wenn in `KORG/electribe/` eine Pattern-Sicherung liegt und in `KORG/blechtribe/` keine.
 - **Das Datum ist immer der 01.01.2014**, die Electribe hat keine Uhr. Ein Export mit demselben Namen ersetzt die Datei,
   am Rechner sieht der Ordner gleich aus.
 
-## Die volle Prüfung im Patcher wird rot
+## Die Sicherung in `Patterns/` überschreibt beim Start meine Patterns
 
-Auf dein Gerät kommt dann nichts. Vor App 1.3.7 scheitert die volle Prüfung, wenn im Emulator Patterns gespeichert
-sind (**gemessen**, `test/emulator-check-flash.test.mjs`). Mit einer älteren App: `~/.gelumpe/flash/flash.bin`
-umbenennen (unter Windows liegt `.gelumpe` im Benutzerordner) und die Prüfung neu starten, oder die App aktualisieren.
-Bleibt sie rot, schick `~/.gelumpe/emu.log` mit.
+So gewollt (ab 1.5, rot und Hacktribe). Liegt `KORG/blechtribe/Patterns/electribe_sampler_allpattern.e2sallpat` auf der
+Karte, lädt jeder Start sie: jedes Pattern der Datei, das anders ist als im Gerät, wird in den Flash geschrieben, gleiche
+bleiben unberührt. Die Ladeanimation zählt das mit. Nur diese eine Datei, andere Namen lädt der Start nicht, auch keine
+Globals (das macht nur IMPORT ALL PATTERN von Hand).
+
+- **Was du am Gerät mit WRITE speicherst, ohne danach EXPORT ALL PATTERN, ist beim nächsten Start wieder der Stand der
+  Datei.** Also nach dem Speichern exportieren, oder die Datei umbenennen oder löschen.
+- **Start ohne die Datei**: EXIT beim Einschalten halten lädt nichts, oder Karte ohne die Datei stecken.
+- Eine Datei mit weniger Patterns ändert nur ihre eigenen, kaputte Patterns (ohne Anfangs- oder Endmarke) lässt der Start aus.

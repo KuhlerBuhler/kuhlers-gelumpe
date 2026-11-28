@@ -1,6 +1,6 @@
 # Karte steckt, aber "No Card.": die Init-Sperre in Korgs SD-Treiber (14.11.)
 
-Stand 14.11.2026. Gerät: rote Electribe mit Hacktribe 2.02 + BLECH (Firmware ffc395bd), nur READ über BLECH SysEx. Emulator: Hacktribe 2.02,
+Stand 14.11.2026. Gerät: rote Electribe mit [Hacktribe](../glossary.md#hacktribe) 2.02 + BLECH (Firmware ffc395bd), nur READ über BLECH [SysEx](../glossary.md#sysex). [Emulator](../glossary.md#emulator): Hacktribe 2.02,
 Korgs Original 2.02 rot und blau. Marker: **gemessen**, **offline gelesen** (Disassembly), **hergeleitet**, **offen**.
 
 ## Befund
@@ -23,11 +23,11 @@ Die Karte war im Betrieb zum Mac gezogen und wieder gesteckt worden. Danach zeig
 - Ist das Sperrwort nach dem Lesen gesetzt, merkt sich `M_CARD` (`CARD_WAIT`) den OS-Tick 2 s später. Dann liest der Wächter die Karte
   ein zweites Mal, wieder mit gelöschter Sperre. Die Wartezeit läuft in OS-Ticks (1 ms), nicht in Frames: die Frames, die das gesperrte
   Lesen aufgehalten hat, laufen direkt danach nach (Emulator: 50 Frames in 0,1 s).
-- Sperrt auch das zweite Lesen, geht `M_CARD` auf `CARD_STUCK`: kein weiterer Versuch, bis die Karte gezogen wird. Jeder Versuch hält den
+- Sperrt auch das zweite Lesen, geht `M_CARD` auf `CARD_STUCK`: kein weiterer Versuch, bis die Karte gezogen wird. Seit 22.11. zeigt das Kartensymbol dann einen Strich (`card_stroke`). Jeder Versuch hält den
   UI-Task, solange Korgs Schleife läuft (im Emulator ~6,5 s), darum nur einer.
 - Steckt beim Start eine Karte und die Sperre ist schon gesetzt (die Karte war beim Einschalten noch busy, Blechy zeigt den Kartenfehler),
   startet `M_CARD` auf `CARD_WAIT`: 2 s nach dem Start liest der Wächter die Karte noch einmal, wie oben.
-- `CARD_NEVER` (Start ohne Karte, #518) bleibt unverändert: keine Karte, kein Versuch bis zum nächsten Start.
+- `CARD_NEVER` (Start ohne Karte, #518) bleibt unverändert: keine Karte, kein Versuch bis zum nächsten Start. Seit 22.11. entfernt, die erste gesteckte Karte wird gelesen ([2026-11-22-karte-cmd8-verloren.md](2026-11-22-karte-cmd8-verloren.md)).
 
 | Behauptung | Beleg | Marker |
 |---|---|---|

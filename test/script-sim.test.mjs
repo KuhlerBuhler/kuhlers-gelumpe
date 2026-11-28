@@ -53,6 +53,79 @@ test("the display clips at its edges, never wraps, and has the layout of the dev
   assert.deepEqual([d.get(10, 10), d.get(11, 11), d.get(13, 13)], [1, 0, 1]);
 });
 
+test("background popups use absolute drawing, clip to the firmware frame and close on timeout or EXIT", () => {
+  const timed = new SimDevice();
+  const source = `korg.onEvent("ready", () => {
+    korg.display.popup.begin();
+    korg.display.pixel(2, 14, 1);
+    korg.display.pixel(125, 47, 1);
+    korg.display.pixel(127, 63, 1);
+    korg.display.popup.timeout(80);
+    korg.display.popup.show();
+  });`;
+  assert.ok(timed.load(build("timed-popup", source)).ok);
+  timed.frame();
+  const pixel = (bytes, x, y) => (bytes[(y >> 3) * WIDTH + x] >> (y & 7)) & 1;
+  assert.deepEqual([
+    pixel(timed.shown, 2, 14), pixel(timed.shown, 125, 47),
+    pixel(timed.shown, 1, 14), pixel(timed.shown, 126, 14),
+    pixel(timed.shown, 127, 63), pixel(timed.shown, 30, 13),
+  ], [1, 1, 1, 1, 0, 1]);
+  timed.run(1);
+  assert.equal(timed.shown.reduce((sum, byte) => sum + byte, 0), 0, "the per-popup timeout hides it");
+
+  let now = 0;
+  const defaulted = new SimDevice({ now: () => now });
+  assert.ok(defaulted.load(build("default-popup", `korg.onEvent("ready", () => {
+    korg.display.popup.begin();
+    korg.display.pixel(20, 20, 1);
+    korg.display.popup.show();
+  });`)).ok);
+  defaulted.frame();
+  assert.ok(defaulted.shown.some(byte => byte), "the default popup is visible before two seconds");
+  now = 1999;
+  assert.ok(defaulted.shown.some(byte => byte));
+  now = 2000;
+  assert.equal(defaulted.shown.reduce((sum, byte) => sum + byte, 0), 0, "the default timeout is two seconds");
+
+  const held = new SimDevice();
+  const indefinite = `korg.onEvent("ready", () => {
+    korg.display.popup.begin();
+    korg.display.text("EXIT", 8, 24);
+    korg.display.popup.timeout(0);
+    korg.display.popup.show();
+  });`;
+  assert.ok(held.load(build("held-popup", indefinite)).ok);
+  held.frame();
+  held.run(100);
+  assert.ok(held.shown.some(byte => byte), "zero disables automatic dismissal");
+  held.post("buttonPress", korgKey("EXIT"));
+  assert.equal(held.shown.reduce((sum, byte) => sum + byte, 0), 0, "EXIT closes the popup immediately");
+});
+
+test("a later background plugin replaces the shared popup; an app cannot show one", () => {
+  const device = new SimDevice();
+  const popup = x => `korg.onEvent("ready", () => {
+    korg.display.popup.begin();
+    korg.display.pixel(${x}, 20, 1);
+    korg.display.popup.timeout(0);
+    korg.display.popup.show();
+  });`;
+  assert.ok(device.load(build("first-popup", popup(20))).ok);
+  assert.ok(device.load(build("second-popup", popup(30))).ok);
+  device.frame();
+  const pixel = (x, y) => (device.shown[(y >> 3) * WIDTH + x] >> (y & 7)) & 1;
+  assert.deepEqual([pixel(20, 20), pixel(30, 20)], [0, 1], "the second popup replaces the first");
+
+  const app = build("popup-app", `korg.app("Popup", "TOOLS");
+    korg.onEvent("open", () => { korg.display.popup.begin(); korg.display.popup.show(); });`);
+  assert.ok(device.load(app).ok);
+  device.frame();
+  assert.ok(device.openApp(0));
+  device.frame();
+  assert.equal(device.popupVisible, null, "an app is rejected and never gets a plugin popup");
+});
+
 test("Klicker, an app, counts TAP on its screen and blinks the TAP LED", () => {
   const device = new SimDevice();
   assert.ok(device.load(klickerBlock()).ok);
@@ -488,6 +561,19 @@ test("korg.keyHold refuses EXIT, korg.touchLockX is state in the simulated hardw
   sim.post("buttonPress", 5);
   const faults = sim.run(1);
   assert.equal(faults[0]?.name, "API_ARG");
+});
+
+test("korg.touchLockY is state in the simulated hardware, apart from the X lock", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("locky", `
+    korg.onEvent("ready", () => { korg.touchLockY(100); });
+    korg.onEvent("touch", (x, y) => { if (y > 900) korg.touchLockY(-1); });
+  `)).ok);
+  sim.frame();
+  assert.deepEqual([sim.hardware.touchLockY, sim.hardware.touchLock], [100, -1]);
+  sim.post("touch", 300, 1000);
+  sim.frame();
+  assert.equal(sim.hardware.touchLockY, -1, "the plugin gets the real Y and lets go");
 });
 
 test("korg.seq.setPatternValue writes a value of the pattern that plays, clamped and stored as it is read", () => {
