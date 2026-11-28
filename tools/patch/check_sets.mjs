@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { sha256, buildOf } from "../../src/firmware.mjs";
 import { applyPatches, selectFor } from "../../src/patch.mjs";
 import { loadBlechSet, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
-import { FREE_RUNS, SYNTH_FREE_RUNS } from "../../data/patch-ram.mjs";
+import { freeRunsOf } from "../../data/patch-ram.mjs";
 import { ensureRuntimePatches } from "./ensure-runtime.mjs";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
@@ -99,7 +99,7 @@ function requiredGroups(patches, build) {
     "sample-errors": "sample_error_cases", "synth-filters": "synth_filter_cases", "power-off": "power_off_cases", "blech-sysex": "sysex_cases", "preset-tables": "preset_cases",
     "last-pattern": "last_pattern_cases", "init-pattern": "init_pattern_cases", "doom-loader": "doom_loader_cases",
     "stereo-pad": "stereo_pad_cases", "tube-curve": "tube_cases", "ht-osc": "ht_osc_cases", "touch-scale-zero": "touch_scale_zero_cases", "import-slots": "import_slots_cases",
-    "value-popup": "value_popup_cases",
+    "value-popup": "value_popup_cases", "grooves-scales": "grooves_scales_cases",
     "update-guard": "update_guard_cases" };
   const groups = ["bootmap", "dsp_cases", ...patches.map(p => byId[p.id]).filter(Boolean)];
   if (patches.some(p => p.id === "script-runtime")) groups.push("shortcut_cases");
@@ -160,8 +160,8 @@ export async function runSets(inputFile, output) {
       writeFileSync(base, original); writeFileSync(patched, result.bytes);
       const metadata = { inputSha256: await sha256(original), outputSha256: await sha256(result.bytes), original: baseName, patched: patchedName,
         set: set.id, patches: selected.patches.map(p => p.id), allow: result.allow, allowCode: result.allowCode,
-        spans: result.spans, footprint: footprint(original, result.spans, selected.patches, build === "synth" ? SYNTH_FREE_RUNS : FREE_RUNS),
-        freeRuns: build === "synth" ? SYNTH_FREE_RUNS : FREE_RUNS, requiredGroups: requiredGroups(selected.patches, build) };
+        spans: result.spans, footprint: footprint(original, result.spans, selected.patches, freeRunsOf(build)),
+        freeRuns: freeRunsOf(build), requiredGroups: requiredGroups(selected.patches, build) };
       summary.builds[build] = metadata;
       writeFileSync(join(output, "sets.json"), JSON.stringify(summary, null, 2) + "\n");
       console.log(`${build}: ${metadata.patches.length} patches; full check.py`);

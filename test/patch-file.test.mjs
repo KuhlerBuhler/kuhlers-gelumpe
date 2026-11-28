@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { applyPatches, toHex } from "../src/patch.mjs";
+import { applyPatches, buildsOf, toHex } from "../src/patch.mjs";
 import { PATCH_FILE_HEADER, applyPatchFile, patchesFor, buildPatchFile, fingerprint, isPatchFile, parsePatchFile, userDataRanges } from "../src/patchfile.mjs";
 import { TABLES, POINTER_TABLES } from "../src/map/index.mjs";
 import { CODE, COPY_FROM, COPY_TO, fixture } from "./support/patch-set.mjs";
@@ -105,6 +105,8 @@ test("the user data ranges are the writable tables and fields, and no patch of t
   const patches = read("data/patches/blech.json").patches.map(read);
   const pointerArrays = [...POINTER_TABLES.values()].flatMap(t => t.arrays.map(a => a.ram - 0xc0000000 + 0x100));
   for (const p of patches) {
+    // The ranges are Hacktribe's tables; a patch only for Korg's own firmware writes where Korg's image is free.
+    if (!buildsOf(p).includes("hacktribe")) continue;
     for (const c of p.changes ?? []) {
       if (c.field !== undefined) continue;
       assert.deepEqual(hit(c.file, c.bytes ? c.bytes.length / 2 : c.copy.length), [], `${p.id} writes at 0x${c.file.toString(16)}`);

@@ -21,16 +21,16 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "sample_category_cases", "synth_filter_cases", "sysex_cases", "swap_cases", "blackfin_swap_cases", "last_pattern_cases",
-  "init_pattern_cases", "stereo_pad_cases", "tube_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "value_popup_cases", "import_slots_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases", "dev_mode_cases", "lang_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "tube_cases", "ht_osc_cases", "grooves_scales_cases", "beat_eighth_cases", "touch_scale_zero_cases", "value_popup_cases", "import_slots_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases", "dev_mode_cases", "lang_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
 const MENU_USERS = ["menu_cases", "update_guard_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
-  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "tube_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases", "dev_mode_cases", "import_slots_cases", "lang_cases", "sample_category_cases", "sysex_cases", "ifx_idle_cases", "synth_filter_cases",
+  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "tube_cases", "beat_eighth_cases", "ht_osc_cases", "grooves_scales_cases", "card_error_cases", "dev_mode_cases", "import_slots_cases", "lang_cases", "sample_category_cases", "sysex_cases", "ifx_idle_cases", "synth_filter_cases",
   "tap_motion_cases", "user_samples_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
   "synth_filter_cases", "beat_eighth_cases", "menu_cases", "remote_cases", "value_popup_cases"];
-const MFX_USERS = [...new Set(["mfx_cases", "preset_cases", "stereo_pad_cases", "tube_cases", "touch_scale_zero_cases", "ht_osc_cases", "sample_category_cases",
+const MFX_USERS = [...new Set(["mfx_cases", "preset_cases", "stereo_pad_cases", "tube_cases", "touch_scale_zero_cases", "ht_osc_cases", "grooves_scales_cases", "sample_category_cases",
   ...PSWITCH_USERS, ...MENU_USERS])];
 
 /** [pattern, modules or ALL], first match wins. Patterns are anchored; `[^/]*` stays inside one folder. */
@@ -127,6 +127,7 @@ export const TABLE = [
   [/^tools\/patch\/stereo_pad\.py$|^data\/patches\/stereo-pad[^/]*\.json$/, ["stereo_pad_cases"]],
   [/^tools\/patch\/tube_curve\.py$|^tools\/dsp\/tube_model\.py$|^data\/patches\/tube-curve[^/]*\.json$/, ["tube_cases"]],
   [/^tools\/patch\/ht_osc\.py$|^data\/patches\/ht-osc[^/]*\.json$/, ["ht_osc_cases"]],
+  [/^tools\/patch\/grooves_scales\.py$|^data\/patches\/grooves-scales[^/]*\.json$/, ["grooves_scales_cases"]],
   [/^tools\/patch\/beat_eighth\.py$|^data\/patches\/beat-eighth[^/]*\.json$/, ["beat_eighth_cases"]],
   [/^tools\/patch\/touch_scale_zero\.py$|^data\/patches\/touch-scale-zero[^/]*\.json$/, ["touch_scale_zero_cases"]],
   [/^tools\/patch\/value_popup\.py$|^data\/patches\/value-popup[^/]*\.json$|^data\/synth-map\/value-popup\.json$/, ["value_popup_cases"]],
