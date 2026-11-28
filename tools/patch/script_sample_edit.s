@@ -6,10 +6,12 @@
 .equ SE_RESUME, 0xC0691280    ; byte: 1 makes screen 38 open on SE_PAGE, as after RENAME; 0 makes it start over
 .equ SE_NAMES, 0xC047B08C     ; the name table, 32 bytes a slot: +0x10 the category (0 to 17), +0x12 the wave number (u16)
 .equ SE_CATEGORIES, 18        ; the categories the firmware has texts for (se_cat_texts)
-.equ SE_LEVEL, 8               ; our pages behind PLAY LEVEL (SE_PAGE SE_LEVEL), before DELETE SAMPLE (SE_DELETE): ONE SHOT, DECLICK
-.equ SE_DELETE, 9              ; and TURN MONO for a stereo sample (se_tail)
-.equ SE_DECLICK, 2             ; the page DECLICK of level 9
-.equ SE_MONO, 3                ; the page TURN MONO of level 9
+.equ SE_LEVEL, 8               ; our pages behind PLAY LEVEL (SE_PAGE SE_LEVEL), before DELETE SAMPLE (SE_DELETE): ONE SHOT, REVERSE,
+.equ SE_DELETE, 9              ; DECLICK and TURN MONO for a stereo sample (se_tail)
+.equ SE_REVERSE, 2             ; the page REVERSE of level 9
+.equ SE_DECLICK, 3             ; the page DECLICK of level 9
+.equ SE_MONO, 4                ; the page TURN MONO of level 9
+.equ SE_SNAP15, 0xC0345A61     ; byte 15 of the play table in the firmware's snapshot of SAMPLE EDIT (0xC0345A2C, esli layout: +0x35)
 .equ SE_META, 0xC036AD88       ; the firmware's metadata, 0x45C a physical index: +0 DSP byte offset, +4 PCM bytes, +9 stereo, +11 loaded
 .equ SE_PLAY, 0xC0362EE8       ; its play table, 16 bytes a physical index: +0 DSP start, +4 loop and +8 end from the start, in bytes
 .equ SE_FREE, 0xC00F9C80       ; its DSP allocation pointer; only the last physical sample gives space back (docs/hintergrund/sample-swap.md)
@@ -132,13 +134,13 @@ se_stereo:
     cmpeq r2, #1
     movne r0, #0
     pop {r4, pc}
-; -> r0 = our pages behind PLAY LEVEL: 2 (ONE SHOT, DECLICK), 3 with TURN MONO for a stereo sample. Clobbers r1 to r3, r12.
+; -> r0 = our pages behind PLAY LEVEL: 3 (ONE SHOT, REVERSE, DECLICK), 4 with TURN MONO for a stereo sample. Clobbers r1 to r3, r12.
 se_tail:
     push {r4, lr}
     bl se_stereo
     cmp r0, #0
-    movne r0, #3
-    moveq r0, #2
+    movne r0, #4
+    moveq r0, #3
     pop {r4, pc}
 ; the same on level 9: TURN MONO stays a page while it shows that it converted, until EDIT or EXIT leaves it
 se_tail_menu:
@@ -147,7 +149,7 @@ se_tail_menu:
     cmp r1, #SE_MONO
     ldreq r1, [r0, #M_STATUS]
     cmpeq r1, #SE_DONE
-    moveq r0, #3
+    moveq r0, #4
     bxeq lr
     b se_tail
 ; -> r0 = the play table row (SE_PLAY) of SAMPLE EDIT's sample when the slot holds a loaded sample, else 0; r1 = its physical
@@ -272,6 +274,8 @@ menu_text_se:
     beq menu_text_se_mono
     cmp r0, #SE_DECLICK
     beq menu_text_se_declick
+    cmp r0, #SE_REVERSE
+    beq menu_text_se_reverse
     cmp r0, #0
     bne menu_text_se_oneshot
     add r0, r5, #M_TITLE
@@ -320,6 +324,21 @@ menu_text_se_declick:
     ldreq r1, =str_off
     ldrne r1, =str_on
     b menu_text_se_put
+; REVERSE: ON when bit 1 of the play table's byte 15 is set (esli byte 53): the sample's PCM lies reversed in the DSP and on the card
+; after EXPORT ALL SAMPLE; "---" as on CATEGORY
+menu_text_se_reverse:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_ue_reverse
+    bl menu_copy
+    bl se_row
+    ldr r1, =str_se_none
+    cmp r0, #0
+    beq menu_text_se_put
+    ldrb r0, [r0, #15]
+    tst r0, #2
+    ldreq r1, =str_off
+    ldrne r1, =str_on
+    b menu_text_se_put
 ; TURN MONO (only for a stereo sample, se_tail): "Stereo", after ENTER "Are You Sure ?", after the second ENTER "Mono"; while the
 ; sequencer runs ENTER only says "stop PLAY"
 menu_text_se_mono:
@@ -349,6 +368,8 @@ menu_value_se:
     beq menu_value_done
     cmp r0, #SE_DECLICK
     beq menu_value_se_declick
+    cmp r0, #SE_REVERSE
+    beq menu_value_se_reverse
     cmp r0, #0
     bne menu_value_se_oneshot
     bl se_slot
@@ -433,6 +454,28 @@ menu_value_se_declick:
     movne r0, r7
     blne dc_update
     pop {r7, r8}
+    b menu_value_done
+; REVERSE, the dial: up ON, down OFF. A change turns the sample's PCM round in the DSP at once (se_reverse); it stays without
+; WRITE, as TURN MONO's change does. Not while the firmware's SAMPLE EDIT is busy.
+menu_value_se_reverse:
+    bl se_row
+    cmp r0, #0
+    beq menu_value_done
+    ldrb r2, [r0, #15]
+    and r2, r2, #2
+    cmp r5, #0
+    movgt r3, #2
+    movle r3, #0
+    cmp r2, r3
+    beq menu_value_done
+    ldr r2, =SE_BUSY
+    ldrb r2, [r2]
+    cmp r2, #0
+    bne menu_value_done
+    ldr r2, =MENU_STATE
+    mov r3, #0
+    str r3, [r2, #M_STATUS]
+    bl se_reverse
     b menu_value_done
 ; level 9, a key (r6, menu_slot_keys): WRITE on ONE SHOT and DECLICK does what WRITE does on SAMPLE EDIT's own pages (0xC006F094 on screens
 ; 37 to 39): it posts the firmware's command 0x25, which keeps the points; EXIT without it gives the old ones back. Not while the
@@ -571,6 +614,154 @@ se_mono_points:
     mov r0, #1
 se_mono_out:
     pop {r4, r5, r6, r7, r8, r9, r10, pc}
+.pool
+; REVERSE: SAMPLE EDIT's sample turns round in the DSP's memory, frame by frame (a stereo frame keeps L before R), and bit 1 of its
+; play table byte 15 flips: set means the PCM lies reversed. The points stay as they are, as on the blue: they now play the reversed
+; PCM, the loop runs through it backwards to the original. Twice gives the sample back bit for bit. Pairs of SE_CHUNK blocks from
+; both ends swap (each read, turned round, written to the other end), the rest in the middle turns round in place; reads and writes
+; go through the firmware's own DSP transfers and its work buffer, as TURN MONO's. The firmware's snapshot of SAMPLE EDIT gets the
+; same bit, so EXIT without WRITE does not set the bit back over reversed PCM; DECLICK's entry of the sample is dropped, it is
+; computed again on the new PCM. The card gets the reversed PCM and the bit with EXPORT ALL SAMPLE (Korg copies byte 15 through);
+; the blue reads only bit 0 of that byte and plays the PCM as it lies.
+; r0 = the play table row, r1 = the physical index (se_row). Clobbers r0 to r3, r12.
+se_reverse:
+    push {r4, r5, r6, r7, r8, r9, r10, r11, lr}
+    mov r4, r0
+    mov r5, r1
+    ldr r2, =0x45C
+    ldr r3, =SE_META
+    mla r6, r2, r5, r3
+    ldrb r0, [r6, #9]
+    cmp r0, #1
+    moveq r9, #4                    ; the frame's bytes: stereo 4, mono 2
+    movne r9, #2
+    ldr r7, [r6]                    ; the DSP byte offset
+    ldr r8, [r6, #4]
+    sub r0, r9, #1
+    bic r8, r8, r0                  ; the PCM's end, whole frames
+    sub sp, sp, #8
+    mov r0, sp
+    bl 0xC00369F0                   ; -> the work buffer
+    add sp, sp, #8
+    mov r10, r0
+    mov r11, #0                     ; r11 the low end, r8 the high end, in bytes from the offset
+se_rev_pair:
+    sub r0, r8, r11
+    cmp r0, #SE_CHUNK*2
+    bls se_rev_middle
+    mov r0, r10                     ; the block at the low end
+    add r1, r7, r11
+    mov r2, #SE_CHUNK
+    bl se_rev_read
+    add r0, r10, #SE_CHUNK          ; the block at the high end
+    add r1, r7, r8
+    sub r1, r1, #SE_CHUNK
+    mov r2, #SE_CHUNK
+    bl se_rev_read
+    add r0, r10, #SE_CHUNK
+    add r1, r7, r11
+    mov r2, #SE_CHUNK
+    bl se_rev_write
+    mov r0, r10
+    add r1, r7, r8
+    sub r1, r1, #SE_CHUNK
+    mov r2, #SE_CHUNK
+    bl se_rev_write
+    add r11, r11, #SE_CHUNK
+    sub r8, r8, #SE_CHUNK
+    b se_rev_pair
+se_rev_middle:
+    subs r2, r8, r11
+    beq se_rev_done
+    mov r0, r10
+    add r1, r7, r11
+    bl se_rev_read
+    mov r0, r10
+    add r1, r7, r11
+    sub r2, r8, r11
+    bl se_rev_write
+se_rev_done:
+    bl 0xC0036A08                   ; the work buffer back
+    ldrb r0, [r4, #15]
+    eor r0, r0, #2
+    strb r0, [r4, #15]
+    ldr r1, =SE_SNAP15
+    ldrb r2, [r1]
+    bic r2, r2, #2
+    and r0, r0, #2
+    orr r2, r2, r0
+    strb r2, [r1]
+    ldr r0, =DC_ENTRIES
+    mov r1, #DC_COUNT
+    mvn r2, #0
+se_rev_declick:
+    ldr r3, [r0]
+    cmp r3, r5
+    streq r2, [r0]
+    add r0, r0, #32
+    subs r1, r1, #1
+    bne se_rev_declick
+    pop {r4, r5, r6, r7, r8, r9, r10, r11, pc}
+; r0 = the buffer, r1 = a DSP byte address, r2 = bytes (whole frames, r9 the frame's bytes): read in SE_CHUNK steps, then the frames
+; turned round in the buffer. Clobbers r0 to r3, r12.
+se_rev_read:
+    push {r4, r5, r6, lr}
+    mov r4, r0
+    mov r5, r1
+    mov r6, r2
+    mov r12, #0
+se_rev_read_step:
+    subs r2, r6, r12
+    beq se_rev_turn
+    cmp r2, #SE_CHUNK
+    movhi r2, #SE_CHUNK
+    push {r2, r12}
+    add r0, r4, r12
+    add r1, r5, r12
+    mov r2, r2, lsr #1
+    bl 0xC004EDDC                   ; (buffer, DSP byte address, words)
+    pop {r2, r12}
+    add r12, r12, r2
+    b se_rev_read_step
+se_rev_turn:
+    mov r0, r4
+    add r1, r4, r6
+    sub r1, r1, r9
+se_rev_swap:
+    cmp r0, r1
+    pophs {r4, r5, r6, pc}
+    cmp r9, #4
+    ldreq r2, [r0]
+    ldreq r3, [r1]
+    streq r3, [r0]
+    streq r2, [r1]
+    ldrhne r2, [r0]
+    ldrhne r3, [r1]
+    strhne r3, [r0]
+    strhne r2, [r1]
+    add r0, r0, r9
+    sub r1, r1, r9
+    b se_rev_swap
+; r0 = the buffer, r1 = a DSP byte address, r2 = bytes: written in SE_CHUNK steps. Clobbers r0 to r3, r12.
+se_rev_write:
+    push {r4, r5, r6, lr}
+    mov r4, r0
+    mov r5, r1
+    mov r6, r2
+    mov r12, #0
+se_rev_write_step:
+    subs r2, r6, r12
+    popeq {r4, r5, r6, pc}
+    cmp r2, #SE_CHUNK
+    movhi r2, #SE_CHUNK
+    push {r2, r12}
+    add r0, r4, r12
+    add r1, r5, r12
+    mov r2, r2, lsr #1
+    bl 0xC004EF28                   ; (buffer, DSP byte address, words)
+    pop {r2, r12}
+    add r12, r12, r2
+    b se_rev_write_step
 .pool
 ; DECLICK: a sample with bit 0 of its play table byte 15 set plays from START POINT, LOOP START and END POINT moved to the nearest
 ; frame where all its channels cross zero within DC_WIN frames either side; where they share no crossing there, to the frame

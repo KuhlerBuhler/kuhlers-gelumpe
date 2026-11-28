@@ -10,8 +10,9 @@ writes it; the dial sets
 the category byte of the sample's name entry, stops at 0 and 17 and shows the firmware's own texts; EXPORT ALL SAMPLE writes the
 category into e2sSample.all; a factory slot with a sample from the card has the page as well; without any sample the page shows
 "---" and the dial changes nothing; EXIT goes back to the entry screen (37); with EXIT held at power-on SAMPLE EDIT is Korg's 10
-pages. A stereo sample also gets TURN MONO behind PLAY LEVEL (12 of 13): after "Are You Sure ?" it is mixed in the DSP's
-memory to (L + R) / 2 with the points on the same frame (case_turn_mono, with the DSP model). DECLICK sits behind ONE SHOT: a
+pages. A stereo sample also gets TURN MONO behind PLAY LEVEL (14 of 15): after "Are You Sure ?" it is mixed in the DSP's
+memory to (L + R) / 2 with the points on the same frame (case_turn_mono, with the DSP model). REVERSE sits behind ONE SHOT: it
+turns the PCM round in the DSP, the points stay (case_reverse, with the DSP model). DECLICK sits behind REVERSE: a
 note of a sample with it starts, loops and ends on the nearest common zero crossing within 128 frames, else on the quietest
 frame, while the stored points stay (case_declick, with the DSP model, against a reference in Python). The synth has no SAMPLE
 EDIT and no hooks for it.
@@ -206,19 +207,19 @@ def case_page(payload, flash):
     start = e.key("edit_next")
     back = e.key("edit_prev")
     rename_again = (e.key("edit_prev"), e.key("edit_next"))
-    walk = [e.key("edit_next")[1] for _ in range(10)]
+    walk = [e.key("edit_next")[1] for _ in range(11)]
     last = e.shown()
     wrap = e.key("edit_next")
     out = e.key("exit")
     again = e.key("menu")
-    ok_counter = (first[:2] == (PAGES_SCREEN, (1, 13)) and rename[:2] == (PAGES_SCREEN, (2, 13)) and category[1] == (3, 13)
-                  and start[:2] == (PAGES_SCREEN, (4, 13)) and back[1] == (3, 13) and rename_again[0][:2] == (PAGES_SCREEN, (2, 13)))
+    ok_counter = (first[:2] == (PAGES_SCREEN, (1, 14)) and rename[:2] == (PAGES_SCREEN, (2, 14)) and category[1] == (3, 14)
+                  and start[:2] == (PAGES_SCREEN, (4, 14)) and back[1] == (3, 14) and rename_again[0][:2] == (PAGES_SCREEN, (2, 14)))
     ok_menu = category[0] == MENU and category[2][0] == "CATEGORY" and back[0] == MENU and rename_again[1][0] == MENU
-    ok_walk = walk == [(4, 13), (5, 13), (6, 13), (7, 13), (8, 13), (9, 13), (10, 13), (11, 13), (12, 13), (13, 13)] and last[1] == (13, 13)
+    ok_walk = walk == [(i, 14) for i in range(4, 15)] and last[1] == (14, 14)
     return [entry("counter_and_steps", ok_counter and ok_menu and not e.asserts(),
                   dict(first=first, rename=rename, category=category, start=start, back=back, rename_again=rename_again)),
-            entry("pages_4_to_13", ok_walk and wrap[:2] == (PAGES_SCREEN, (1, 13)) and not e.asserts(), dict(walk=walk, last=last, wrap=wrap)),
-            entry("exit_to_entry", out[0] == ENTRY and again[:2] == (PAGES_SCREEN, (1, 13)) and not e.asserts(), dict(exit=out, again=again))]
+            entry("pages_4_to_14", ok_walk and wrap[:2] == (PAGES_SCREEN, (1, 14)) and not e.asserts(), dict(walk=walk, last=last, wrap=wrap)),
+            entry("exit_to_entry", out[0] == ENTRY and again[:2] == (PAGES_SCREEN, (1, 14)) and not e.asserts(), dict(exit=out, again=again))]
 
 
 def case_wheel(payload, flash):
@@ -265,8 +266,8 @@ def case_sliced(payload, flash):
     loop = (e.key("edit_next"), e.page())
     back = e.key("edit_prev")
     back2 = (e.key("edit_prev"), e.page())
-    ok = (sliced_now and rename[1] == (2, 13) and category[0] == MENU and category[1] == (3, 13) and loop[1] == 5
-          and loop[0][:2] == (PAGES_SCREEN, (7, 13)) and back[0] == MENU and back2[1] == 1 and back2[0][1] == (2, 13))
+    ok = (sliced_now and rename[1] == (2, 14) and category[0] == MENU and category[1] == (3, 14) and loop[1] == 5
+          and loop[0][:2] == (PAGES_SCREEN, (7, 14)) and back[0] == MENU and back2[1] == 1 and back2[0][1] == (2, 14))
     return [entry("sliced_skips_to_loop_start", ok and not e.asserts(), dict(sliced=sliced_now, rename=rename, category=category, loop=loop, back=back, back2=back2))]
 
 
@@ -281,6 +282,7 @@ def case_one_shot(payload, flash):
     before = (e.points(), e.gate())
     delete = e.key("edit_prev")
     declick = e.key("edit_prev")
+    reverse = e.key("edit_prev")
     page = e.key("edit_prev")
     level = e.key("edit_prev")
     again = e.key("edit_next")
@@ -299,9 +301,10 @@ def case_one_shot(payload, flash):
     written = struct.unpack_from("<II", data, at + LOOP_AT) + (data[at + ONE_SHOT_AT],) if at else None
     start, end = before[0][0], before[0][1]
     ok_before = before[0][2] < end and before[0][3:] == (0, 0) and before[1] == [1, 0]
-    ok_ring = (delete[1] == (13, 13) and declick[:3] == (MENU, (12, 13), ("DECLICK", "OFF"))
-               and page[:3] == (MENU, (11, 13), ("ONE SHOT", "OFF")) and level[:2] == (PAGES_SCREEN, (10, 13))
-               and again[:2] == (MENU, (11, 13)) and nxt[:2] == (MENU, (12, 13)))
+    ok_ring = (delete[1] == (14, 14) and declick[:3] == (MENU, (13, 14), ("DECLICK", "OFF"))
+               and reverse[:3] == (MENU, (12, 14), ("REVERSE", "OFF"))
+               and page[:3] == (MENU, (11, 14), ("ONE SHOT", "OFF")) and level[:2] == (PAGES_SCREEN, (10, 14))
+               and again[:2] == (MENU, (11, 14)) and nxt[:2] == (MENU, (12, 14)))
     ok_on = on[0] == "ON" and on[1][:3] == (start, end, end) and on[1][3:] == (1, 1) and on[2] == [1]
     ok_kept = kept[0] == "ON" and kept[1] == on[1]
     ok_off = off[0] == "OFF" and off[1][2] == start and off[1][3:] == (0, 0)
@@ -309,6 +312,7 @@ def case_one_shot(payload, flash):
     ok_written = written is not None and written[0] == written[1] == 2 * end and written[2] != 0
     g = Edit(payload, flash)
     g.box.set_sample(USER)
+    g.key("edit_prev")
     g.key("edit_prev")
     g.key("edit_prev")
     shown_on = g.key("edit_prev")
@@ -324,6 +328,7 @@ def case_one_shot(payload, flash):
     g.key("edit_prev")
     g.key("edit_prev")
     g.key("edit_prev")
+    g.key("edit_prev")
     g.dev.m.uc.mem_write(g.dev.u32(MODEL) + 0x3FC, struct.pack("<I", 0))
     g.dev.run(0.3)
     plays = g.dev.read(PLAY, 1000 * 16)
@@ -331,7 +336,7 @@ def case_one_shot(payload, flash):
     guard = value == "---" and g.shown()[2] == ("ONE SHOT", "---") and g.dev.read(PLAY, 1000 * 16) == plays
     ok_left = (shown_on[2] == ("ONE SHOT", "ON") and left[0] not in (ENTRY, PAGES_SCREEN, MENU) and left[1][2] == left[1][0]
                and left[1][3:] == (0, 0) and left[2] == [1, 0])
-    return [entry("one_shot_page_in_the_ring", ok_ring and not e.asserts(), dict(delete=delete, declick=declick, page=page, level=level, again=again, next=nxt)),
+    return [entry("one_shot_page_in_the_ring", ok_ring and not e.asserts(), dict(delete=delete, declick=declick, reverse=reverse, page=page, level=level, again=again, next=nxt)),
             entry("one_shot_on_off", ok_before and ok_on and ok_kept and ok_off and not e.asserts(), dict(before=before, on=on, kept=kept, off=off)),
             entry("one_shot_write_keeps_exit_drops", ok_write and ok_written and not e.asserts(),
                   dict(write=write, exit=out, after=after, written=written, end=end)),
@@ -359,7 +364,7 @@ def case_turn_mono(payload, flash):
     the second ENTER mixes the sample in the DSP's memory to (L+R)/2 rounded down (two blocks of the firmware's DSP read), the
     points stay on the same frame, the metadata says mono with half the bytes and the allocation pointer of the last sample
     moves back. EXIT without WRITE keeps it (the snapshot is taken again), EXPORT ALL SAMPLE writes a mono file. While the
-    sequencer runs ENTER only says "stop PLAY". A mono sample has no TURN MONO (case_one_shot counts 13 pages)."""
+    sequencer runs ENTER only says "stop PLAY". A mono sample has no TURN MONO (case_one_shot counts 14 pages)."""
     frames = 20000                # 80000 bytes: one full block of 0x10000 and a part one
     data, left, right = stereo_bank(frames)
     e = Edit(payload, flash, data=data, dsp=True)
@@ -400,12 +405,12 @@ def case_turn_mono(payload, flash):
     dat = written.index(b"data", riff) if written else 0
     pcm = list(struct.unpack_from(f"<{struct.unpack_from('<I', written, dat + 4)[0] // 2}h", written, dat + 8)) if written else []
     record = (struct.unpack_from("<III", written, at + 40), struct.unpack_from("<I", written, at + 60)[0], written[at + 65]) if at else None
-    ok_ring = (delete[:2] == (PAGES_SCREEN, (14, 14)) and page[:3] == (MENU, (13, 14), ("TURN MONO", "Stereo"))
-               and shot[:3] == (MENU, (12, 14), ("DECLICK", "OFF")) and again[:3] == page[:3])
+    ok_ring = (delete[:2] == (PAGES_SCREEN, (15, 15)) and page[:3] == (MENU, (14, 15), ("TURN MONO", "Stereo"))
+               and shot[:3] == (MENU, (13, 15), ("DECLICK", "OFF")) and again[:3] == page[:3])
     ok_ask = ask[2] == ("TURN MONO", "Are You Sure ?") and back[:3] == page[:3]
     ok_mix = (done[2] == ("TURN MONO", "Mono") and meta_after == (base, size // 2, 0) and wrong == 0 and after[0] == before[0]
               and after[1] == base + size // 2)
-    ok_leave = (nxt[:2] == (PAGES_SCREEN, (13, 13)) and prev[:3] == (MENU, (12, 13), ("DECLICK", "OFF")) and out[0] == ENTRY
+    ok_leave = (nxt[:2] == (PAGES_SCREEN, (14, 14)) and prev[:3] == (MENU, (13, 14), ("DECLICK", "OFF")) and out[0] == ENTRY
                 and kept == (meta_after, before[0]) and gate == [1, 0])
     first, end, loop = before[0][:3]   # the export starts the file at START POINT, as the firmware's EXPORT ALL SAMPLE always does
     ok_file = (channels == 1 and pcm == want[first:end + 1] and record is not None and record[1] == 2 * (end - first + 1)
@@ -481,11 +486,11 @@ def declick_reference(words, base, fb, row, pcm):
 
 
 def case_declick(payload, flash):
-    """DECLICK, behind ONE SHOT (12 of 13). ON sets bit 0 of the play table's byte 15; a note then starts, loops and ends on
+    """DECLICK, behind REVERSE (13 of 14). ON sets bit 0 of the play table's byte 15; a note then starts, loops and ends on
     the points of declick_reference, worked out from the sample's PCM in the DSP model: on a zero crossing for a mono sine,
     on the quietest frame for a stereo one whose channels never cross together. The stored points stay as they were, OFF
     plays them again. WRITE keeps ON, EXPORT ALL SAMPLE writes it (esli byte 53); EXIT without WRITE takes it back. For a stereo
-    sample TURN MONO sits between DECLICK and DELETE (12 and 13 of 14). An
+    sample TURN MONO sits between DECLICK and DELETE (13 and 14 of 15). An
     oscillator shows "---"."""
     frames, start, loop, end = 6000, 50, 1000, 5000
     out = []
@@ -515,7 +520,7 @@ def case_declick(payload, flash):
         raw = note()
         delete = e.key("edit_prev")
         if stereo:
-            e.key("edit_prev")    # TURN MONO, 13 of 14
+            e.key("edit_prev")    # TURN MONO, 14 of 15
         page = e.key("edit_prev")
         on = (e.turn(1), e.dev.read(row + 15, 1)[0])
         moved = note()
@@ -528,7 +533,7 @@ def case_declick(payload, flash):
         e.key("menu")             # ENTER: SAMPLE EDIT of the same sample plays it again
         after = (e.dev.read(row + 15, 1)[0], note())
         name = "stereo" if stereo else "mono"
-        ok_page = (page[:3] == (MENU, (12, 14 if stereo else 13), ("DECLICK", "OFF")) and delete[1][0] == delete[1][1]
+        ok_page = (page[:3] == (MENU, (13, 15 if stereo else 14), ("DECLICK", "OFF")) and delete[1][0] == delete[1][1]
                    and on == ("ON", 1))
         ok_moved = (raw == stored and moved == want and kept == stored and off == ("OFF", stored) and want != stored
                     and list(crossed.values()) == [not stereo] * 3)
@@ -565,6 +570,95 @@ def case_declick(payload, flash):
         out += [entry("declick_exit_without_write_drops", dropped == 0 and not g.asserts(), dict(byte=dropped)),
                 entry("declick_oscillator_dashes", value == "---" and g.shown()[2] == ("DECLICK", "---")
                       and g.dev.read(PLAY, 1000 * 16) == plays and not g.asserts(), dict(value=value, shown=g.shown()))]
+    return out
+
+
+def case_reverse(payload, flash):
+    """REVERSE, behind ONE SHOT (12 of 14, stereo 12 of 15). ON turns the sample's PCM round in the DSP frame by frame (a stereo
+    frame keeps L before R; more than two blocks of the firmware's DSP read, so block pairs swap and a rest turns in the middle)
+    and sets bit 1 of the play table's byte 15; the points stay. OFF gives the PCM back bit for bit. With DECLICK on, the next
+    note plays the points worked out on the reversed PCM. EXIT without WRITE keeps REVERSE (the snapshot's byte follows) and takes
+    the unwritten DECLICK back, EXPORT ALL
+    SAMPLE writes the reversed PCM and the bit (esli byte 53). An oscillator shows "---"."""
+    out = []
+    for stereo, frames in ((False, 70001), (True, 40001)):
+        fb = 4 if stereo else 2
+        data, _ = wave_bank(frames, 0, 1000, frames - 1, stereo)
+        e = Edit(payload, flash, data=data, dsp=True)
+        e.box.set_sample(USER)
+        notes = []
+        regs = e.dev.m.A
+        e.dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s_, d: notes.append(
+            tuple(u.reg_read(getattr(regs, f"UC_ARM_REG_R{n}")) for n in (7, 6, 3, 2))), begin=NOTE_ON, end=NOTE_ON)
+        index = e.dev.call(SAMPLE_INDEX, e.slot()) & 0xFFFF
+        phys = e.dev.call(0xC004E2F0, index) & 0xFFFF
+        row = PLAY + phys * 16
+        base, pcm = struct.unpack("<II", e.dev.read(META + phys * 0x45C, 8))
+        words = e.dsp.samples(base, pcm // 2)
+        per = fb // 2
+        turned = [v for i in range(len(words) // per - 1, -1, -1) for v in words[i * per:(i + 1) * per]]
+        stored = struct.unpack("<III", e.dev.read(row, 12))
+
+        def note():
+            first = len(notes)
+            e.gate()
+            mine = [n[1:] for n in notes[first:] if n[0] == phys]
+            return mine[0] if mine else None
+
+        delete = e.key("edit_prev")
+        if stereo:
+            e.key("edit_prev")    # TURN MONO, 14 of 15
+        declick = e.key("edit_prev")
+        if not stereo:
+            e.turn(1)             # DECLICK on: its points follow the reversed PCM
+        page = e.key("edit_prev")
+        on = (e.turn(1), e.dev.read(row + 15, 1)[0], e.dev.read(0xC0345A61, 1)[0])
+        now = e.dsp.samples(base, pcm // 2)
+        points = struct.unpack("<III", e.dev.read(row, 12))
+        played = note()
+        want = declick_reference(now, base, fb, stored, pcm)[0] if not stereo else None
+        kept = (e.turn(1), now == e.dsp.samples(base, pcm // 2))
+        off = (e.turn(-1), e.dev.read(row + 15, 1)[0], e.dsp.samples(base, pcm // 2) == words)
+        e.turn(1)
+        left = e.key("exit")
+        e.dev.run(0.5)
+        after = (e.dev.read(row + 15, 1)[0], e.dsp.samples(base, pcm // 2) == turned)
+        name = "stereo" if stereo else "mono"
+        total = 15 if stereo else 14
+        bit = 0 if stereo else 1
+        ok_page = (page[:3] == (MENU, (12, total), ("REVERSE", "OFF")) and declick[:2] == (MENU, (13, total))
+                   and delete[1] == (total, total))
+        ok_on = (on == ("ON", 2 | bit, on[2]) and on[2] & 2 and now == turned and now != words and points == stored
+                 and kept == ("ON", True))
+        ok_declick = stereo or (played == want and want != stored)
+        ok_off = off == ("OFF", bit, True)
+        ok_exit = left[0] == ENTRY and after == (2, True)    # DECLICK without WRITE goes back with EXIT, REVERSE stays
+        out += [entry(f"reverse_{name}_page", ok_page and not e.asserts(), dict(delete=delete, declick=declick, page=page)),
+                entry(f"reverse_{name}_turns_the_pcm", ok_on and ok_declick and not e.asserts(),
+                      dict(on=on, differing=sum(1 for a, b in zip(now, turned) if a != b), points=(stored, points), kept=kept,
+                           played=played, want=want)),
+                entry(f"reverse_{name}_off_gives_it_back", ok_off and not e.asserts(), dict(off=off)),
+                entry(f"reverse_{name}_kept_without_write", ok_exit and not e.asserts(), dict(exit=left, after=after))]
+        if stereo:
+            continue
+        written = e.export()
+        at = esli_of(written, USER) if written else 0
+        riff = struct.unpack_from("<I", written, 16 + USER * 4)[0] if written else 0
+        dat = written.index(b"data", riff) if written else 0
+        pcm_file = list(struct.unpack_from(f"<{struct.unpack_from('<I', written, dat + 4)[0] // 2}h", written, dat + 8)) if written else []
+        out.append(entry("reverse_export_writes_pcm_and_bit", at and written[at + DECLICK_AT] == 2 and pcm_file == turned
+                         and not e.asserts(), dict(byte=written[at + DECLICK_AT] if at else None,
+                                                   differing=sum(1 for a, b in zip(pcm_file, turned) if a != b), size=len(pcm_file))))
+        g = Edit(payload, flash, data=data, dsp=True)
+        g.box.set_sample(USER)
+        for _ in range(3):
+            g.key("edit_prev")
+        g.dev.m.uc.mem_write(g.dev.u32(MODEL) + 0x3FC, struct.pack("<I", 0))
+        g.dev.run(0.3)
+        plays = g.dev.read(PLAY, 1000 * 16)
+        value = g.turn(1)
+        out.append(entry("reverse_oscillator_dashes", value == "---" and g.shown()[2] == ("REVERSE", "---")
+                         and g.dev.read(PLAY, 1000 * 16) == plays and not g.asserts(), dict(value=value, shown=g.shown())))
     return out
 
 
@@ -614,7 +708,7 @@ def case_without(payload, flash):
 
 
 GROUPS = (case_page, case_wheel, case_export, case_sliced, case_one_shot, case_factory_slot, case_no_sample, case_without, case_turn_mono,
-          case_declick)
+          case_declick, case_reverse)
 
 
 def group_entries(payload, flash, i):
