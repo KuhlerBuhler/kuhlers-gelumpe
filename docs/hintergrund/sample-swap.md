@@ -20,6 +20,7 @@ Beleg-Wörter: **gemessen am Gerät**, **gemessen im Emulator** (ARM-Emulator mi
 - [Der DSP-Anfragepfad und das Warten](#der-dsp-anfragepfad-und-das-warten)
 - [Aufnahme und Einzelexport nach einem DSP-Fehler](#aufnahme-und-einzelexport-nach-einem-dsp-fehler)
 - [Einzelnes Sample dauerhaft speichern (Snapshot)](#einzelnes-sample-dauerhaft-speichern-snapshot)
+- [Import: erst vorhören, dann behalten](#import-erst-vorhören-dann-behalten)
 - [Festgelegt für das Speichern auf der Karte](#festgelegt-für-das-speichern-auf-der-karte)
 - [DSP-Befund: Ring und Speicher-DMA](#dsp-befund-ring-und-speicher-dma)
 - [Fallen der Gerätemessung](#fallen-der-gerätemessung)
@@ -317,12 +318,31 @@ Offen: Der Adapter ist nicht an die Sample-Menüs angeschlossen. Ein Adaptervers
 
 Quelle: Messung 2026-10-30/sample-snapshot
 
+## Import: erst vorhören, dann behalten
+
+Gebaut für 1.5 auf beiden roten Builds, im Emulator geprüft (`tools/emu/sample_import_menu_cases.py`), am Gerät nichts. Code: `native_wav_import` und `PREVIEW_SOURCE` in `tools/patch/native_sample_import.py`.
+
+- Ablauf: IMPORT SAMPLE auf einen Nutzerplatz (501 bis 999) prüft nur Katalog und Belegung (`catalogue_end_update`) und ruft Korgs Import `0xC003644C`. Der legt das Sample allein in den DSP, über den Cursor des Swaps. Die Karte bleibt unberührt. `PREVIEW` (`STATE + 0x1FC`) merkt Slot und Phase.
+- Öffnen: `preview_frame` läuft im UI-Frame vor `ss_frame` (Hook `0xC00836F4`). Steht der Browser (Bildschirm 39) ohne Übergang, merkt es den bisherigen SAMPLE-EDIT-Slot (`Modell + 0x3FC`), setzt den neuen und schaltet auf Bildschirm 38. Dessen Konstruktor schickt Befehl `0x20`: alle 16 Parts spielen den Slot, alle Pads leuchten (wie SAMPLE EDIT selbst).
+- WRITE: Korgs SAMPLE-EDIT-WRITE geht über den Speicherweg des Swaps (`native_save_command`), der Slot landet geprüft in der Bibliothek auf der Karte.
+- Ende: verlässt der Bildschirm 38 (auch über das BLECH-Menü 45 hinaus), setzt `preview_frame` den alten SAMPLE-EDIT-Slot zurück, setzt Phase 3 und schickt dem Befehlstask `MSG`. SAMPLE EDITs eigenes EXIT (`0x21`) gibt die Parts zurück und geht auf Bildschirm 37, `preview_frame` schaltet von dort weiter auf den Browser (39).
+- Verwerfen: der Befehlstask (`ss_msg`, `preview_discard`) räumt hinter dem EXIT und einem laufenden WRITE auf. Ist der Slot dann indiziert (WRITE war schneller), bleibt er. Sonst löscht `persist_delete_row` die DSP-Zeile, Name und Signatur, der Cursor geht zurück. Auf der Karte war nie etwas.
+- Ohne Vorhören: Werks-Slots (unter 500, `persist_save` lehnt sie ab) gehen wie bisher an Korgs Import allein. Hat der DSP keinen Platz oder scheitert Korgs Import, nimmt die Bibliothek das Sample gleich auf (`store_import_new`), der Swap lädt es bei der Auswahl. Ein zweiter Import, solange eine Vorschau offen ist, wird abgelehnt.
+- Blau: das IMPORT SAMPLE der blauen (`tools/patch/user_samples.py`) schreibt zuerst die Kartendatei und lädt dann mit einem Bump-Allocator ohne Freigabe in den DSP, und es gibt kein SAMPLE EDIT mit Pads. Vorhören dort braucht einen eigenen WAV-Lader, ein Zurücknehmen im DSP und eine Pad-Wiedergabe. Nicht gebaut.
+
+Test am Gerät, noch nicht gelaufen:
+
+1. IMPORT SAMPLE eines kurzen WAV auf einen freien Platz ab 501: SAMPLE EDIT öffnet mit dem Namen, alle Pads leuchten, jedes Pad spielt das Sample.
+2. EXIT: zurück im Browser, der Platz ist leer (OSC-Drehgeber überspringt ihn), die Karte unverändert, SAMPLE EDIT zeigt danach wieder den vorherigen Slot.
+3. Noch einmal importieren, WRITE und bestätigen, EXIT: das Sample bleibt, nach dem Neustart ist es da.
+4. Import auf einen Werks-Slot: wie bisher, kein SAMPLE EDIT.
+
 ## Festgelegt für das Speichern auf der Karte
 
 Entschieden vor dem Bau (Plan, der Stand der Umsetzung steht in [Sample-Sammlung](../messungen/2026-10-27-sample-store.md)):
 
 - Die Karte ist der dauerhafte Sample-Speicher, der DSP hält nur den gerade nötigen Satz. Ein voller DSP verhindert keinen Kartenimport. Es gibt keine zusätzliche Grenze aus DSP-Größe oder Dateigröße. Die Nutzerplätze bleiben 501 bis 999. Die einzelne Datei bleibt durch 32-Bit-Offsets auf 4294967295 Byte begrenzt. Für eine spätere gemeinsame Projektdatei gibt es kein vorweggenommenes Containerformat.
-- Auslöser: Sample-WRITE speichert den geänderten Slot (Name, Loop, Slice und destruktive Bearbeitung zusammen). Import, bestätigtes Löschen und fertige Aufnahme oder fertiges Resampling sind direkte Speicheraufträge. Abspielen, Sample-Auswahl, Patternwechsel und Swap schreiben nie. WRITE ohne Änderung hängt nichts an. Ein einzelner Drehgeberschritt oder das bloße Verlassen der Bearbeitung speichert nicht. Das normale Pattern-WRITE schreibt keine Sample-Bibliothek.
+- Auslöser: Sample-WRITE speichert den geänderten Slot (Name, Loop, Slice und destruktive Bearbeitung zusammen). Ein Import bei vollem DSP, bestätigtes Löschen und fertige Aufnahme oder fertiges Resampling sind direkte Speicheraufträge. Ein Import mit Platz im DSP ist erst eine Vorschau, sein WRITE speichert ([Import: erst vorhören](#import-erst-vorhören-dann-behalten)). Abspielen, Sample-Auswahl, Patternwechsel und Swap schreiben nie. WRITE ohne Änderung hängt nichts an. Ein einzelner Drehgeberschritt oder das bloße Verlassen der Bearbeitung speichert nicht. Das normale Pattern-WRITE schreibt keine Sample-Bibliothek.
 - Erfolg melden Sample-WRITE, Import und Löschen erst, wenn der gemeinsame Schreibweg den neuen Kartenstand geprüft hat. Bei Fehler bleibt der Zustand als ungesichert erkennbar, ein nur im DSP geänderter Slot gilt nicht als gespeichert.
 - `EXPORT ALL SAMPLE` entfällt erst, wenn alle diese Wege samt Aufnahme und Resampling ersetzt und geprüft sind. Den Menüpunkt allein auszublenden reicht nicht, auch direkte Aufrufe des nativen Überschreibwegs müssen geschützt sein. Ein Wegfall vor dem Ersatz würde Daten verlieren.
 - Beim künftigen Projektladen wird Cache-RAM dynamisch und exklusiv ausgeliehen. Übergabe und Rückgabe müssen vor der Projektanbindung gebaut sein, der Cache wird nicht dauerhaft verkleinert.
