@@ -23,7 +23,7 @@ export async function prepare(session) {
   const info = await session.sender.blechInfo(model);
   const why = unsupported(info);
   if (why) throw new TextError(why.key);
-  if (!session.sender.blech) session.sender.blech = { maxBlock: info.maxBlock };
+  if (!session.sender.blech) session.sender.blech = { maxBlock: info.maxBlock, model };
   return model;
 }
 

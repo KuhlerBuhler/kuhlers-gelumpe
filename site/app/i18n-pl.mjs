@@ -2998,6 +2998,7 @@ export default {
   "lint.gate.execNeedsHacktribe": "Wykonanie kodu działa tylko z EXEC z BLECHTRIBE albo poleceniem 0x57 z Hacktribe. Ten firmware nie ma żadnego z nich.",
   "lint.gate.noFirmware": "Na żywo do RAM działa tylko z załadowanym plikiem firmware: bez niego symulacji brakuje obrazu, a weryfikatorowi profilu fabrycznego.",
   "lint.gate.unknownFirmware": "Plik firmware nie jest tym zmierzonym: {reasons}",
+  "lint.gate.synthRecordsOnly": "Na niebieskiej Electribe na żywo można edytować tylko presety efektów.",
   "lint.gate.execNeedsEmulator": "Wykonanie kodu działa tylko przez emulator: najpierw biegnie tam, a na urządzenie idzie tylko to, co tam przeszło.",
   "lint.gate.noPatternBackup": "Bufor patternu zostałby zastąpiony bez wcześniejszego zapisania kopii. Zablokowane.",
   "lint.gate.region": "Zapis pod 0x{addr} na {length} bajtów nie leży w żadnym obszarze zadeklarowanym przez mapę urządzenia. Zablokowane, zanim zobaczy to symulacja.",

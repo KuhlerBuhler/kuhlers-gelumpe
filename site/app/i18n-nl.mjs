@@ -2998,6 +2998,7 @@ export default {
   "lint.gate.execNeedsHacktribe": "Code uitvoeren kan alleen met BLECHTRIBEs EXEC of Hacktribes commando 0x57. Deze firmware heeft geen van beide.",
   "lint.gate.noFirmware": "Live naar het RAM kan alleen met een geladen firmwarebestand: zonder ontbreekt het beeld voor de simulatie en het fabrieksprofiel voor de controle.",
   "lint.gate.unknownFirmware": "Het firmwarebestand is niet het opgemeten bestand: {reasons}",
+  "lint.gate.synthRecordsOnly": "Op de blauwe Electribe zijn live alleen de effectpresets te bewerken.",
   "lint.gate.execNeedsEmulator": "Code uitvoeren kan alleen via de emulator: eerst draait hij daar, en alleen wat daar geslaagd is, gaat naar het apparaat.",
   "lint.gate.noPatternBackup": "De patternbuffer zou worden vervangen zonder eerst te zijn bewaard. Geblokkeerd.",
   "lint.gate.region": "Schrijven op 0x{addr} voor {length} byte ligt in geen enkel gebied dat de apparaatkaart verklaart. Geblokkeerd voordat de simulatie het ziet.",

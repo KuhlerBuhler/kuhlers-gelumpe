@@ -2997,6 +2997,7 @@ export default {
   "lint.gate.execNeedsHacktribe": "Eseguire codice funziona solo con l'EXEC di BLECHTRIBE o il comando 0x57 di Hacktribe. Questo firmware non ha né l'uno né l'altro.",
   "lint.gate.noFirmware": "Live nella RAM si va solo con un file firmware caricato: senza, alla simulazione manca l'immagine e al controllo il profilo di fabbrica.",
   "lint.gate.unknownFirmware": "Il file firmware non è quello misurato: {reasons}",
+  "lint.gate.synthRecordsOnly": "Sulla Electribe blu si possono modificare dal vivo solo i preset degli effetti.",
   "lint.gate.execNeedsEmulator": "Eseguire codice funziona solo tramite l'emulatore: prima gira lì, e solo ciò che lì ha superato la prova va al dispositivo.",
   "lint.gate.noPatternBackup": "Il buffer del pattern verrebbe sostituito senza essere prima salvato. Bloccato.",
   "lint.gate.region": "Scrivere a 0x{addr} per {length} byte non rientra in nessuna area dichiarata dalla mappa del dispositivo. Bloccato prima che la simulazione lo veda.",

@@ -38,6 +38,7 @@ import { baukastenPage } from "./baukasten.mjs";
 import { scriptsPanel } from "./scripts.mjs";
 import { Terminal } from "../../src/terminal.mjs";
 import { loadBlechSet } from "../../src/patcher.mjs";
+import { hasBlechSysex, BLECH_SYSEX_HOOKS_SYNTH } from "../../src/firmware.mjs";
 import { patchesPresent, selectFor } from "../../src/patch.mjs";
 import { sharedProbe } from "./probe.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
@@ -653,19 +654,22 @@ function boot() {
   // leave the list before ui.tabs reads it, so neither the navigation nor #ptools / #samples reaches them.
   if (!new URLSearchParams(location.search).has("labs")) for (const tab of document.querySelectorAll("#cee-areas [data-labs]")) tab.remove();
   const listed = () => areas.ids.filter(id => !$(`#cee-tab-${id}`).hidden && $(`#cee-tab-${id}`).getAttribute("aria-disabled") !== "true");
-  /** Korgs plain build or the synth's in the emulator and no real device: Presets and Modulationen stay shut, visibly. */
+  /** Korgs plain build or the synth's in the emulator and no real device: Presets and Modulationen stay shut, visibly. The synth with BLECH opens Presets, whose records BLECH writes there too. */
   let plainStock = false;
   let plainWhy = t("app.shut.stock");
+  let plainOpen = [];
   const restrict = () => {
     const none = !emulator?.firmware;
-    const shut = (plainStock || none) && !device.session;
+    let closed = false;
     for (const id of NEEDS_TABLES) {
+      const shut = ((plainStock && !plainOpen.includes(id)) || none) && !device.session;
+      closed ||= shut && areas?.current === id;
       const tab = $(`#cee-tab-${id}`);
       tab.setAttribute("aria-disabled", String(shut));
       if (shut) tab.title = none ? t("app.shut.none") : plainWhy;
       else tab.removeAttribute("title");
     }
-    if (shut && NEEDS_TABLES.includes(areas?.current)) areas.select("emu", { focus: false });
+    if (closed) areas.select("emu", { focus: false });
   };
   const shown = id => (id === "device" ? "emu" : id);
   areas = window.ui?.tabs ? window.ui.tabs($("#cee-areas"), {
@@ -754,6 +758,7 @@ function boot() {
         if (plainFor !== bytes) return;
         plainStock = plain;
         plainWhy = emulator.build === "synth" ? t("app.shut.synth") : t("app.shut.stock");
+        plainOpen = emulator.build === "synth" && hasBlechSysex(bytes, BLECH_SYSEX_HOOKS_SYNTH) ? ["fx"] : [];
         restrict();
       });
     }

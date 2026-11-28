@@ -3054,6 +3054,7 @@ export default {
   "lint.gate.execNeedsHacktribe": "Code ausführen geht nur mit BLECHTRIBEs EXEC oder Hacktribes Befehl 0x57. Diese Firmware hat keinen von beiden.",
   "lint.gate.noFirmware": "Live ins RAM geht nur mit geladener Firmware-Datei: ohne sie fehlt der Simulation das Abbild und dem Prüfer das Werksprofil.",
   "lint.gate.unknownFirmware": "Die Firmware-Datei ist nicht die vermessene: {reasons}",
+  "lint.gate.synthRecordsOnly": "Auf der blauen Electribe lassen sich live nur die Effekt-Presets bearbeiten.",
   "lint.gate.execNeedsEmulator": "Code ausführen geht nur über den Emulator: erst läuft er dort, und nur was dort bestanden hat, geht ans Gerät.",
   "lint.gate.noPatternBackup": "Der Pattern-Puffer würde ersetzt, ohne vorher gesichert zu werden. Gesperrt.",
   "lint.gate.region": "Schreiben bei 0x{addr} für {length} Byte liegt in keinem Bereich, den die Gerätekarte erklärt. Gesperrt, bevor die Simulation es sieht.",

@@ -217,7 +217,7 @@ export class Sender {
     for (let at = 0; at < length; at += max) {
       const n = Math.min(max, length - at);
       out.set(await this.blechAttempts("read", async () =>
-        P.parseBlechRead(await this.blechExchange(P.blechRead(this.channel, addr + at, n), "blech-read", n), this.channel, n)), at);
+        P.parseBlechRead(await this.blechExchange(P.blechRead(this.channel, addr + at, n, this.blech.model), "blech-read", n), this.channel, n, this.blech.model)), at);
     }
     return out;
   }
@@ -229,8 +229,8 @@ export class Sender {
       const part = bytes.subarray(at, Math.min(at + max, bytes.length));
       const crc = P.crc32(part);
       await this.blechAttempts("write", async () => {
-        P.parseBlechBegin(await this.blechExchange(P.blechBegin(this.channel, addr + at, part.length, crc), "blech-begin"), this.channel);
-        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part), "blech-data", part.length), this.channel, crc);
+        P.parseBlechBegin(await this.blechExchange(P.blechBegin(this.channel, addr + at, part.length, crc, this.blech.model), "blech-begin"), this.channel, this.blech.model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, this.blech.model), "blech-data", part.length), this.channel, crc, this.blech.model);
       });
     }
     return P.ackFor(this.channel);
@@ -242,7 +242,7 @@ export class Sender {
     for (let at = 0; at < length; at += P.BLECH.FLASH_MAX) {
       const n = Math.min(P.BLECH.FLASH_MAX, length - at);
       out.set(await this.blechAttempts("read", async () =>
-        P.parseBlechFlash(await this.blechExchange(P.blechFlash(this.channel, addr + at, n), "blech-flash", n), this.channel, n)), at);
+        P.parseBlechFlash(await this.blechExchange(P.blechFlash(this.channel, addr + at, n, this.blech.model), "blech-flash", n), this.channel, n, this.blech.model)), at);
     }
     return out;
   }
@@ -253,7 +253,7 @@ export class Sender {
    */
   async blechExecute(addr) {
     if (addr === EXEC.icache.addr) return P.ackFor(this.channel);
-    const { result } = await this.blechAttempts("execute", async () => P.parseBlechExec(await this.blechExchange(P.blechExec(this.channel, addr), "blech-exec"), this.channel));
+    const { result } = await this.blechAttempts("execute", async () => P.parseBlechExec(await this.blechExchange(P.blechExec(this.channel, addr, 0, this.blech.model), "blech-exec"), this.channel, this.blech.model));
     if (result !== 1) throw new SendError("reply", text("sender.execResult", { addr: addr.toString(16), result }));
     return P.ackFor(this.channel);
   }

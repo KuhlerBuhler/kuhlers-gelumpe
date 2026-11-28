@@ -2998,6 +2998,7 @@ export default {
   "lint.gate.execNeedsHacktribe": "Spuštění kódu jde jen s EXEC z BLECHTRIBE nebo příkazem 0x57 z Hacktribe. Tento firmware nemá ani jedno.",
   "lint.gate.noFirmware": "Živě do RAM jde jen s načteným souborem firmwaru: bez něj simulaci chybí obraz a kontrole tovární profil.",
   "lint.gate.unknownFirmware": "Soubor firmwaru není ten změřený: {reasons}",
+  "lint.gate.synthRecordsOnly": "Na modré Electribe lze živě upravovat jen presety efektů.",
   "lint.gate.execNeedsEmulator": "Spuštění kódu jde jen přes emulátor: nejdřív běží tam a na zařízení jde jen to, co tam prošlo.",
   "lint.gate.noPatternBackup": "Buffer patternu by byl nahrazen bez předchozího zálohování. Zablokováno.",
   "lint.gate.region": "Zápis na 0x{addr} na {length} bajtů leží v žádné oblasti deklarované mapou zařízení. Zablokováno, než to uvidí simulace.",
