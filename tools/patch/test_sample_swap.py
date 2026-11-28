@@ -6,6 +6,7 @@ import unicorn
 from unicorn import arm_const as R
 
 import arm
+import sample_free
 import sample_swap as p
 
 TRAP = 0xC01FF000
@@ -2006,6 +2007,51 @@ class NativeGate(unittest.TestCase):
         for mode, step, bounded in ((1, 1, True), (1, 0, False), (0, 1, False), (2, 1, False), (0, 0, False)):
             with self.subTest(mode=mode, step=step):
                 self.assertEqual(self.taken(mode, step), bounded)
+
+
+class FreeMemory(unittest.TestCase):
+    """ss_free: the one count of free sample memory behind the sampling window's Memory line."""
+    LO = F["DSP_MIN"] + p.DSP_GUARD
+
+    def test_swap_on_counts_the_whole_budget_when_nothing_is_active(self):
+        self.assertEqual(Swap().call("ss_free"), p.CAP_DEFAULT)
+
+    def test_a_gap_between_active_samples_counts_as_free(self):
+        s = Swap()
+        s.slot(600, base=self.LO, length=64)
+        s.slot(601, base=self.LO + 128, length=64)
+        s.uc.mem_write(F["CURSOR"], word(self.LO + 192))
+        self.assertEqual(s.call("ss_free"), p.CAP_DEFAULT - 128)
+
+    def test_inactive_rows_and_parts_outside_the_budget_do_not_count(self):
+        s = Swap()
+        s.slot(599, base=F["DSP_MIN"], length=97)
+        s.slot(600, base=self.LO + 256, length=64, active=False)
+        s.uc.mem_write(s.sym["ss_cap"], word(128))
+        s.slot(601, base=self.LO + 96, length=64)
+        self.assertEqual(s.call("ss_free"), 128 - (97 - 32) - 32)
+
+    def test_swap_off_returns_korgs_own_count(self):
+        s = Swap()
+        s.set_state("MODE", 0)
+        s.uc.mem_write(sample_free.FREE_NATIVE, arm.assemble("ldr r0, =12345\nbx lr\n.pool", origin=sample_free.FREE_NATIVE).bytes)
+        self.assertEqual(s.call("ss_free"), 12345)
+
+    def test_the_text_is_mb_with_one_decimal_rounded_down(self):
+        s = Swap()
+        out = 0xC1000000
+        s.uc.mem_write(sample_free.SPRINTF, arm.assemble(f"ldr r12, ={out}\nstr r2, [r12]\nstr r3, [r12, #4]\nbx lr\n.pool",
+                                                          origin=sample_free.SPRINTF).bytes)
+        s.uc.mem_write(sample_free.STRING_FROM, arm.assemble("bx lr", origin=sample_free.STRING_FROM).bytes)
+        for free, shown in ((0, (0, 0)), (104857, (0, 0)), (104858, (0, 1)), (12_939_428, (12, 3)), (p.CAP_DEFAULT, (24, 9)),
+                            (F["DSP_END"] - F["DSP_MIN"], (25, 0))):
+            s.call("ss_mem_text", 0xC1000100, free)
+            self.assertEqual(struct.unpack("<2I", s.uc.mem_read(out, 8)), shown, free)
+
+    def test_the_memory_line_hooks_are_the_swaps_linked_calls(self):
+        sites = {site: (calls, stub, link, boot) for site, _, calls, stub, link, boot, _ in p.SITES}
+        for site, calls, stub, _ in sample_free.HOOKS:
+            self.assertEqual(sites[site], (calls, stub, True, False))
 
 
 if __name__ == "__main__":

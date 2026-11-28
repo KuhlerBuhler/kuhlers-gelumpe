@@ -95,6 +95,16 @@ STOP kann das Fenster ersetzen, der alte Objektzeiger darf nicht weiterverwendet
 `0xC0050208`, das Anwenden `0xC004FE08` nimmt den Deskriptor mit `0xC004EFF4` zurück, ein Blockschreiber kommt dort nicht vor. Im
 geprüften SAMPLE EDIT gibt es keine Einträge Normalize oder Truncate. Quelle: Messung 2026-11-05/sample-pcm-schreibpfade.
 
+**Speicheranzeige im Sampling-Fenster (gemessen im Emulator, HT und rot):** Korgs Zeile "Memory" (deutsch "Speicher") auf der
+dritten Seite des Fensters 42 schätzte freie Sekunden: `0xC007DE80` nimmt die freien Bytes von `0xC004E218`, halbiert, teilt durch
+48000 und halbiert in Stereo noch einmal (Beispiel: 25.894.400 Byte frei zeigen "269 [secs]" in Mono). Mit dem Sample-Swap zeigt die
+Zeile den freien Sample-Speicher in MB mit einer Nachkommastelle, abgerundet, zum Beispiel "24.6 [MB]". Bei ausgeschaltetem Swap ist
+das Korgs eigene Zahl. Bei eingeschaltetem Swap zählt auch jede Lücke, die eine Verdrängung unter dem DSP-Frei-Zeiger hinterlässt
+(Abschnitt "Verdrängen" in [Sample-Swap](sample-swap.md)). Eine Aufnahme beginnt weiter am Frei-Zeiger, Korgs Prüfungen beim Öffnen
+des Samplings (`0xC006F71C`) und beim Laden (`0xC0036234`) behalten Korgs Zahl. Die Haken sitzen in der Zeile selbst
+(`0xC008C698`, `0xC008C6AC`, `0xC008C6C4`), die Texte "Memory"/"Speicher" aus lang-de bleiben unberührt. Quelle: Emulatorfälle
+`swap:the_memory_line_*` in `tools/emu/swap_cases.py`.
+
 ## 3. SAMPLE EDIT und Sicherungsdeskriptor
 
 **offline gelesen:** Auswahl `0xC007EC74(mgr, delta, notify)` auf Bildschirm 37, ENTER öffnet Bildschirm 38 und Kommando `0x20` macht
