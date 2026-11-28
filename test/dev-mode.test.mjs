@@ -30,9 +30,11 @@ describe("the table with DEV MODE", () => {
     }
   });
 
-  test("the synth's table is the same 20 bytes as before: one region, no bit 9, nothing closed on top", () => {
+  test("the synth's table has no bit 9 and nothing closed on top: its RAM, and the windows of its effect records", () => {
     const t = protectTable({ build: "synth" });
-    assert.deepEqual([...t.bytes], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xc0, 0, 0, 0, 0xc8, 0, 0, 0, 0]);
+    assert.equal(t.regions.filter(r => r.flags & DEV_OPEN).length, 0);
+    assert.deepEqual(t.regions.map(r => r.id), ["synth-ram", "synth-ram-high"]);
+    assert.equal(t.windows.length, 3);
   });
 
   for (const build of ["hacktribe", "stock"]) {
@@ -99,7 +101,7 @@ describe("src/protect.mjs with DEV MODE", () => {
     assert.equal(refusal(write(0xc4100000), { devMode: true }).region.id, "firmware-image");
     assert.equal(refusal(write(0xc0210000), { devMode: true }).region.id, "task-stacks");
     assert.equal(refusal(write(0xc01ffff0), { devMode: true, build: "hacktribe" })?.region.id ?? null, null);
-    assert.equal(refusal(write(0xc0100000), { devMode: true, build: "synth" }).region.id, "firmware-image");
+    assert.equal(refusal(write(0xc0100000), { devMode: true, build: "synth" }).region.id, "synth-ram");
   });
 
   test("a read is not changed by DEV MODE", () => {
