@@ -51,6 +51,19 @@ export const HIGH_RUNS = [{
   evidence: "docs/messungen/2026-10-22-ram-frei.md, docs/messungen/2026-10-25-sample-swap-timeout.md",
 }];
 
+/**
+ * Runs that are erased only in Korg's red build: Hacktribe keeps its grooves and scales there. Patches of the red build
+ * alone (`builds: ["stock"]`) may use them on top of FREE_RUNS.
+ */
+export const STOCK_FREE_RUNS = [{
+  start: 0xc013c0b0, end: 0xc014ee00,
+  what: "FF im roten Original 2.02 hinter dem DSP-Strom bis zum Code von update-guard, bei Hacktribe Grooves und Skalen",
+  evidence: "docs/messungen/2026-11-28-grooves-skalen-rot.md",
+}];
+
+/** The free runs a patch of this build may use. */
+export const freeRunsOf = build => build === "synth" ? SYNTH_FREE_RUNS : build === "stock" ? [...FREE_RUNS, ...STOCK_FREE_RUNS] : FREE_RUNS;
+
 export const SYNTH_FREE_RUNS = [{
   start: 0xc01217f4, end: 0xc01ffff0,
   what: "FF-Block im blauen Original 2.02",

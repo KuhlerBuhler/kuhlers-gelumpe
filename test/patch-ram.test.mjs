@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { applyPatches, selectFor } from "../src/patch.mjs";
 import { checkRam, checkRamPlacement, declaredAreas, writtenAreas } from "../src/ramspans.mjs";
 import PROTECTED from "../data/protected.mjs";
-import { FREE_RUNS, HIGH_RUNS, SYNTH_FREE_RUNS, RESERVED } from "../data/patch-ram.mjs";
+import { FREE_RUNS, HIGH_RUNS, STOCK_FREE_RUNS, SYNTH_FREE_RUNS, RESERVED, freeRunsOf } from "../data/patch-ram.mjs";
 
 import "./support/runtime.mjs";
 
@@ -86,7 +86,7 @@ test("every patch of the BLECH set declares its RAM, and every entry names where
     for (const share of shares) assert.ok(patches.some(p => p.id === share.with), `${patch.id}: shares with ${share.with}, not in the set`);
     assert.equal(own.length, patch.ram.length);
   }
-  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "last-pattern", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "power-off", "preset-tables", "preset-tables", "sample-errors", "sample-swap", "script-runtime", "script-runtime", "splash-editor", "stereo-pad", "tap-motion"]);
+  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "grooves-scales", "last-pattern", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "power-off", "preset-tables", "preset-tables", "sample-errors", "sample-swap", "script-runtime", "script-runtime", "splash-editor", "stereo-pad", "tap-motion"]);
 });
 
 for (const build of BUILDS) {
@@ -101,12 +101,12 @@ for (const build of BUILDS) {
   });
 
   test(`every declared area lies in a free run of the image or clear of protected RAM (${build})`, () => {
-    assert.deepEqual(checkRamPlacement(chosen(build), where), []);
+    assert.deepEqual(checkRamPlacement(chosen(build), { ...where, free: [...freeRunsOf(build), ...HIGH_RUNS] }), []);
   });
 }
 
 test("the free runs lie in the image and touch no protected region but the image itself", () => {
-  for (const run of FREE_RUNS) {
+  for (const run of [...FREE_RUNS, ...STOCK_FREE_RUNS]) {
     assert.ok(IMAGE.start <= run.start && run.end <= IMAGE.end, `${hex(run.start)} lies in the image`);
     for (const region of PROTECTED.regions.filter(r => r.space === "ram" && r.id !== IMAGE.id)) {
       assert.ok(run.end <= region.start || region.end <= run.start, `${hex(run.start)}..${hex(run.end)} overlaps ${region.id}`);
