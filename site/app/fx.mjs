@@ -174,9 +174,9 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     return s;
   };
 
-  /** Korg's records are found through the pointer arrays, so live access needs BLECH on Korg's build, running the file's arrays. */
+  /** Korg's records are found through the pointer arrays, so live access needs BLECH on Korg's build (red or blue, as the file), running the file's arrays. */
   async function stockReady(s) {
-    if (s.device?.build !== "stock" || s.device.ram !== "blech") {
+    if (s.device?.build !== state.identity?.build || s.device.ram !== "blech") {
       state.why = t("presets.why.stock");
       return false;
     }

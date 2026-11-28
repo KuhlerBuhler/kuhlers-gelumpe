@@ -47,13 +47,16 @@ test('a version profile without fingerprints remains read-only', async () => {
 });
 
 test('production profile carries measured version, fingerprints and source', () => {
-  assert.equal(DEVICES.length, 2);
+  assert.equal(DEVICES.length, 3);
   assert.deepEqual(DEVICES[0].version, [2, 2]);
   assert.equal(DEVICES[0].fingerprints.length, 2);
   assert.match(DEVICES[0].evidence, /^measure:/);
   assert.equal(DEVICES[1].build, 'stock', 'Korg\'s original with BLECH is the second profile, the first stays Hacktribe\'s');
   assert.equal(DEVICES[1].fingerprints.length, 3);
   assert.match(DEVICES[1].evidence, /^measure:/);
+  assert.equal(DEVICES[2].build, 'synth', 'Korg\'s blue original with BLECH is the third, asked only of a device that answers as model 0x23');
+  assert.equal(DEVICES[2].fingerprints.length, 3);
+  assert.match(DEVICES[2].evidence, /^measure:/);
 });
 
 function simulatedRun(steps, word) {

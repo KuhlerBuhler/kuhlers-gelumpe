@@ -174,10 +174,15 @@ export function factoryEntry(vsb, kind, from, index, units, { modTable = null } 
   return { ok: true, entry: { kind, index, data, text: fxText(fxFromRecord(data, kind, units)) } };
 }
 
-/** What the user picks in the export as the device's firmware: Hacktribe or Korg's 2.02 on the red sampler, Korg's 2.02 on the blue synth. */
+/** What the user picks in the export as the device's firmware: Hacktribe on the red or the blue, Korg's 2.02 on the red sampler, Korg's 2.02 on the blue synth. */
 export const TARGETS = ["hacktribe", "stock", "synth"];
-/** The device a target's firmware runs on (firmware.mjs hardwareOf). */
+/** The device whose Korg firmware a target is made from (firmware.mjs hardwareOf): Hacktribe is made from the red's on both. */
 export const targetHardware = target => target === "synth" ? "blue" : "red";
+/**
+ * Whether a file is for a device the target runs on. Hacktribe for the blue is Hacktribe's file with the blue head
+ * (src/patcher.mjs HACKTRIBE_BLUE_SHA256): the same code and records, so the same collection with the same build.
+ */
+const fitsDevice = (target, vsb) => target === "hacktribe" || hardwareOf(vsb) === targetHardware(target);
 
 /**
  * The firmware for `target` out of a file the app got: Korg's zip or a SYSTEM.VSB. Korg's 2.02 becomes Hacktribe with
@@ -192,7 +197,7 @@ export async function targetFirmware(target, file, { hacktribePatch = null } = {
     if (!entry) return { ok: false, code: "zip" };
     vsb = entry.bytes;
   }
-  if (hardwareOf(vsb) !== targetHardware(target)) return { ok: false, code: "device" };
+  if (!fitsDevice(target, vsb)) return { ok: false, code: "device" };
   const build = buildOf(vsb);
   if (build === target) return { ok: true, bytes: vsb };
   if (target === "hacktribe" && build === "stock" && hacktribePatch) {
@@ -210,7 +215,7 @@ export async function targetFirmware(target, file, { hacktribePatch = null } = {
  * @returns {{ok: true, bytes: Uint8Array} | {ok: false, code?: "build", from?: number, name?: string, reason?: string}}
  */
 export function collectionFor(target, firmware, items, units, { risky = false, modTable = null } = {}) {
-  if (!(target in BUILDS) || !firmware || hardwareOf(firmware) !== targetHardware(target) || buildOf(firmware) !== target) return { ok: false, code: "build" };
+  if (!(target in BUILDS) || !firmware || !fitsDevice(target, firmware) || buildOf(firmware) !== target) return { ok: false, code: "build" };
   const entries = [];
   for (const item of items) {
     if (item.from) {

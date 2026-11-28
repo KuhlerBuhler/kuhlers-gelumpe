@@ -84,6 +84,8 @@ describe("the blue Electribe 2 (synth)", () => {
     assert.equal(id.known, false);
     assert.deepEqual(id.reasons, [SYNTH_REASON]);
     assert.equal(lackOf("synth", "patches"), null);
+    assert.equal(lackOf("synth", "sysex"), SYNTH_REASON);
+    assert.equal(lackOf("synth", "sysex", { blech: true }), null, "with BLECH the emulator session reads and writes its effect records");
     assert.deepEqual(FEATURES.synth, { sysex: false, presets: false, patches: true });
   });
 });

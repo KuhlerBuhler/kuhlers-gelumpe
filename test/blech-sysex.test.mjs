@@ -248,11 +248,15 @@ describe("the patch", () => {
     assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0xbff, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize, BLECH.FLAG_DOOM, BLECH.FILE_DOOM, BLECH.FILE_SAMPLE, BLECH.SAMPLE_LIMIT, BLECH.FILE_FX, BLECH.FLAG_DEV, BLECH.FLAG_DEV_ON, BLECH.FLAG_FX_WRITE, BLECH.FX_LIMIT]);
   });
 
-  test("the synth gets read commands with a table that refuses every RAM write, in its own set", () => {
+  test("the synth gets read commands with a table that refuses every RAM write but into its own effect records, in its own set", () => {
     const synth = read("data/patches/blech-sysex-synth.json");
     const table = protectTable({ build: "synth" });
-    assert.equal(table.bytes.length, 20, "one region, no windows");
-    assert.deepEqual(table.regions, [{ start: 0xc0000000, end: 0xc8000000, flags: 0, id: "synth-ram" }]);
+    assert.deepEqual(table.regions, [{ start: 0xc0000000, end: 0xc4000000, flags: 1, id: "synth-ram" }, { start: 0xc4200000, end: 0xc8000000, flags: 0, id: "synth-ram-high" }]);
+    assert.deepEqual(table.windows.map(w => [w.start, w.width, w.stride, w.count, w.cls]), [[0xc0092958, 0x20c, 0x20c, 47, 1], [0xc0098b1c, 0x20c, 0x20c, 9, 1], [0xc0099f18, 0x20c, 0x20c, 144, 1]]);
+    assert.equal(table.bytes.length, 4 * (2 + 3 * 2 + 5 * 3));
+    const declared = allowedRegions({ build: "synth" });
+    assert.equal(declared.length, 200, "the 200 records, nothing of the Sampler's");
+    assert.ok(declared.every(d => d.what.startsWith("preset.stock ") && d.end - d.start === 0x20c));
     assert.deepEqual(synth.builds, ["synth"]);
     assert.equal(synth.startPhase, undefined);
     assert.deepEqual(synth.hooks.map(h => h.site), ["0xC002240C", "0xC0021D70"]);

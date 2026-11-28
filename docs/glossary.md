@@ -48,7 +48,7 @@ Siehe: `src/protocol.mjs` (BLECH-Befehlstabelle), [emulator.md](emulator.md)
 
 ## BLECHTRIBE SysEx
 
-Die zusätzlichen SysEx-Befehle, die der Patch `blech-sysex` einbaut: RAM blockweise lesen und schreiben, Flash lesen, Dateien auf der Karte lesen und schreiben. Sie ersetzen Hacktribes Befehle `0x52` bis `0x57`, die nur mit gehaltenem EXIT beim Einschalten antworten. Auf dem blauen Electribe können sie nur lesen.
+Die zusätzlichen SysEx-Befehle, die der Patch `blech-sysex` einbaut: RAM blockweise lesen und schreiben, Flash lesen, Dateien auf der Karte lesen und schreiben. Sie ersetzen Hacktribes Befehle `0x52` bis `0x57`, die nur mit gehaltenem EXIT beim Einschalten antworten. Auf der blauen Electribe schreiben sie im RAM nur die Effekt-Presets.
 
 Siehe: [patcher.md](patcher.md) (Patch-Tabelle), `data/patches/blech-sysex.json`
 

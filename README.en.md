@@ -38,7 +38,7 @@
 - **Does it work on the blue Electribe?** Yes, with fewer features. See the table below.
 - **Blue Electribe: where are my exports?** In `KORG/blechtribe/`, no longer in `KORG/electribe/`. On the first start, the Electribe offers to copy `KORG/electribe/` there.
 - **Do I need [Hacktribe](docs/glossary.en.md#hacktribe)?** No. BLECHTRIBE runs directly on Korg's original. If you already run Hacktribe, you can install BLECHTRIBE on top of it and keep Hacktribe's own features. Patching Korg's original firmware does not add Hacktribe's features.
-- **How do I make my own effects?** Open the [**Baukasten**](docs/glossary.en.md#baukasten) in the app. Take a ready effect or build one from blocks, with names and real units. The export puts them on the SD card (red and blue), single ones also go live over USB (red only). Both need BLECHTRIBE. On the blue this is so far checked in the emulator only. An `.e2fx` file opens under BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", or with a loaded firmware under BLECHTRIBE -> Presets -> "Preset-Datei laden".
+- **How do I make my own effects?** Open the [**Baukasten**](docs/glossary.en.md#baukasten) in the app. Take a ready effect or build one from blocks, with names and real units. The export puts them on the SD card (red and blue), single ones also go live over USB (red and blue). Both need BLECHTRIBE. On the blue this is so far checked in the emulator only. An `.e2fx` file opens under BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", or with a loaded firmware under BLECHTRIBE -> Presets -> "Preset-Datei laden".
 - **Windows: the app does not find my Electribe, although its MIDI ports are listed.** Korg's own USB-MIDI driver is probably installed; the Electribe's replies do not come through it. Remove it in Device Manager (the Electribe, "Uninstall device", with the driver) and restart Windows. Windows' own driver is enough. If the KORG Driver Setup Utility then offers to reinstall it, close it. The MIDI report in the settings says so too.
 - **I have an idea for the app or firmware.** [Write it down here](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). You need a GitHub account.
 
@@ -67,7 +67,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Import/export effects and grooves through Hacktribe menus | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Custom INIT pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Hacktribe SysEx (for the Hacktribe editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Own USB commands for the app (card, plugins, RAM; on the blue RAM is read-only) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Own USB commands for the app (card, plugins, RAM; on the blue they write only the effect presets in RAM) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Use the red sampler's unchanged factory sample bank | ✅ | ➖ | ❌ | ✅ | ➖ | ❌ |
 | Custom start image, fonts and shutdown image | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Loading animation with progress | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
@@ -136,7 +136,7 @@ The main things in one sentence each. The table above shows which Electribe can 
 **Effects**
 
 - **Ready effects:** the Baukasten comes with ready effects, for example Bounce Gate, Hardtekk Kick, Warm Drive, Bit Grinder, Glue Comp and ULTRA LOUD, plus modulations like Kick Drop. The list is in [docs/effekt-katalog.md](docs/effekt-katalog.md) (German).
-- **Your own effects on the blue (new in 1.5):** the blue Electribe also gets the effect catalog, 128 slots for your own effects and the export to the card. Editing live over USB does not work there yet. Checked in the emulator only.
+- **Your own effects on the blue (new in 1.5):** the blue Electribe also gets the effect catalog, 128 slots for your own effects and the export to the card. The effects can be edited live over USB there as well. Checked in the emulator only.
 
 **Display and power**
 

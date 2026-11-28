@@ -158,7 +158,7 @@ export function classify(msg, channel) {
   // the Sampler's model byte, or the blue Electribe 2's for BLECH's own replies (its update file goes the same way)
   const ours = channel != null && [DEVICE_ID, 0x23].some(model => head(channel, model).every((b, i) => d[1 + i] === b));
   if (!ours) return "other";
-  if (d[5] !== DEVICE_ID && ![BLECH.R_INFO, BLECH.R_DATA, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN, BLECH.R_FILE_COPY, BLECH.R_FILE_DELETE, BLECH.R_FILE_CRC].includes(d[6])) return "other";
+  if (d[5] !== DEVICE_ID && ![BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, BLECH.R_FLASH, BLECH.R_EXEC, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN, BLECH.R_FILE_COPY, BLECH.R_FILE_DELETE, BLECH.R_FILE_CRC].includes(d[6])) return "other";
   return { [READ_REPLY]: "read", [FUNC.PATTERN_DUMP]: "pattern", [FUNC.GLOBAL_DUMP]: "global", [WRITE_ACK]: "ack", [PATTERN_ACK]: "ack",
     [BLECH.R_INFO]: "blech-info", [BLECH.R_READ]: "blech-read", [BLECH.R_BEGIN]: "blech-begin", [BLECH.R_DATA]: "blech-data",
     [BLECH.R_FILE_READ]: "blech-file-read", [BLECH.R_FILE_BEGIN]: "blech-file-begin", [BLECH.R_FLASH]: "blech-flash", [BLECH.R_EXEC]: "blech-exec",
@@ -252,11 +252,11 @@ const blechFrame = (channel, func, payload = [], model = DEVICE_ID) => frame([..
 
 export const blechInfo = (channel, model = DEVICE_ID) => blechFrame(channel, BLECH.INFO, [], model);
 export const blechRead = (channel, addr, length, model = DEVICE_ID) => blechFrame(channel, BLECH.READ, words(addr, length), model);
-export const blechBegin = (channel, addr, length, crc) => blechFrame(channel, BLECH.BEGIN, words(addr, length, crc));
+export const blechBegin = (channel, addr, length, crc, model = DEVICE_ID) => blechFrame(channel, BLECH.BEGIN, words(addr, length, crc), model);
 export const blechData = (channel, bytes, model = DEVICE_ID) => blechFrame(channel, BLECH.DATA, bytes, model);
 /** The update file on the card: `length` bytes from `offset`; and the announcement of a write to it (DATA follows as for RAM). */
-export const blechFlash = (channel, addr, length) => blechFrame(channel, BLECH.FLASH, words(addr, length));
-export const blechExec = (channel, addr, arg = 0) => blechFrame(channel, BLECH.EXEC, words(addr, arg));
+export const blechFlash = (channel, addr, length, model = DEVICE_ID) => blechFrame(channel, BLECH.FLASH, words(addr, length), model);
+export const blechExec = (channel, addr, arg = 0, model = DEVICE_ID) => blechFrame(channel, BLECH.EXEC, words(addr, arg), model);
 export const blechFileRead = (channel, offset, length, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_READ, words(offset, length), model);
 export const blechFileBegin = (channel, offset, length, crc, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_BEGIN, words(offset, length, crc), model);
 /** The sample file commands: `source` and `target` are FILE offsets with their selector bits (FILE_SAMPLE, and FILE_OTHER for the temp file). */
@@ -310,8 +310,8 @@ export function parseBlechRead(msg, channel, length, model = DEVICE_ID) {
 }
 
 /** The bytes of a FLASH READ answer, checked like a READ. */
-export function parseBlechFlash(msg, channel, length) {
-  const { payload, word } = blechWords(msg, channel, BLECH.R_FLASH, 4, FLASH_READ);
+export function parseBlechFlash(msg, channel, length, model = DEVICE_ID) {
+  const { payload, word } = blechWords(msg, channel, BLECH.R_FLASH, 4, FLASH_READ, model);
   if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), FLASH_READ);
   const bytes = payload.slice(16, 16 + length);
   if (word(2) !== length || bytes.length !== length) throw new ReplyError("sysex.size.colon", { what: FLASH_READ, got: bytes.length, want: length });
@@ -320,8 +320,8 @@ export function parseBlechFlash(msg, channel, length) {
 }
 
 /** What the code EXEC ran returned in r0. */
-export function parseBlechExec(msg, channel) {
-  const { word } = blechWords(msg, channel, BLECH.R_EXEC, 3, EXEC_OP);
+export function parseBlechExec(msg, channel, model = DEVICE_ID) {
+  const { word } = blechWords(msg, channel, BLECH.R_EXEC, 3, EXEC_OP, model);
   if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), EXEC_OP);
   return { addr: word(1), result: word(2) };
 }
@@ -364,8 +364,8 @@ export function parseBlechFileCrc(msg, channel, model = DEVICE_ID) {
 }
 
 /** The answer to BEGIN: ok, or the reason the write was refused before any byte was sent. */
-export function parseBlechBegin(msg, channel) {
-  const { word } = blechWords(msg, channel, BLECH.R_BEGIN, 3, WRITE_ADDRESS);
+export function parseBlechBegin(msg, channel, model = DEVICE_ID) {
+  const { word } = blechWords(msg, channel, BLECH.R_BEGIN, 3, WRITE_ADDRESS, model);
   if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), WRITE_ADDRESS);
   return { addr: word(1), length: word(2) };
 }

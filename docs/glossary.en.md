@@ -38,7 +38,7 @@ See: `src/protocol.mjs` (BLECH command table), [emulator.md](emulator.md)
 
 ## BLECHTRIBE SysEx
 
-The extra SysEx commands that the patch `blech-sysex` adds: reading and writing RAM in blocks, reading flash, and reading and writing files on the card. They replace Hacktribe's commands `0x52` to `0x57`, which answer only with EXIT held at power-on. On the blue Electribe they only read.
+The extra SysEx commands that the patch `blech-sysex` adds: reading and writing RAM in blocks, reading flash, and reading and writing files on the card. They replace Hacktribe's commands `0x52` to `0x57`, which answer only with EXIT held at power-on. On the blue Electribe they write only the effect presets in RAM.
 
 See: [patcher.md](patcher.md) (patch table), `data/patches/blech-sysex.json`
 

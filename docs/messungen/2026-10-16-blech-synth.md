@@ -152,7 +152,8 @@ Displayübernahme und EXIT, Blechy, Snake sowie den Vergleich der App-Bilder
 mit dem Browser. Dazu kommen Tempo, Pattern, Part, MUTE, PLAY und STOP,
 Sequenzereignisse, LEDs, Hintergrundlicht und gespeicherte Plugin-Werte.
 Statusantworten werden auf dem Synth mit Modellkennung `0x23` über den
-lesenden BLECH-Befehl geprüft. Schreibbefehle bleiben gesperrt.
+lesenden BLECH-Befehl geprüft. Schreibbefehle waren damals ganz gesperrt; seit 1.5 schreibt BLECH WRITE die Effekt-Records,
+siehe [blau.md](../hintergrund/blau.md).
 
 **Korrektur im roten Sampler-Build:** Die Gegenprobe deckte eine bereits zuvor
 falsche gemeinsame MUTE-Objektadresse auf. Korg rot übergibt nativ

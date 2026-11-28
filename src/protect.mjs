@@ -63,9 +63,15 @@ export function refusal(access, { declared, build, devMode = false } = {}) {
     if (fit === undefined) fit = (declared ?? allowedRegions({ build: build ?? "hacktribe" })).find(r => addr >= r.start && addr + length <= r.end) ?? null;
     return fit;
   };
+  const { start: ws, end: we } = RAM_WINDOW;
+  // Korg's blue firmware: its RAM map is not measured, so BLECH's table there (src/sysex-table.mjs) refuses every write
+  // in the window but one that lies wholly inside one of its effect records. Reading is free.
+  if (build === "synth" && space === "ram" && op === "write" && addr >= ws && addr + length <= we && !declaredHit()) {
+    const region = { id: "synth-ram", what: "RAM der blauen Electribe 2", start: ws, end: we, space };
+    return { region, message: `${where} liegt nicht in einem Effekt-Record der blauen Electribe 2; ihr RAM ist sonst nicht vermessen. Gesperrt.` };
+  }
   // A write to one half of the window is also a write to the other, as far as anyone knows.
   const spots = [{ at: addr, mirror: false }];
-  const { start: ws, end: we } = RAM_WINDOW;
   if (space === "ram" && addr >= ws && addr + length <= we) {
     const other = addr + (addr < ws + PROTECTED.ram.mirror.distance ? 1 : -1) * PROTECTED.ram.mirror.distance;
     spots.push({ at: other, mirror: true });

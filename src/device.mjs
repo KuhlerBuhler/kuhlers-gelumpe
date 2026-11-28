@@ -102,14 +102,16 @@ export class SimDevice {
    * @param {Map<string, Uint8Array>} [opts.card] the update folder of the card ("SYSTEM.VSB", "ORIGINAL.BIN"): BLECH's FILE commands work on it
    * @param {boolean} [opts.doom] the firmware has the Doom files (FLAG_DOOM, bit 29 of a FILE offset); off, it is a BLECHTRIBE from before them
    * @param {boolean} [opts.fxWrite] FILE BEGIN takes e2sFx.all (FLAG_FX_WRITE); off, it is a BLECHTRIBE that only reads it
+   * @param {number} [opts.model] the model byte of its frames: 0x24 the Sampler, 0x23 Korg's firmware of the blue Electribe 2 (with BLECH its table opens the effect records alone)
    */
-  constructor({ image = null, channel = 9, flash = null, pattern = null, global = null, version = [2, 2], execute = null, hacktribe = true, blech = false, card = null, doom = true, fxWrite = true } = {}) {
+  constructor({ image = null, channel = 9, flash = null, pattern = null, global = null, version = [2, 2], execute = null, hacktribe = true, blech = false, card = null, doom = true, fxWrite = true, model = 0x24 } = {}) {
+    this.model = model;
     this.card = card;
     this.doom = doom;
     this.fxWrite = doom && fxWrite;
     this.execute = execute;
     this.hacktribe = hacktribe;
-    this.blech = blech ? { maxBlock: blech === true ? 0x8000 : blech, build: hacktribe ? "hacktribe" : "stock" } : null;
+    this.blech = blech ? { maxBlock: blech === true ? 0x8000 : blech, build: model === 0x23 ? "synth" : hacktribe ? "hacktribe" : "stock" } : null;
     this.blechPending = null;
     this.image = image;
     this.version = version;
@@ -125,7 +127,7 @@ export class SimDevice {
     this.global = global ? Uint8Array.from(global) : blankGlobal(channel);
   }
 
-  get head() { return [0x42, 0x30 + this.channel, 0x00, 0x01, 0x24]; }
+  get head() { return [0x42, 0x30 + this.channel, 0x00, 0x01, this.model]; }
 
   get ram() { return this.image?.bytes ?? null; }
 
@@ -153,7 +155,7 @@ export class SimDevice {
 
     if (body[0] === 0x42 && body[1] === CMD.SEARCH) {
       // 15 bytes as measured; bytes 7 to 9 are not recorded and stay as they were.
-      return [0xf0, 0x42, 0x50, 0x01, this.channel, 0x00, 0x24, 0x01, 0x00, 0x00, this.version[0], this.version[1], 0x00, 0x00, 0xf7];
+      return [0xf0, 0x42, 0x50, 0x01, this.channel, 0x00, this.model, 0x01, 0x00, 0x00, this.version[0], this.version[1], 0x00, 0x00, 0xf7];
     }
 
     if (body.length < 6) {
@@ -169,6 +171,8 @@ export class SimDevice {
       return null;
     }
 
+    // Korg's blue firmware takes a frame of its own model only, as BLECH's commands there do (tools/patch/blech_sysex.py MODEL).
+    if (this.model === 0x23 && body[4] !== 0x23) return null;
     const cmd = body[5];
     const payload = syxDec(body.slice(6));
 
