@@ -161,7 +161,7 @@ test("the range of a leaf is the range the page's dial runs through", () => {
 
 test("the bases of the table are the ones script_objects.s knows by number", () => {
   const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
-  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"], ["OBJ_BASE_MOTION", "motion"], ["OBJ_BASE_STATE", "state"], ["OBJ_BASE_FLAGS2", "flags2"]]) {
+  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"], ["OBJ_BASE_MOTION", "motion"], ["OBJ_BASE_STATE", "state"], ["OBJ_BASE_FLAGS2", "flags2"], ["OBJ_BASE_TUBE", "tube"]]) {
     assert.equal(Number(objects.match(new RegExp(`^\\.equ ${name}, (\\d+)`, "m"))[1]), OBJECT_BASES.indexOf(base), name);
   }
   assert.equal(Number(objects.match(/^\.equ OBJ_FLAGS2_INVERT, (0x[0-9A-Fa-f]+)/m)[1]), FLAGS2_INVERT);
@@ -423,7 +423,7 @@ test("the switches of byte 7 are leaves of the base flags2 with the menu's masks
     assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let v = ${path}; });`)).header.apiVersion, 37, path);
   }
   assert.deepEqual(Object.keys(FLAGS2).map(path => OBJECT_BY_PATH.get(path).id), [63, 65, 66]);
-  // BATTERY % and TUBE have no leaf yet, they would need an API version; IDLE SAVE is the byte M_IDLE (its own test)
+  // BATTERY % has no leaf yet; TUBE is the base tube (API 41), IDLE SAVE the byte M_IDLE (their own tests)
   const known = signed("FLAGS2_KNOWN") & ~signed("FLAGS2_BATT_OFF") & ~signed("FLAGS2_TUBE") & ~signed("FLAGS2_IDLE_OFF");
   assert.equal(Object.values(FLAGS2).reduce((all, [mask]) => all | signed(mask), 0), known, "one leaf per known bit");
 });
@@ -450,4 +450,23 @@ test("the event idle carries the stage and needs API 37", () => {
   assert.equal(decodeBlob(build(`korg.onEvent("idle", (stage) => { korg.store.set(0, stage); });`)).header.apiVersion, 37);
   const events = readFileSync(new URL("../tools/patch/script_events.s", import.meta.url), "utf8");
   assert.match(events, /mov r0, #6\n    ldr r1, =objects_idle_last\n    mov r2, #EV_IDLE\n    bl events_state/);
+});
+
+// API 41: the pages TUBE, TUBE DRIVE and TUBE ASYM of the patch tube-curve (base "tube", script_objects.s objects_tube_get and
+// objects_tube_set).
+const TUBE_LEAVES = ["korg.menu.blech.features.tube", "korg.menu.blech.features.tubeDrive", "korg.menu.blech.features.tubeAsym"];
+
+test("TUBE, TUBE DRIVE and TUBE ASYM are leaves of base tube with the pages' ranges and need API 41", () => {
+  assert.deepEqual(TUBE_LEAVES.map(path => { const o = OBJECT_BY_PATH.get(path); return [o.id, o.base, o.offset, o.min, o.max, o.factory, o.write, o.stored, o.since]; }),
+    [[67, "tube", 0, 0, 1, 0, true, false, 41], [68, "tube", 1, 1, 7, 5, true, false, 41], [69, "tube", 2, 0, 7, 4, true, false, 41]]);
+  assert.deepEqual(["TUBE_DEFAULT", "TUBE_ASYM_DEFAULT"].map(signed), [5, 4], "the factory values are the menu's");
+  for (const path of TUBE_LEAVES) assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let v = ${path}; });`)).header.apiVersion, 41, path);
+});
+
+test("a plugin sets the three tube pages and the simulated device keeps them inside the range", () => {
+  const [tube, drive, asym] = TUBE_LEAVES;
+  const device = run(`let v = 9; korg.onEvent("ready", () => { korg.store.set(0, ${tube}); korg.store.set(1, ${drive}); korg.store.set(2, ${asym});
+  ${tube} = 1; ${drive} = v; ${asym} = 0;
+  korg.store.set(3, ${tube}); korg.store.set(4, ${drive}); korg.store.set(5, ${asym}); korg.store.set(6, korg.system.repairs); });`);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => stored(device, i)), [0, 5, 4, 1, 7, 0, 1]);
 });

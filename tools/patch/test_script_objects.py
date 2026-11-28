@@ -16,7 +16,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-INTENSITY, REPAIRS, NO_LEAF = 0, 1, 67     # data/script/objects.mjs (2 and 3 are the test mode and keepAwake, 4 to 28 the pages of the menu BLECH, 29 to 47 the Global settings)
+INTENSITY, REPAIRS, NO_LEAF = 0, 1, 70     # data/script/objects.mjs (2 and 3 are the test mode and keepAwake, 4 to 28 the pages of the menu BLECH, 29 to 47 the Global settings)
 ERR_OK, ERR_API_ARG = 0, 15
 PATTERN_CONFIRM, TAP_MOTION, NOTE_ASSIST, LAST_PATTERN, STEREO_PAD, INIT_PATTERN, MENU_WRITE = 22, 23, 24, 25, 26, 27, 28
 POWER_SAVE, IDLE_STAGE, LOAD_METER, IDLE_SAVE, GLIDE_CHAIN, GLIDE_SWITCH = 61, 62, 63, 64, 65, 66   # API 37

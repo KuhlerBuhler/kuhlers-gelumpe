@@ -204,7 +204,7 @@ directement au firmware et aucun plugin ne reçoit d’événement (seule la pag
 (Pattern, Global, Part Edit, Step Edit et les autres), les plugins reçoivent les
 entrées comme sur l’écran principal.
 
-### Ce qu’un plugin atteint (API 40)
+### Ce qu’un plugin atteint (API 41)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -428,6 +428,9 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.menu.blech.features.initPattern` | SET INIT PATTERN, modèle copié par INITIALIZE PATTERN ; 0 modèle du firmware | Oui, comme la page | 0 à 250 |
 | `korg.menu.blech.features.glideChain` | GLIDE CHAIN, dans la chaîne le tempo glisse vers celui du pattern suivant (1) (depuis l’API 37) | Oui, comme la page | 0 à 1 |
 | `korg.menu.blech.features.glideSwitch` | GLIDE SWITCH, le tempo glisse vers celui d’un pattern confirmé avec MENU (1) (depuis l’API 37) | Oui, comme la page | 0 à 1 |
+| `korg.menu.blech.features.tube` | TUBE, le son à lampe sur la sortie est actif (1) ; l’activer reprend la force de TUBE DRIVE ; sans le patch tube-curve dans le jeu, il lit 0 et une écriture ne fait rien (depuis l’API 41) | Oui, comme la page | 0 à 1 |
+| `korg.menu.blech.features.tubeDrive` | TUBE DRIVE, force du son à lampe, de 1 doux à 7 dur, conservée tant que TUBE est désactivé (depuis l’API 41) | Oui, comme la page | 1 à 7 |
+| `korg.menu.blech.features.tubeAsym` | TUBE ASYM, à quel point la courbe traite différemment les deux moitiés de l’onde, de 0 égal à 7 le plus inégal (depuis l’API 41) | Oui, comme la page | 0 à 7 |
 | `korg.menu.blech.write()` | Appel, pas une valeur | Demande l’enregistrement des réglages BLECH sur la carte, comme WRITE ; voir ci-dessous | |
 | `korg.global.triggerMode` | GLOBAL PARAMETERS > TRIGGER MODE : 0 Normal, 1 Seq 1st, 2 Seq Play | Oui, par la fonction du menu | 0 à 2 |
 | `korg.global.velocityCurve` | VELOCITY CURVE : 0 Heavy, 1 Normal, 2 Light, 3 Const96 | Oui, par la fonction du menu | 0 à 3 |
@@ -1632,7 +1635,7 @@ Les résultats suivants proviennent du firmware réel 2.02 avec Hacktribe dans l
 avec carte virtuelle, ou d’[Unicorn](glossary.en.md#unicorn) sans firmware, **pas de l’appareil**.
 
 - Compilateur, vérificateur et VM JavaScript dans `src/script/`, page Plugins, exécution,
-  essai et export : tests `test/script-*.test.mjs`, format de bloc 2, API 40.
+  essai et export : tests `test/script-*.test.mjs`, format de bloc 2, API 41.
 - VM ARM `tools/patch/script_vm.s` : les 34 opcodes, les comparaisons avec la VM JS sont identiques.
   [Mesure](messungen/2026-10-14-skript-arm-vm.md).
 - Filtre d’entrée et point d’interception des trames `tools/patch/script_hooks.s` :
